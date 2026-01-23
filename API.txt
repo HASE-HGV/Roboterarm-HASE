@@ -1,0 +1,11 @@
+Available endpoints:
+
+GET /api/poweroff
+GET /api/reboot
+
+POST /api/motors/[1-4]
+    Vaules (JSON-encoded):
+	    int    steps
+	    bool   clockwise
+	    int    stepDelay
+	    string stepStyle
