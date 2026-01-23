@@ -1,0 +1,2 @@
+#! /usr/bin/bash
+echo [$(time date '+%H:%M:%S')] "$@" >> output.log

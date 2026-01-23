@@ -1,0 +1,11 @@
+# Diese Datei gehört in den Ordner /usr/lib/systemd/system (auf dem Raspberry Pi)
+# Sie ist für den Autostart zuständig
+[Unit]
+Description=RoboArm controller
+
+[Service]
+Type=simple
+Exec=/boot/firmware/roboarm.sh
+
+[Install]
+WantedBy=default.target
