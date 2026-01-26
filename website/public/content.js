@@ -1,7 +1,7 @@
 // Bearbeite hier die Texte und Menüeinträge. Du kannst neue Seiten hinzufügen oder bestehende ändern.
 window.SITE_CONTENT = {
   // Setze hier deinen GitHub-Repo-Link
-  repoUrl: 'https://github.com/catrick-cpu/HASE-Roboterarm',
+  repoUrl: 'https://github.com/HASE-HGV/Roboterarm-HASE',
   siteTitle: 'HASE Roboterarm',
   tagline: 'Präzision. Forschung. Robotik.',
   pages: [
