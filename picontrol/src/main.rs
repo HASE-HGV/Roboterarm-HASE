@@ -1,11 +1,4 @@
 #!/usr/bin/env rust-script
-//! Einfaches, vereinfachtes Testskript für Stepper-Motoren (deutsch).
-//!
-//! Beispiel:
-//!   cargo run -- -m 1 -s single -c 100 -d 0.01 -dir forward
-//!   cargo run -- --simulate -m 2 -s micro -c 50
-//!
-//! `--simulate` Option für Systeme ohne Hardware.
 
 use std::thread;
 use std::time::Duration;
