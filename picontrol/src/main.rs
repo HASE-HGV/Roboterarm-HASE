@@ -46,7 +46,7 @@ struct Args {
     #[arg(short = 's', long, default_value = "double")]
     stepstyle: String,
 
-    /// Motor-Id 1..4, angepasst für viewing Pleasure und Consistency
+    /// Motor-Id 1..4,
     #[arg(short = 'm', long, default_value_t = 1)]
     motorid: u8,
 
@@ -105,7 +105,7 @@ fn build_motors() -> Result<Vec<StepperMotor>, String> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
+    let args: Args = Args::parse();
 
     // Validierung der Motor-ID
     if !(1..=4).contains(&args.motorid) {
@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or_else(|| format!("Ungueltiger Schritt-Stil: {}", args.stepstyle))?;
 
     // Parse Richtung
-    let direction = Direction::from_str(&args.direction)
+    let direction: Direction = Direction::from_str(&args.direction)
         .ok_or_else(|| format!("Ungueltige Richtung: {}", args.direction))?;
 
     // Simulation oder Hardware-Modus
@@ -130,9 +130,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Motor initialisieren (nur wenn kein Simulant lol)
-    let motor = if !args.simulate {
-        let motors = build_motors()?;
-        let idx = (args.motorid - 1) as usize;
+    let motor: Option<StepperMotor> = if !args.simulate {
+        let motors: Vec<StepperMotor> = build_motors()?;
+        let idx: usize = (args.motorid - 1) as usize;
         
         if idx >= motors.len() {
             eprintln!("Ungueltige Motor-Id: {}", args.motorid);
@@ -149,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.motorid, args.steps, step_style, direction, args.delay, args.simulate
     );
 
-    let result = run_motor_steps(
+    let result: Result<(), String> = run_motor_steps(
         motor,
         args.steps,
         args.delay,
@@ -175,8 +175,8 @@ fn run_motor_steps(
     direction: Direction,
     simulate: bool,
 ) -> Result<(), String> {
-    let delay_duration = Duration::from_secs_f64(delay);
-    let progress_interval = if steps >= 10 { steps / 10 } else { 1 };
+    let delay_duration: Duration = Duration::from_secs_f64(delay);
+    let progress_interval: usize = if steps >= 10 { steps / 10 } else { 1 };
 
     for i in 0..steps {
         if simulate {
