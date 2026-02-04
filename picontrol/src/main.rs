@@ -125,6 +125,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.simulate {
         println!("Simulation: keine Hardware-Operationen");
     }
+    else if !args.simulate {
+        println!("Currently not implemented!")
+    }
 
     // Motor initialisieren (nur wenn kein Simulant lol)
     let motor = if !args.simulate {
