@@ -7,6 +7,8 @@ Dies ist das offizielle Repository von HASE von der Arbeitsgruppe Roboterarm im 
 =======
 ## Dev
 
+https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
+
 
 ### Lockfiles/PID-Files
 
