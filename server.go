@@ -51,10 +51,10 @@ func setupRouter() *gin.Engine { //Erstellt und konfiguriert eine gin-Webengine
 
 func setupAuth() gin.HandlerFunc {
 	basicAuth := gin.BasicAuth(gin.Accounts{
-		"Luca":     "29032010",
-		"Catrick":  "Bomberpilot",
-		"Johannes": "kecks",
-		"gast":     "1234",
+		"Luca-PCPasswort": "29032010",
+		"Catrick":         "Bomberpilot",
+		"Johannes":        "kecks",
+		"gast":            "1234",
 	})
 	return func(c *gin.Context) {
 		for counter := range bAIPs {

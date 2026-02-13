@@ -5,10 +5,12 @@ import RPi.GPIO as GPIO
 STEP_PIN = 17
 DIR_PIN = 27
 
+
 def parse_args():
     p = argparse.ArgumentParser(description="Einfaches Stepper-Testskript (DE)")
     p.add_argument(
-        "-m", "--motorid",
+        "-m",
+        "--motorid",
         type=int,
         choices=range(1, 5),
         default=1,
@@ -16,21 +18,24 @@ def parse_args():
         help="Motor-Id 1..4 (Standard: 1)",
     )
     p.add_argument(
-        "-sc", "--stepcount",
+        "-sc",
+        "--stepcount",
         type=int,
-        default=100,
+        default=2000,
         dest="steps",
         help="Anzahl Schritte (Standard: 100)",
     )
     p.add_argument(
-        "-d", "--delay",
+        "-d",
+        "--delay",
         type=float,
-        default=0.01,
+        default=0.001,
         dest="delay",
         help="Pause zwischen Schritten in Sekunden (Standard: 0.01)",
     )
     p.add_argument(
-        "-dir", "--direction",
+        "-dir",
+        "--direction",
         choices=["forward", "backward"],
         default="forward",
         dest="direction",
@@ -49,9 +54,9 @@ def setup_gpio():
 def move_motor(steps, delay, direction):
     # Richtung setzen
     if direction == "forward":
-        GPIO.output(DIR_PIN, GPIO.HIGH)
-    else:
         GPIO.output(DIR_PIN, GPIO.LOW)
+    else:
+        GPIO.output(DIR_PIN, GPIO.HIGH)
 
     # Schritte erzeugen
     for _ in range(steps):
@@ -64,10 +69,12 @@ def move_motor(steps, delay, direction):
 def main():
     args = parse_args()
 
-    print(f"Motor-ID: {args.motorid}, "
-          f"Schritte: {args.steps}, "
-          f"Verzögerung: {args.delay}, "
-          f"Richtung: {args.direction}")
+    print(
+        f"Motor-ID: {args.motorid}, "
+        f"Schritte: {args.steps}, "
+        f"Verzögerung: {args.delay}, "
+        f"Richtung: {args.direction}"
+    )
 
     setup_gpio()
 
