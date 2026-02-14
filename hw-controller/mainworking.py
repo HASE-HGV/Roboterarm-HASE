@@ -1,4 +1,5 @@
 import sys
+
 try:
     import math as m
 except ImportError:
@@ -25,13 +26,13 @@ except ImportError:
 
 
 M1_STEP = 17
-M1_DIR  = 27
+M1_DIR = 27
 
 M2_STEP = 22
-M2_DIR  = 23
+M2_DIR = 23
 
 M3_STEP = 5
-M3_DIR  = 6
+M3_DIR = 6
 
 parser = argparse.ArgumentParser(description="Roboter IK Bewegung")
 
@@ -46,6 +47,8 @@ parser.add_argument("--ez", type=float, required=True)
 parser.add_argument("--time", type=float, required=True)
 
 args = parser.parse_args()
+
+# Arguments for Calculations
 
 length_arm_1_mm = 500
 length_arm_2_mm = 525
@@ -72,6 +75,8 @@ GPIO.setup(M2_DIR, GPIO.OUT)
 GPIO.setup(M3_STEP, GPIO.OUT)
 GPIO.setup(M3_DIR, GPIO.OUT)
 
+# Calculation Start
+
 start_distance_r_mm = m.sqrt(start_pos_x_mm**2 + start_pos_z_mm**2)
 
 if start_distance_r_mm > (length_arm_1_mm + length_arm_2_mm):
@@ -79,16 +84,23 @@ if start_distance_r_mm > (length_arm_1_mm + length_arm_2_mm):
 
 start_alpha_rad = m.atan2(start_pos_z_mm, start_pos_x_mm)
 
-start_cos_theta2 = (start_distance_r_mm**2- length_arm_1_mm**2- length_arm_2_mm**2) / (2 * length_arm_1_mm * length_arm_2_mm)
+start_cos_theta2 = (
+    start_distance_r_mm**2 - length_arm_1_mm**2 - length_arm_2_mm**2
+) / (2 * length_arm_1_mm * length_arm_2_mm)
 
 start_cos_theta2 = max(-1, min(1, start_cos_theta2))
 
 start_theta2_rad = m.acos(start_cos_theta2)
 
-start_theta1_rad = start_alpha_rad - m.atan2(length_arm_2_mm * m.sin(start_theta2_rad),length_arm_1_mm + length_arm_2_mm * m.cos(start_theta2_rad))
+start_theta1_rad = start_alpha_rad - m.atan2(
+    length_arm_2_mm * m.sin(start_theta2_rad),
+    length_arm_1_mm + length_arm_2_mm * m.cos(start_theta2_rad),
+)
 
 start_theta1_deg = m.degrees(start_theta1_rad)
 start_theta2_deg = m.degrees(start_theta2_rad)
+
+# Calculation End
 
 end_distance_r_mm = m.sqrt(end_pos_x_mm**2 + end_pos_z_mm**2)
 
@@ -97,13 +109,18 @@ if end_distance_r_mm > (length_arm_1_mm + length_arm_2_mm):
 
 end_alpha_rad = m.atan2(end_pos_z_mm, end_pos_x_mm)
 
-end_cos_theta2 = (end_distance_r_mm**2- length_arm_1_mm**2- length_arm_2_mm**2) / (2 * length_arm_1_mm * length_arm_2_mm)
+end_cos_theta2 = (
+    end_distance_r_mm**2 - length_arm_1_mm**2 - length_arm_2_mm**2
+) / (2 * length_arm_1_mm * length_arm_2_mm)
 
 end_cos_theta2 = max(-1, min(1, end_cos_theta2))
 
 end_theta2_rad = m.acos(end_cos_theta2)
 
-end_theta1_rad = end_alpha_rad - m.atan2(length_arm_2_mm * m.sin(end_theta2_rad),length_arm_1_mm + length_arm_2_mm * m.cos(end_theta2_rad))
+end_theta1_rad = end_alpha_rad - m.atan2(
+    length_arm_2_mm * m.sin(end_theta2_rad),
+    length_arm_1_mm + length_arm_2_mm * m.cos(end_theta2_rad),
+)
 
 end_theta1_deg = m.degrees(end_theta1_rad)
 end_theta2_deg = m.degrees(end_theta2_rad)
@@ -123,6 +140,7 @@ m1_delay = mov_time_sek / (m1_steps * 2) if m1_steps != 0 else 0
 m2_delay = mov_time_sek / (m2_steps * 2) if m2_steps != 0 else 0
 m3_delay = mov_time_sek / (m3_steps * 2) if m3_steps != 0 else 0
 
+
 def move_motor(step_pin, dir_pin, steps, delay, delta):
     if delta >= 0:
         GPIO.output(dir_pin, GPIO.LOW)
@@ -134,6 +152,7 @@ def move_motor(step_pin, dir_pin, steps, delay, delta):
         time.sleep(delay)
         GPIO.output(step_pin, GPIO.LOW)
         time.sleep(delay)
+
 
 try:
     move_motor(M1_STEP, M1_DIR, m1_steps, m1_delay, delta_rot_deg)
