@@ -21,8 +21,7 @@ except ImportError:
 try:
     import RPi.GPIO as GPIO
 except ImportError:
-    print("GPIO Pins konnten nicht initialisiert werden")
-    sys.exit(1)
+    import Mock.GPIO as GPIO
 
 
 M1_STEP = 17

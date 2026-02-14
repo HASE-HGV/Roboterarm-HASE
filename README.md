@@ -2,6 +2,7 @@
 
 
 
+
 Dies ist das offizielle Repository von HASE von der Arbeitsgruppe Roboterarm im folgendem wird die Dateistruktur verwendete System usw. beschrieben.
 
 <<<<<<< Updated upstream
@@ -18,7 +19,8 @@ https://www.instructables.com/Stepper-Motor-Driverfor-A4988-and-Similar-Devices/
 ### Lockfiles/PID-Files 
 
 
-sollten in  **/run/roboarm**  gesammelt werden (Nimm auf Windows einf %temp% oder so) PID-Dateien sind programmname.pid, und das einzige was drinnsteht ist die  **P**rocess  **ID**  des Programms. Das erleichtert das Verwalten von laufenden Prozessen und ermöglicht die Verhinderung von Duplikaten z. B.: wenn /run/roboarm/bsp.pid NICHT EXISTIERT: erstells und schreib $PID rein EXISTIERT: fehler ausgeben und exiten
+
+sollten in  **/run/roboarm**  gesammelt werden (Nimm auf Windows einf %temp% oder so) PID-Dateien sind programmname.pid, und das einzige was drinnsteht ist die  **P**rocess  **ID**  des Programms. Das erleichtert das Verwalten von laufenden Prozessen und ermöglicht die Verhinderung von Duplikaten z. B.: wenn /run/roboarm/bsp.pid NICHT EXISTIERT: erstells und schreib $PID rein EXISTIERT: fehler ausgeben und exiten
 
 ### shebang
 
