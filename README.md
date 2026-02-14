@@ -9,6 +9,10 @@ Dies ist das offizielle Repository von HASE von der Arbeitsgruppe Roboterarm im 
 ## Dev
 
 
+## Research
+https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
+https://www.instructables.com/Stepper-Motor-Driverfor-A4988-and-Similar-Devices/
+
 ### Lockfiles/PID-Files
 
 
@@ -18,7 +22,6 @@ sollten in  **/run/roboarm**  gesammelt werden (Nimm auf Windows einf %temp% ode
 
 
 Das shebang brauchst du auf linux, wenn du z. B. statt  `python3 main.py`  einfach nur  `main.py`  ausführen können willst Du kannst es setzen indem du in die erste Zeile eines Skripts (bitte keine Binärdateien)  `#! <pfad zum interpreter>`  schreibst z.B. für Python:  `#! /usr/bin/python3`
->>>>>>> Stashed changes
 
 ## Cables
 
