@@ -77,6 +77,7 @@ GPIO.setup(M3_DIR, GPIO.OUT)
 
 # Calculation Start
 
+
 start_distance_r_mm = m.sqrt(start_pos_x_mm**2 + start_pos_z_mm**2)
 
 if start_distance_r_mm > (length_arm_1_mm + length_arm_2_mm):
