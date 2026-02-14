@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+*.log
+.directory
 
 # Go .test-Dateien
 *.test
@@ -11,6 +13,7 @@
 # linux test binaries (Go)
 *.out
 out
+core
 
 # Go workspace file
 go.work
