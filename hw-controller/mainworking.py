@@ -147,11 +147,17 @@ def move_motor(step_pin, dir_pin, steps, delay, delta):
     else:
         GPIO.output(dir_pin, GPIO.HIGH)
 
-    for _ in range(steps):
-        GPIO.output(step_pin, GPIO.HIGH)
-        time.sleep(delay)
-        GPIO.output(step_pin, GPIO.LOW)
-        time.sleep(delay)
+    for motor in range(3):  # Beispiel für mehrere Motoren (kannst du anpassen)
+        for _ in range(steps):
+            GPIO.output(step_pin, GPIO.HIGH)
+            time.sleep(delay)
+            GPIO.output(step_pin, GPIO.LOW)
+            time.sleep(delay)
+
+    # Wenn ein Motor fertig ist, gib eine neue Zeile aus
+    print(
+        f"Motor {motor} abgeschlossen. Steps: {steps}, Delay: {delay:.4f}s, Delta: {delta:.2f}°"
+    )
 
 
 try:
