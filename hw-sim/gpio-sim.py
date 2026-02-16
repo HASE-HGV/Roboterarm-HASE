@@ -255,7 +255,7 @@ controls.pack(pady=10)
 
 tk.Label(controls, text="Python-Programm:").grid(row=0, column=0)
 entry_file = tk.Entry(controls, width=35)
-entry_file.insert(0, "hw-sim/mainworking.py")
+entry_file.insert(0, "hw-controller/main.py")
 entry_file.grid(row=0, column=1)
 
 tk.Label(controls, text="Argumente:").grid(row=1, column=0)
