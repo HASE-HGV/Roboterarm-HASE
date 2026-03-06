@@ -10,6 +10,9 @@
 # Go .test-Dateien
 *.test
 
+*/node_modules/*
+*/node_modules/
+
 # linux test binaries (Go)
 *.out
 out
