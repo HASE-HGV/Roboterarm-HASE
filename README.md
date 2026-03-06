@@ -1,25 +1,42 @@
 # Roboterarm HASE
 
 
+## About Us:
 
+> Wir sind ein Team aus drei Personen das einen Roboterarm + Steuerungsoftware(im Repo enthalten) bestehend aus  folgenden Person:
+>
+> Patrick: Software Entwicklung + Kabelmanagement
+>
+> Luca: Organisation + PCB Layout + 3d Design
+>
+> Johannes: Webserver (GO Language)
 
-Dies ist das offizielle Repository von HASE von der Arbeitsgruppe Roboterarm im folgendem wird die Dateistruktur verwendete System usw. beschrieben.
+## Unsere Mission:
 
-<<<<<<< Updated upstream
-### How to use main.py
-=======
-## Dev
+> Wir wollen eine Open Source Software enwickeln die der Steuerung von Roboterarmen dient. Diese nutzt einen Raspberry Pi beliebiger Version in unserem Fall [Raspberry Pi Zero WH](https://www.raspberrypi.com/products/raspberry-pi-zero-w/). Zusätzlich bauen wir einen Roboterarm an dem wir dies testen. Finanziert wird dieses Projekt von Sponsoren und Fördergeldern. Wir sind Teil der Humboldt Academy for Science and Engieniering am HGV Vaterstetten.
 
+## Unsere Materialien:
 
-## Research
+* 4x Stepper Motor
+* Raspberry Pi Zero WH
+* 4x A4988 Motor Driver
+
+## Programmierung:
+
+> Unser Software besteht aus einem Webserver mit GOLANG und einem Controll und Simulations Programm mit Python.
+
+## Usage:
+
+Das Script main.py in hw-controller wird mit folgenden Syntaxen verwenden
+
+## Research:
+
 https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
 https://www.instructables.com/Stepper-Motor-Driverfor-A4988-and-Similar-Devices/
 
-====
-
 ## Cables
 
-```mermaid
+```
 sequenceDiagram
 A4988 STEP (1) ->> Raspberry Pi GPIO 17: 
 A4988 DIR (1) ->> Raspberry Pi GPIO 27: 
@@ -64,7 +81,5 @@ A4988 VMOT(4) ->> A4988(4):
   
  
 ```
-
-
 
 

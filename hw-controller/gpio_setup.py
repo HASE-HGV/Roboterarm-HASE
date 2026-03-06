@@ -1,9 +1,9 @@
 try:
-    import RPi.GPIO as GPIO
+    import RPi.GPIO as GPIO  # Import GPIO Pins
 except ImportError:
-    import Mock.GPIO as GPIO
+    import Mock.GPIO as GPIO  # If import fails -> Import Mock GPIO for Simulation
 
-GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BCM)  # Setting GPIO Mode -> BCM OR BOARD
 
 
 def setup_pins(pins):

@@ -1,11 +1,11 @@
-M1_STEP = 17
+M1_STEP = 17  # Step Pin M1
 M1_DIR = 27
 
-M2_STEP = 22
+M2_STEP = 22  # Step Pin M2
 M2_DIR = 23
 
-M3_STEP = 5
-M3_DIR = 6
+M3_STEP = 5  # Step Pin M3
+M3_DIR = 6  # Dir Pin M3
 
 LENGTH_ARM_1_MM = 500
 LENGTH_ARM_2_MM = 525

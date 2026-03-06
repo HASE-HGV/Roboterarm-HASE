@@ -255,12 +255,12 @@ controls.pack(pady=10)
 
 tk.Label(controls, text="Python-Programm:").grid(row=0, column=0)
 entry_file = tk.Entry(controls, width=35)
-entry_file.insert(0, "hw-controller/main.py")
+entry_file.insert(0, "hw-sim/main.py")
 entry_file.grid(row=0, column=1)
 
 tk.Label(controls, text="Argumente:").grid(row=1, column=0)
 entry_args = tk.Entry(controls, width=35)
-entry_args.insert(0, "--sx 100 --sy 10 --sz 10 --ex -100 --ey 500 --ez 100 --time 1")
+entry_args.insert(0, "--sx 200 --sy 0 --sz 0 --ex -300 --ey 90 --ez 300 --time 10")
 entry_args.grid(row=1, column=1)
 
 program_thread = None
