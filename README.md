@@ -36,7 +36,7 @@ https://www.instructables.com/Stepper-Motor-Driverfor-A4988-and-Similar-Devices/
 
 ## Cables
 
-```
+```mermaid
 sequenceDiagram
 A4988 STEP (1) ->> Raspberry Pi GPIO 17: 
 A4988 DIR (1) ->> Raspberry Pi GPIO 27: 
