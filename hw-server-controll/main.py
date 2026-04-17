@@ -144,7 +144,8 @@ td, th {border: 1px solid #333; padding:5px;}
     <a href="/metrics">Metrics</a>
     <a href="/config">Config</a>
     <a href="/debug">Debug Logs</a>
-	<a href="/logout">Logout</a>	
+	<a href="/logout">Logout</a>
+    <a href="/manual">Manual Control</a>	
 </nav>
 
 <form method="post">
@@ -169,6 +170,10 @@ td, th {border: 1px solid #333; padding:5px;}
 {% endif %}
 
 <pre>{{ output }}</pre>
+
+
+
+
 </body>
 """
 
@@ -200,7 +205,213 @@ def login():
     <p style="color:red;">{msg}</p>
     """
 
+@app.route("/manual", methods=["GET", "POST"])
+@login_required
+def manual():
+    msg = ""
 
+    if request.method == "POST":
+        step_size = 20
+        rot_step = 5
+
+        action = request.form.get("action")
+
+        x = status.get("x", 100)
+        z = status.get("z", 300)
+        y = status.get("rot", 0)
+
+        if action == "left":
+            x -= step_size
+        elif action == "right":
+            x += step_size
+        elif action == "up":
+            z += step_size
+        elif action == "down":
+            z -= step_size
+        elif action == "rot_left":
+            y -= rot_step
+        elif action == "rot_right":
+            y += rot_step
+
+        try:
+            theta1, theta2 = calc_angles(x, z, L1, L2)
+
+            # Bewegung ausführen (kurz & direkt)
+            prev_theta1 = status["theta1"]
+            prev_theta2 = status["theta2"]
+
+            delta1 = theta1 - prev_theta1
+            delta2 = theta2 - prev_theta2
+            delta_rot = y - status["rot"]
+
+            steps_m1 = int(abs(delta_rot) / 360 * STEPS_PER_ROUND)
+            steps_m2 = int(abs(delta1) / 360 * STEPS_PER_ROUND)
+            steps_m3 = int(abs(delta2) / 360 * STEPS_PER_ROUND)
+
+            dir_m1 = delta_rot >= 0
+            dir_m2 = delta1 >= 0
+            dir_m3 = delta2 >= 0
+
+            max_steps = max(steps_m1, steps_m2, steps_m3, 1)
+
+            for i in range(max_steps):
+                if i < steps_m1:
+                    step(M1_STEP, M1_DIR, dir_m1)
+                if i < steps_m2:
+                    step(M2_STEP, M2_DIR, dir_m2)
+                if i < steps_m3:
+                    step(M3_STEP, M3_DIR, dir_m3)
+
+                time.sleep(0.002)
+
+            # Status updaten
+            status["x"] = x
+            status["z"] = z
+            status["rot"] = y
+            status["theta1"] = theta1
+            status["theta2"] = theta2
+
+            msg = f"Bewegt: {action}"
+
+        except Exception as e:
+            msg = f"Fehler: {e}"
+            log(str(e))
+
+    return f"""
+    
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Manual Control</title>
+
+<style>
+body {{
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+}}
+
+h2 {{
+    margin-bottom: 20px;
+}}
+
+.container {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}}
+
+.grid {{
+    display: grid;
+    grid-template-columns: 80px 80px 80px;
+    gap: 10px;
+    margin: 20px;
+}}
+
+button {{
+    height: 70px;
+    font-size: 24px;
+    border: none;
+    border-radius: 12px;
+    background: #222;
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}}
+
+button:hover {{
+    background: #4CAF50;
+    transform: scale(1.05);
+}}
+
+.rot {{
+    margin-top: 20px;
+}}
+
+.rot button {{
+    width: 120px;
+    margin: 5px;
+}}
+
+.status {{
+    margin-top: 20px;
+    padding: 10px;
+    background: #222;
+    border-radius: 10px;
+    width: 250px;
+}}
+
+.msg {{
+    margin-top: 10px;
+    color: #0f0;
+}}
+
+nav a {{
+    color: #4CAF50;
+    margin: 0 10px;
+    text-decoration: none;
+}}
+nav a:hover {{
+    color: #0f0;
+}}
+</style>
+
+</head>
+<body>
+
+<nav>
+    <a href="/">Home</a>
+    <a href="/status">Status</a>
+    <a href="/manual">Manual</a>
+    <a href="/debug">Debug Logs</a>
+</nav>
+
+<h2>🎮 Manual Control</h2>
+
+<div class="container">
+
+<form method="post">
+
+<div class="grid">
+    <div></div>
+    <button name="action" value="up">⬆️</button>
+    <div></div>
+
+    <button name="action" value="left">⬅️</button>
+    <div></div>
+    <button name="action" value="right">➡️</button>
+
+    <div></div>
+    <button name="action" value="down">⬇️</button>
+    <div></div>
+</div>
+
+<div class="rot">
+    <button name="action" value="rot_left">🔄 Y-</button>
+    <button name="action" value="rot_right">🔄 Y+</button>
+</div>
+
+</form>
+
+<div class="status">
+    <b>Position</b><br>
+    X: {status.get("x",0)}<br>
+    Z: {status.get("z",0)}<br>
+    Y: {status.get("rot",0)}
+</div>
+
+<div class="msg">{msg}</div>
+
+</div>
+
+</body>
+</html>
+
+    """
 
 @app.route("/", methods=["GET", "POST"])
 @login_required
@@ -383,4 +594,4 @@ def debug():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5050)
