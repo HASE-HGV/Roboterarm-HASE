@@ -127,7 +127,6 @@ form {background:#fff; padding:20px 30px; border-radius:10px; box-shadow:0 2px 1
 label,input {display:block; margin:10px 0;}
 input[type=number]{width:100px; padding:5px;}
 input[type=submit]{margin-top:15px; padding:10px 20px; border:none; border-radius:5px; background-color:#4CAF50; color:white; cursor:pointer;}
-input[type=submit]:hover{background-color:#45a049;}
 pre {background-color:#222; color:#0f0; padding:10px; width:600px; overflow-x:auto; margin-top:20px; border-radius:5px; text-align:left;}
 table {margin-top:10px; border-collapse: collapse;}
 td, th {border: 1px solid #333; padding:5px;}

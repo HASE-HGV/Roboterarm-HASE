@@ -1,7 +1,0 @@
-[11:04:44] --stepstyle single --motorid 4 --stepcount 200 --stepdelay 0.01 --direction backward
-[11:04:58] --stepstyle single --motorid 1 --stepcount 200 --stepdelay 0.01 --direction backward
-[11:04:59] --stepstyle single --motorid 2 --stepcount 200 --stepdelay 0.01 --direction forward
-[11:05:00] --stepstyle single --motorid 3 --stepcount 200 --stepdelay 0.01 --direction forward
-[11:05:01] --stepstyle single --motorid 4 --stepcount 200 --stepdelay 0.01 --direction backward
-[11:05:03] --stepstyle interleave --motorid 4 --stepcount 200 --stepdelay 0.01 --direction forward
-[11:05:06] --stepstyle double --motorid 2 --stepcount 200 --stepdelay 0.01 --direction forward
