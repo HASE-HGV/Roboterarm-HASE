@@ -5,9 +5,9 @@
 
 > Wir sind ein Team aus drei Personen das einen Roboterarm + Steuerungsoftware(im Repo enthalten) bestehend aus  folgenden Person:
 >
-> Patrick: Software Entwicklung + Kabelmanagement
+> Patrick: Software Entwicklung + Kabelmanagement (DEPRECATED)
 >
-> Luca: Organisation + Rust-Tests + 3d Design + 3d-Druck + Analyse mittels Arduscope und main.rs
+> Luca: Organisation + Rust-Development + 3d Design + 3d-Druck + Analyse mittels Arduscope und main.rs
 >
 > Johannes: Webserver + Linux-Guide
 >
