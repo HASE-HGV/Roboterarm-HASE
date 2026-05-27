@@ -13,7 +13,7 @@
 
 ## Unsere Mission:
 
-> Wir wollen eine Open Source Software enwickeln die der Steuerung von Roboterarmen dient. Diese nutzt einen Raspberry Pi beliebiger Version in unserem Fall [Raspberry Pi Zero WH](https://www.raspberrypi.com/products/raspberry-pi-zero-w/). Zusätzlich bauen wir einen Roboterarm an dem wir dies testen. Finanziert wird dieses Projekt von Sponsoren und Fördergeldern. Wir sind Teil der Humboldt Academy for Science and Engieniering am HGV Vaterstetten.
+> Wir wollen eine Open Source Software enwickeln die der Steuerung von Roboterarmen dient. Diese nutzt einen Raspberry-Pi beliebiger Version, in unserem Fall ein Raspberry-Pi 4B+. Zusätzlich bauen wir einen Roboterarm an dem wir dies testen. Finanziert wird dieses Projekt von Sponsoren und Fördergeldern. Wir sind Teil der Humboldt Academy for Science and Engieniering am HGV Vaterstetten.
 
 ## Unsere Materialien:
 
