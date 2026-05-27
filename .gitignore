@@ -126,3 +126,8 @@ __marimo__/
 
 /hw-server-controll/get-pip.py
 VI21-Anlagen/*
+
+
+# Added by cargo
+
+/target
