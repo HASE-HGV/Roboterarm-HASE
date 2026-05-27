@@ -9,7 +9,7 @@
 >
 > Luca: Organisation + Rust-Tests + 3d Design + 3d-Druck + Analyse
 >
-> Johannes: Webserver (GO Language)
+> Johannes: Webserver + Linux-Guide
 >
 > Florian: Hilft bei verschiedenen Aufgaben
 
