@@ -7,9 +7,11 @@
 >
 > Patrick: Software Entwicklung + Kabelmanagement
 >
-> Luca: Organisation + PCB Layout + 3d Design
+> Luca: Organisation + Rust-Tests + 3d Design + 3d-Druck + Analyse
 >
 > Johannes: Webserver (GO Language)
+>
+> Florian: Hilft bei verschiedenen Aufgaben
 
 ## Unsere Mission:
 
@@ -18,8 +20,14 @@
 ## Unsere Materialien:
 
 * 4x Stepper Motor
-* Raspberry Pi Zero WH
+* Raspberry Pi 4B+
 * 4x A4988 Motor Driver
+* Laptop
+* Aloprofile
+* Bambulab PETG-CF
+* bambulab PLA-Matt
+* Oszilloskop (bei uns ein DS1052E von Rigol)
+* Arduino Mega
 
 ## Programmierung:
 
