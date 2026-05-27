@@ -33,7 +33,7 @@
 
 ## Programmierung:
 
-> Unser Software besteht aus einem Webserver mit GOLANG und einem Control- und Simulations-Programm mit Python.
+> Unser Software besteht aus einem Webserver in Go und einem Control- und Simulations-Programm in Rust unter der Verwendung von ctrlc für graceful shutdowns sowie rppal für ein performantes low-level Interface mit GPIO-pins.
 
 ## Usage:
 
