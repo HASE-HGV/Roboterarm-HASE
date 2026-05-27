@@ -12,6 +12,8 @@
 > Johannes: Webserver + Linux-Guide
 >
 > Florian: Hilft bei verschiedenen Aufgaben
+>
+> Julian: Löthilfe + hilfe bei Rechnungen und Überlegungen
 
 ## Unsere Mission:
 
