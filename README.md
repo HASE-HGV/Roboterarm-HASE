@@ -7,7 +7,7 @@
 >
 > Patrick: Software Entwicklung + Kabelmanagement
 >
-> Luca: Organisation + Rust-Tests + 3d Design + 3d-Druck + Analyse
+> Luca: Organisation + Rust-Tests + 3d Design + 3d-Druck + Analyse mittels Arduscope und main.rs
 >
 > Johannes: Webserver + Linux-Guide
 >
