@@ -123,3 +123,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+/hw-server-controll/get-pip.py
+VI21-Anlagen/*
