@@ -37,49 +37,104 @@ https://www.instructables.com/Stepper-Motor-Driverfor-A4988-and-Similar-Devices/
 ## Cables
 
 ```mermaid
-sequenceDiagram
-A4988 STEP (1) ->> Raspberry Pi GPIO 17: 
-A4988 DIR (1) ->> Raspberry Pi GPIO 27: 
-A4988 STEP (2) ->> Raspberry Pi GPIO 22: 
-A4988 DIR (2) ->> Raspberry Pi GPIO 23: 
-A4988 STEP (3) ->> Raspberry Pi GPIO 24:  
-A4988 DIR (3) ->> Raspberry Pi GPIO 25:  
-A4988 STEP (4) ->> Raspberry Pi GPIO 5:  
-A4988 DIR (4) ->> Raspberry Pi GPIO 6: 
-Raspberry Pi GPIO 17 ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 27 ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 22 ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 23 ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 24 ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 25 ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 5  ->>Raspberry Pi 0 w: 
-Raspberry Pi GPIO 6  ->>Raspberry Pi 0 w: 
-A4988 STEP (1) ->> A4988 (1): 
-A4988 DIR (1) ->>A4988 (1): 
-A4988 STEP (2) ->> A4988 (2):   
-A4988 DIR (2) ->>A4988 (2):  
-A4988 STEP (3) ->> A4988 (3):   
-A4988 DIR (3) ->> A4988 (3):   
-A4988 STEP (4) ->> A4988 (4):   
-A4988 DIR (4) ->> A4988 (4):   
-Netzteil 12V GND ->> A4988 VMOT GND (1): 
-Netzteil 12V GND ->> A4988 VMOT GND (2): 
-Netzteil 12V GND ->> A4988 VMOT GND (3): 
-Netzteil 12V GND ->> A4988 VMOT GND (4): 
-Netzteil 12V VMOT ->> A4988 VMOT(1): 
-Netzteil 12V VMOT ->> A4988 VMOT(2): 
-Netzteil 12V VMOT ->> A4988 VMOT(3): 
-Netzteil 12V VMOT ->> A4988 VMOT(4): 
-A4988 VMOT GND (1) ->> A4988(1): 
-A4988 VMOT(1) ->> A4988(1): 
-A4988 VMOT GND (2) ->> A4988(2): 
-A4988 VMOT(2) ->> A4988(2): 
-A4988 VMOT GND (3) ->> A4988(3): 
-A4988 VMOT(3) ->> A4988(3): 
-A4988 VMOT GND (4) ->> A4988(4): 
-A4988 VMOT(4) ->> A4988(4): 
-  
- 
+flowchart TD
+    PSU["PSU"]
+    
+    subgraph PSUModule["Power Supply Unit"]
+        PSU --> OUT_5V["5V Output"]
+        PSU --> OUT_12V["12V Output"]
+        PSU --> GND["GND"]
+    end
+
+    subgraph RaspberryPiModule["Raspberry Pi"]
+        Raspberry_Pi["Raspberry Pi"]
+        Raspberry_Pi --> GPIO17["GPIO17"]
+        Raspberry_Pi --> GPIO27["GPIO27"]
+        Raspberry_Pi --> GPIO22["GPIO22"]
+        Raspberry_Pi --> GPIO23["GPIO23"]
+        Raspberry_Pi --> GPIO24["GPIO24"]
+        Raspberry_Pi --> GPIO25["GPIO25"]
+        Raspberry_Pi --> GPIO5["GPIO5"]
+        Raspberry_Pi --> GPIO6["GPIO6"]
+    end
+
+    subgraph Driver1Module["Stepper Motor System 1"]
+        D1{A4988_1}
+        M1{M1}
+        RESET_1["RESET_1"]
+        GND_1["GND"]
+        VMOT_1["12V"]
+        STEP_1["STEP"]
+        DIR_1["DIR"]
+        RESET_1 --> D1
+        GND_1 --> D1
+        VMOT_1 --> D1
+        STEP_1 --> D1
+        DIR_1 --> D1
+        D1 --> A1_1["A1"] & A2_1["A2"] & B1_1["B1"] & B2_1["B2"] --> M1
+    end
+
+    subgraph Driver2Module["Stepper Motor System 2"]
+        D2{A4988_2}
+        M2{M2}
+        RESET_2["RESET_2"]
+        GND_2["GND"]
+        VMOT_2["12V"]
+        STEP_2["STEP"]
+        DIR_2["DIR"]
+        RESET_2 --> D2
+        GND_2 --> D2
+        VMOT_2 --> D2
+        STEP_2 --> D2
+        DIR_2 --> D2
+        D2 --> A1_2["A1"] & A2_2["A2"] & B1_2["B1"] & B2_2["B2"] --> M2
+    end
+
+    subgraph Driver3Module["Stepper Motor System 3"]
+        D3{A4988_3}
+        M3{M3}
+        RESET_3["RESET_3"]
+        GND_3["GND"]
+        VMOT_3["12V"]
+        STEP_3["STEP"]
+        DIR_3["DIR"]
+        RESET_3 --> D3
+        GND_3 --> D3
+        VMOT_3 --> D3
+        STEP_3 --> D3
+        DIR_3 --> D3
+        D3 --> A1_3["A1"] & A2_3["A2"] & B1_3["B1"] & B2_3["B2"] --> M3
+    end
+
+    subgraph Driver4Module["Stepper Motor System 4"]
+        D4{A4988_4}
+        M4{M4}
+        RESET_4["RESET_4"]
+        GND_4["GND"]
+        VMOT_4["12V"]
+        STEP_4["STEP"]
+        DIR_4["DIR"]
+        RESET_4 --> D4
+        GND_4 --> D4
+        VMOT_4 --> D4
+        STEP_4 --> D4
+        DIR_4 --> D4
+        D4 --> A1_4["A1"] & A2_4["A2"] & B1_4["B1"] & B2_4["B2"] --> M4
+    end
+
+    OUT_5V --> Raspberry_Pi
+    OUT_5V --> RESET_SWTICH["RESET SWITCH"] --> RESET_1 & RESET_2 & RESET_3 & RESET_4
+    OUT_12V --> VMOT_1 & VMOT_2 & VMOT_3 & VMOT_4
+    GND --> Raspberry_Pi & GND_1 & GND_2 & GND_3 & GND_4
+
+    GPIO17 --> STEP_1
+    GPIO27 --> DIR_1
+    GPIO22 --> STEP_2
+    GPIO23 --> DIR_2
+    GPIO24 --> STEP_3
+    GPIO25 --> DIR_3
+    GPIO5 --> STEP_4
+    GPIO6 --> DIR_4 
 ```
 
 
