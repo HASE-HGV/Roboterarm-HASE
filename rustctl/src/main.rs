@@ -9,15 +9,14 @@ struct StepperMotor {
 
 impl StepperMotor {
     fn set_direction(&mut self, ccw: bool) {
-        if ccw {
-            let _ = self.dir_pin.set_high();
-        } else {
-            let _ = self.dir_pin.set_low();
-        }
+        if ccw { let _ = self.dir_pin.set_high(); } else { let _ = self.dir_pin.set_low(); }
     }
 
-    fn step_toggle(&mut self) {
-        self.step_pin.toggle();
+    fn step_pulse_for(&mut self, t_micros: u64) {
+        let _ = self.step_pin.set_high();
+        thread::sleep(Duration::from_micros(t_micros));
+        let _ = self.step_pin.set_low();
+        thread::sleep(Duration::from_micros(t_micros));
     }
 
     fn reset(&mut self) {
@@ -26,87 +25,105 @@ impl StepperMotor {
     }
 }
 
+fn ik_angles_deg(x_mm: f64, z_mm: f64, l1_mm: f64, l2_mm: f64) -> Result<(f64,f64,f64), &'static str> {
+    let r = (x_mm*x_mm + z_mm*z_mm).sqrt();
+    if r > l1_mm + l2_mm { return Err("Out of workspace"); }
+    let alpha = z_mm.atan2(x_mm);
+    let cos_theta2 = ((r*r - l1_mm*l1_mm - l2_mm*l2_mm) / (2.0 * l1_mm * l2_mm)).clamp(-1.0, 1.0);
+    let theta2 = cos_theta2.acos();
+    let theta1 = alpha - ( (l2_mm*theta2.sin()).atan2( l1_mm + l2_mm*theta2.cos() ) );
+    let z_eff = l1_mm*theta1.sin() + l2_mm*(theta1 + theta2).sin();
+    Ok((theta1.to_degrees(), theta2.to_degrees(), z_eff))
+}
+
+fn deg_to_steps(angle_deg: f64, steps_per_rev: u64, microstep: u64) -> i64 {
+    let steps_per_deg = (steps_per_rev * microstep) as f64 / 360.0;
+    (angle_deg * steps_per_deg).round() as i64
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <total_time_micros>", args[0]);
+    if args.len() < 10 {
+        eprintln!("Usage: {} <total_time_micros> <pulse_t_micros> <x_mm> <z_mm> <l1_mm> <l2_mm> <steps_per_rev> <microstep> <ccw_positive(0/1)>", args[0]);
         std::process::exit(1);
     }
 
-    let total_time: u64 = args[1].parse().map_err(|_| "Please provide a valid number for microsecond time")?;
-    
+    let total_time: u64 = args[1].parse().map_err(|_| "total_time parse")?;
+    let pulse_t_us: u64 = args[2].parse().map_err(|_| "pulse_t parse")?;
+    let x_mm: f64 = args[3].parse()?;
+    let z_mm: f64 = args[4].parse()?;
+    let l1_mm: f64 = args[5].parse()?;
+    let l2_mm: f64 = args[6].parse()?;
+    let steps_per_rev: u64 = args[7].parse()?;
+    let microstep: u64 = args[8].parse()?;
+    let ccw_positive: bool = args[9].parse::<u8>()? != 0;
+
     if total_time <= 55 {
-        eprintln!("Error: Input time must be greater than 55 microseconds to account for hardware overhead.");
+        eprintln!("Error: total_time must be >55");
         std::process::exit(1);
     }
-    
-    let blink_interval = Duration::from_micros(total_time - 55);
+
+    let (th1_deg, th2_deg, z_eff) = ik_angles_deg(x_mm, z_mm, l1_mm, l2_mm).map_err(|e| format!("IK error: {}", e))?;
+    let steps1 = deg_to_steps(th1_deg, steps_per_rev, microstep);
+    let steps2 = deg_to_steps(th2_deg, steps_per_rev, microstep);
 
     let gpio = Gpio::new()?;
 
-    let m1 = StepperMotor {
-        step_pin: gpio.get(17)?.into_output(),
-        dir_pin: gpio.get(27)?.into_output(),
-    };
-    let m2 = StepperMotor {
-        step_pin: gpio.get(22)?.into_output(),
-        dir_pin: gpio.get(23)?.into_output(),
-    };
-    let m3 = StepperMotor {
-        step_pin: gpio.get(24)?.into_output(),
-        dir_pin: gpio.get(25)?.into_output(),
-    };
-    let m4 = StepperMotor {
-        step_pin: gpio.get(5)?.into_output(),
-        dir_pin: gpio.get(6)?.into_output(),
-    };
+    let m1 = StepperMotor { step_pin: gpio.get(17)?.into_output(), dir_pin: gpio.get(27)?.into_output() };
+    let m2 = StepperMotor { step_pin: gpio.get(22)?.into_output(), dir_pin: gpio.get(23)?.into_output() };
+    let m3 = StepperMotor { step_pin: gpio.get(24)?.into_output(), dir_pin: gpio.get(25)?.into_output() };
+    let m4 = StepperMotor { step_pin: gpio.get(5)?.into_output(), dir_pin: gpio.get(6)?.into_output() };
 
     let mut motors = vec![m1, m2, m3, m4];
 
-    motors[0].set_direction(false);
-    motors[1].set_direction(true);
-    motors[2].set_direction(false);
-    motors[3].set_direction(true);
+    motors[0].set_direction((steps1 > 0) == ccw_positive);
+    motors[1].set_direction((steps2 > 0) == ccw_positive);
 
     let shared_motors = Arc::new(Mutex::new(Some(motors)));
     let terminate = Arc::new(AtomicBool::new(false));
-
     {
         let s = Arc::clone(&shared_motors);
         let t = Arc::clone(&terminate);
-        
         ctrlc::set_handler(move || {
             t.store(true, Ordering::SeqCst);
             if let Ok(mut guard) = s.lock() {
                 if let Some(ref mut list) = *guard {
-                    for motor in list.iter_mut() {
-                        motor.reset();
-                    }
+                    for m in list.iter_mut() { m.reset(); }
                 }
             }
         })?;
     }
 
-    println!("Running simultaneous motors with a sleep interval of {:?}", blink_interval);
+    println!("Theta1: {:.3}°, Theta2: {:.3}°, z_eff: {:.3} mm", th1_deg, th2_deg, z_eff);
+    println!("Target steps: {}, {}", steps1, steps2);
+    println!("Starting with pulse t = {}µs", pulse_t_us);
 
-    while !terminate.load(Ordering::SeqCst) {
+    let overhead_sleep = total_time.saturating_sub(55);
+    let mut remaining1 = steps1.abs();
+    let mut remaining2 = steps2.abs();
+
+    while !terminate.load(Ordering::SeqCst) && (remaining1 > 0 || remaining2 > 0) {
         if let Ok(mut guard) = shared_motors.lock() {
             if let Some(ref mut list) = *guard {
-                for motor in list.iter_mut() {
-                    motor.step_toggle();
+                if remaining1 > 0 {
+                    list[0].step_pulse_for(pulse_t_us);
+                    remaining1 -= 1;
+                }
+                if remaining2 > 0 {
+                    list[1].step_pulse_for(pulse_t_us);
+                    remaining2 -= 1;
                 }
             }
         }
-        thread::sleep(blink_interval);
+        thread::sleep(Duration::from_micros(overhead_sleep));
     }
 
     if let Ok(mut guard) = shared_motors.lock() {
         if let Some(mut list) = guard.take() {
-            for motor in list.iter_mut() {
-                motor.reset();
-            }
+            for motor in list.iter_mut() { motor.reset(); }
         }
     }
 
+    println!("Done. Remaining steps: {}, {}", remaining1, remaining2);
     Ok(())
 }
