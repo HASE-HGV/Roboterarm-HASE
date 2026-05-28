@@ -33,9 +33,11 @@ fn ik_angles_deg(x_mm: f64, z_mm: f64, l1_mm: f64, l2_mm: f64) -> Result<(f64,f6
     Ok((theta1.to_degrees(), theta2.to_degrees(), z_eff))
 }
 
+// Adapted to seamlessly account for the 16:1 gearbox ratio
 fn deg_to_steps(angle_deg: f64, steps_per_rev: u64, microstep: u64) -> i64 {
+    const GEAR_RATIO: f64 = 16.0; 
     let steps_per_deg = (steps_per_rev * microstep) as f64 / 360.0;
-    (angle_deg * steps_per_deg).round() as i64
+    (angle_deg * steps_per_deg * GEAR_RATIO).round() as i64
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,8 +57,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let microstep: u64 = args[8].parse()?;
     let ccw_positive: bool = args[9].parse::<u8>()? != 0;
 
-    if total_time <= 83 {
-        eprintln!("Error: total_time must be >83 due to hardware overhead");
+    // Fixed timing integrity check to prevent negative durations or overlapping sleeps
+    let minimum_required_time = (2 * pulse_t_us) + 83;
+    if total_time < minimum_required_time {
+        eprintln!(
+            "Error: total_time ({}) must be >= {} µs to accommodate pulse widths and hardware overhead", 
+            total_time, minimum_required_time
+        );
         std::process::exit(1);
     }
 
@@ -92,10 +99,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("Theta1: {:.3}°, Theta2: {:.3}°, z_eff: {:.3} mm", th1_deg, th2_deg, z_eff);
-    println!("Target steps: {}, {}", steps1, steps2);
+    println!("Target steps (adjusted for 16:1 gearbox): {}, {}", steps1, steps2);
     println!("Starting multi-axis synchronized movement...");
 
-    let overhead_sleep = total_time.saturating_sub(83);
+    // Dynamically calculates leftover time to guarantee the loop hits the target total_time period
+    let overhead_sleep = total_time - minimum_required_time;
     
     let total_steps1 = steps1.abs();
     let total_steps2 = steps2.abs();
@@ -141,7 +149,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         thread::sleep(Duration::from_micros(pulse_t_us));
-        thread::sleep(Duration::from_micros(overhead_sleep));
+        if overhead_sleep > 0 {
+            thread::sleep(Duration::from_micros(overhead_sleep));
+        }
     }
 
     // Finale Bereinigung
