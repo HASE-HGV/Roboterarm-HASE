@@ -12,11 +12,8 @@ impl StepperMotor {
         if ccw { let _ = self.dir_pin.set_high(); } else { let _ = self.dir_pin.set_low(); }
     }
 
-    fn step_pulse_for(&mut self, t_micros: u64) {
-        let _ = self.step_pin.set_high();
-        thread::sleep(Duration::from_micros(t_micros));
-        let _ = self.step_pin.set_low();
-        thread::sleep(Duration::from_micros(t_micros));
+    fn set_step(&mut self, high: bool) {
+        if high { let _ = self.step_pin.set_high(); } else { let _ = self.step_pin.set_low(); }
     }
 
     fn reset(&mut self) {
@@ -96,34 +93,64 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Theta1: {:.3}°, Theta2: {:.3}°, z_eff: {:.3} mm", th1_deg, th2_deg, z_eff);
     println!("Target steps: {}, {}", steps1, steps2);
-    println!("Starting with pulse t = {}µs", pulse_t_us);
+    println!("Starting multi-axis synchronized movement...");
 
     let overhead_sleep = total_time.saturating_sub(55);
-    let mut remaining1 = steps1.abs();
-    let mut remaining2 = steps2.abs();
+    
+    let total_steps1 = steps1.abs();
+    let total_steps2 = steps2.abs();
+    let max_steps = total_steps1.max(total_steps2);
 
-    while !terminate.load(Ordering::SeqCst) && (remaining1 > 0 || remaining2 > 0) {
+    let mut stepped1 = 0;
+    let mut stepped2 = 0;
+    let mut accum1 = 0;
+    let mut accum2 = 0;
+
+    for _ in 0..max_steps {
+        if terminate.load(Ordering::SeqCst) { break; }
+
+        let mut pulse_m1 = false;
+        let mut pulse_m2 = false;
+
+        accum1 += total_steps1;
+        if accum1 >= max_steps {
+            pulse_m1 = true;
+            accum1 -= max_steps;
+        }
+
+        accum2 += total_steps2;
+        if accum2 >= max_steps {
+            pulse_m2 = true;
+            accum2 -= max_steps;
+        }
+
         if let Ok(mut guard) = shared_motors.lock() {
             if let Some(ref mut list) = *guard {
-                if remaining1 > 0 {
-                    list[0].step_pulse_for(pulse_t_us);
-                    remaining1 -= 1;
-                }
-                if remaining2 > 0 {
-                    list[1].step_pulse_for(pulse_t_us);
-                    remaining2 -= 1;
-                }
+                if pulse_m1 { list[0].set_step(true); }
+                if pulse_m2 { list[1].set_step(true); }
             }
         }
+
+        thread::sleep(Duration::from_micros(pulse_t_us));
+
+        if let Ok(mut guard) = shared_motors.lock() {
+            if let Some(ref mut list) = *guard {
+                if pulse_m1 { list[0].set_step(false); stepped1 += 1; }
+                if pulse_m2 { list[1].set_step(false); stepped2 += 1; }
+            }
+        }
+
+        thread::sleep(Duration::from_micros(pulse_t_us));
         thread::sleep(Duration::from_micros(overhead_sleep));
     }
 
+    // Finale Bereinigung
     if let Ok(mut guard) = shared_motors.lock() {
         if let Some(mut list) = guard.take() {
             for motor in list.iter_mut() { motor.reset(); }
         }
     }
 
-    println!("Done. Remaining steps: {}, {}", remaining1, remaining2);
+    println!("Done. Processed steps: {}, (Target: {}, {})", stepped1, steps1, steps2);
     Ok(())
 }
