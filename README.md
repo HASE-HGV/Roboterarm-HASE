@@ -43,6 +43,9 @@ Das Script main.py in hw-controller wird mit folgenden Syntaxen verwenden
 
 https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
 https://www.instructables.com/Stepper-Motor-Driverfor-A4988-and-Similar-Devices/
+pinout.xyz
+
+Quellen aus der Prhoektdokumentation
 
 ## Cables
 
