@@ -55,8 +55,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let microstep: u64 = args[8].parse()?;
     let ccw_positive: bool = args[9].parse::<u8>()? != 0;
 
-    if total_time <= 55 {
-        eprintln!("Error: total_time must be >55");
+    if total_time <= 83 {
+        eprintln!("Error: total_time must be >83 due to hardware overhead");
         std::process::exit(1);
     }
 
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Target steps: {}, {}", steps1, steps2);
     println!("Starting multi-axis synchronized movement...");
 
-    let overhead_sleep = total_time.saturating_sub(55);
+    let overhead_sleep = total_time.saturating_sub(83);
     
     let total_steps1 = steps1.abs();
     let total_steps2 = steps2.abs();
