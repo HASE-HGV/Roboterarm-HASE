@@ -37,7 +37,7 @@
 
 ## Usage:
 
-```console
+```bash
 git clone https://github.com/HASE-HGV/Roboterarm-HASE.git
 cd Roboterarm-HASE
 cd rustctl
