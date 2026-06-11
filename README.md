@@ -37,7 +37,12 @@
 
 ## Usage:
 
-Das Script main.py in hw-controller wird mit folgenden Syntaxen verwenden
+```sh
+git clone https://github.com/HASE-HGV/Roboterarm-HASE.git
+cd Roboterarm-HASE
+cd rustctl
+cargo run --release
+```
 
 ## Research:
 
