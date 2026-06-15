@@ -1,0 +1,3 @@
+[submodule "arduino-oscilloscope"]
+	path = arduino-oscilloscope
+	url = https://github.com/achntrl/arduino-oscilloscope.git
