@@ -11,6 +11,7 @@
 # Rust target files
 
 /rustctl/target/*
+gpioTest/target/*
 
 # Go .test-Dateien
 *.test
