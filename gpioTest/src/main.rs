@@ -27,7 +27,7 @@ fn main() {
         .expect("Failed to claim pin")
         .into_output();
 
-    println!("Pulsing Pin {} with a delay of {} µs...", choice_int, final_delay);
+    println!("Pulsing Pin {} with a delay of {} µs...", choice_int, final_delay + 55);
 
     loop {
         pin.set_high();
