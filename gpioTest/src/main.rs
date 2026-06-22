@@ -25,45 +25,56 @@ fn gpio_init() -> MotorPins {
 fn m_drive_1m(mut pins: MotorPins) {
     let delay = delayHandler();
     pins.pin1.set_high();
-    thread::sleep(Duration::from_micros(delay));
-    pins.pin1.set_low();
-    thread::sleep(Duration::from_micros(delay));
+    loop{
+        thread::sleep(Duration::from_micros(delay));
+        pins.pin1.set_low();
+        thread::sleep(Duration::from_micros(delay));
+    }
 }
 
 fn m_drive_2m(mut pins: MotorPins) {
     let delay = delayHandler();
-    pins.pin1.set_high();
-    pins.pin2.set_high();
-    thread::sleep(Duration::from_micros(delay));
-    pins.pin1.set_low();
-    pins.pin2.set_low();
-    thread::sleep(Duration::from_micros(delay));
+    loop{
+        pins.pin1.set_high();
+        pins.pin2.set_high();
+        thread::sleep(Duration::from_micros(delay));
+        pins.pin1.set_low();
+        pins.pin2.set_low();
+        thread::sleep(Duration::from_micros(delay));
+    }
+    
 }
 
 fn m_drive_3m(mut pins: MotorPins) {
     let delay = delayHandler();
-    pins.pin1.set_high();
-    pins.pin2.set_high();
-    pins.pin3.set_high();
-    thread::sleep(Duration::from_micros(delay));
-    pins.pin1.set_low();
-    pins.pin2.set_low();
-    pins.pin3.set_low();
-    thread::sleep(Duration::from_micros(delay));
+    loop {
+        pins.pin1.set_high();
+        pins.pin2.set_high();
+        pins.pin3.set_high();
+        thread::sleep(Duration::from_micros(delay));
+        pins.pin1.set_low();
+        pins.pin2.set_low();
+        pins.pin3.set_low();
+        thread::sleep(Duration::from_micros(delay));
+    }
+    
 }
 
 fn m_drive_4m(mut pins: MotorPins) {
     let delay = delayHandler();
-    pins.pin1.set_high();
-    pins.pin2.set_high();
-    pins.pin3.set_high();
-    pins.pin4.set_high();
-    thread::sleep(Duration::from_micros(delay));
-    pins.pin1.set_low();
-    pins.pin2.set_low();
-    pins.pin3.set_low();
-    pins.pin4.set_low();
-    thread::sleep(Duration::from_micros(delay));
+    loop {
+        pins.pin1.set_high();
+        pins.pin2.set_high();
+        pins.pin3.set_high();
+        pins.pin4.set_high();
+        thread::sleep(Duration::from_micros(delay));
+        pins.pin1.set_low();
+        pins.pin2.set_low();
+        pins.pin3.set_low();
+        pins.pin4.set_low();
+        thread::sleep(Duration::from_micros(delay));
+    }
+    
 }
 
 fn multi_motor_handler(count: u8) {
