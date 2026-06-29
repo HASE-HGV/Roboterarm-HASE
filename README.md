@@ -70,6 +70,8 @@ The control software computes **3D inverse kinematics** to translate a target XY
 
 The project is funded by sponsors and public grants as part of the school's STEM program.
 
+[Link to 3D Printing Files](https://cad.onshape.com/documents/4434a4aff975b779534a65f2/w/21d290def0fb8a2a77ad0264/e/e4fb4979f30f140332bc9d83)
+
 ---
 
 ## 3. Hardware
