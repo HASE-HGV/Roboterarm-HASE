@@ -33,7 +33,7 @@ fn m_drive_1m(mut pins: MotorPins) {
 }
 
 fn m_drive_2m(mut pins: MotorPins) {
-    let delay = delayHandler();
+    let delay = delayHandler() - 40 ;
     loop{
         pins.pin1.set_high();
         pins.pin2.set_high();
