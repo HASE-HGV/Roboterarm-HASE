@@ -24,8 +24,8 @@ fn gpio_init() -> MotorPins {
 
 fn m_drive_1m(mut pins: MotorPins) {
     let delay = delayHandler();
-    pins.pin1.set_high();
-    loop{
+    loop {
+        pins.pin1.set_high();
         thread::sleep(Duration::from_micros(delay));
         pins.pin1.set_low();
         thread::sleep(Duration::from_micros(delay));
