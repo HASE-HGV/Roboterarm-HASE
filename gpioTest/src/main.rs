@@ -23,7 +23,7 @@ fn gpio_init() -> MotorPins {
 }
 
 fn m_drive_1m(mut pins: MotorPins) {
-    let delay = delayHandler() - 70;
+    let delay = delayHandler();
     loop {
         pins.pin1.set_high();
         thread::sleep(Duration::from_micros(delay));
