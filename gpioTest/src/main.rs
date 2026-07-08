@@ -23,7 +23,7 @@ fn gpio_init() -> MotorPins {
 }
 
 fn m_drive_1m(mut pins: MotorPins) {
-    let delay = delayHandler() - 40 ;
+    let delay = read_delay_input();
     loop {
         pins.pin1.set_high();
         thread::sleep(Duration::from_micros(delay));
@@ -33,7 +33,7 @@ fn m_drive_1m(mut pins: MotorPins) {
 }
 
 fn m_drive_2m(mut pins: MotorPins) {
-    let delay = delayHandler() - 40 ;
+    let delay = read_delay_input();
     loop{
         pins.pin1.set_high();
         pins.pin2.set_high();
@@ -46,7 +46,7 @@ fn m_drive_2m(mut pins: MotorPins) {
 }
 
 fn m_drive_3m(mut pins: MotorPins) {
-    let delay = delayHandler();
+    let delay = read_delay_input();
     loop {
         pins.pin1.set_high();
         pins.pin2.set_high();
@@ -61,7 +61,7 @@ fn m_drive_3m(mut pins: MotorPins) {
 }
 
 fn m_drive_4m(mut pins: MotorPins) {
-    let delay = delayHandler();
+    let delay = read_delay_input();
     loop {
         pins.pin1.set_high();
         pins.pin2.set_high();
@@ -89,7 +89,7 @@ fn multi_motor_handler(count: u8) {
     }
 }
 
-fn delayHandler() -> u64 {
+fn read_delay_input() -> u64 {
     println!("Enter delay time in microseconds:");
     let mut delay_str = String::new();
     io::stdin()
@@ -98,7 +98,7 @@ fn delayHandler() -> u64 {
     let delay_int: u64 = delay_str.trim().parse().expect("Type valid number");
     
     let final_delay = if delay_int > 55 { delay_int - 55 } else { 0 };
-    final_delay / 2
+    final_delay / 2 - 40
 }
 
 fn main() {
