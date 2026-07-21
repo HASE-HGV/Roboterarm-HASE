@@ -1,3 +1,7 @@
 [submodule "arduino-oscilloscope"]
 	path = arduino-oscilloscope
 	url = https://github.com/achntrl/arduino-oscilloscope.git
+
+[submodule "pi-gpio-emulator"]
+	path = pi-gpio-emulator
+	url = https://github.com/LucaGurr/pi-gpio-emulator.git
