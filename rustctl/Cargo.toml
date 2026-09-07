@@ -4,5 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ctrlc = { version = "3.5.2", features = ["termination"] }
-rppal = "0.22.1"
+rppal = { version = "0.22", optional = true }
+ctrlc = { version = "3", optional = true }
+
+[features]
+default = ["hardware"]
+hardware = ["dep:rppal", "dep:ctrlc"]
