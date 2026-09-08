@@ -308,13 +308,13 @@ A Go-based webserver (`hw-controller`) was planned to provide a browser UI for s
 
 ### 5.1 Coordinate System
 
-The arm is modeled as a **2-link planar manipulator** rotating around the vertical (Z) axis:
+The arm is modeled as a **2-link planar manipulator** rotating around the vertical (Z) axis. Commands use cylindrical coordinates:
 
 | Axis | Direction | Meaning |
 |------|-----------|---------|
-| X | Right | Horizontal reach (0° base) |
-| Y | Forward | Horizontal reach (90° base) |
-| Z | Up | Vertical height |
+| X | Radius | Horizontal distance from the base axis, in millimeters |
+| Y | Base angle | Rotation around the vertical axis, in degrees |
+| Z | Height | Vertical distance, in millimeters |
 | Origin | — | Center of arm base |
 
 The base rotation motor (M3) swings the entire shoulder–elbow plane around Z. The shoulder (M1) and elbow (M2) then move within that plane.
@@ -325,13 +325,13 @@ The base rotation motor (M3) swings the entire shoulder–elbow plane around Z. 
 
 ```mermaid
 flowchart TD
-    IN["Input: x, y, z, l1, l2"]
-    S1["① Base rotation\ntheta_base = atan2(y, x)"]
-    S2["② Project to 2D plane\nr = √(x² + y²)\nr_space = √(r² + z²)"]
+    IN["Input: radius X, base angle Y°, height Z, l1, l2"]
+    S1["① Base rotation\ntheta_base = radians(Y)"]
+    S2["② Use radial plane\nr = X\nr_space = √(r² + Z²)"]
     S3{"③ Reachability\nr_space ≤ l1 + l2?"}
     ERR(["Error: Out of workspace"])
-    S4["④ Elbow angle (law of cosines)\ncos θ₂ = (r² − l1² − l2²) / (2·l1·l2)\nθ₂ = acos(cos θ₂)"]
-    S5["⑤ Shoulder angle\nα = atan2(z, r)\nθ₁ = α − atan2(l2·sin θ₂, l1 + l2·cos θ₂)"]
+    S4["④ Elbow angle (law of cosines)\ncos θ₂ = (r_space² − l1² − l2²) / (2·l1·l2)\nθ₂ = acos(cos θ₂)"]
+    S5["⑤ Shoulder angle\nα = atan2(Z, r)\nθ₁ = α − atan2(l2·sin θ₂, l1 + l2·cos θ₂)"]
     S6["⑥ Effective Z (verification)\nz_eff = l1·sin θ₁ + l2·sin(θ₁ + θ₂)"]
     OUT["Output: theta_base°, theta1°, theta2°, z_eff mm"]
 
@@ -439,50 +439,60 @@ scp target/aarch64-unknown-linux-gnu/release/rustctl pi@<IP>:~/
 ssh pi@<IP> "sudo ./rustctl"
 ```
 
-### 7.3 CLI Parameters
+### 7.3 CLI Modes
 
+Timing is fixed in the controller: each step period is **1083 µs** and each STEP
+pulse is **500 µs**. The timing values are no longer command-line arguments.
+
+```text
+rustctl --cli | --args | --raw | --api | --help
 ```
-rustctl <total_time_µs> <pulse_t_µs> <x_mm> <y_mm> <z_mm> <l1_mm> <l2_mm> <steps_per_rev> <microstep> <ccw_positive>
+
+| Mode | Description |
+|------|-------------|
+| `--cli` | Prompt for one XYZ position and execute it. |
+| `--args` | Repeatedly read position commands until EOF or Ctrl+C. |
+| `--raw` | Repeatedly read raw joint angles until EOF or Ctrl+C. |
+| `--api` | Read newline-delimited position commands from stdin for a future web app. |
+| `--help` | Print the complete usage guide. |
+
+Position command format:
+
+```text
+radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive
 ```
 
-| # | Parameter | Type | Description |
-|---|-----------|------|-------------|
-| 1 | `total_time_µs` | `u64` | Target duration of each step cycle in microseconds (controls speed) |
-| 2 | `pulse_t_µs` | `u64` | STEP pulse HIGH duration in microseconds (min 1 µs) |
-| 3 | `x_mm` | `f64` | Target X coordinate in millimeters |
-| 4 | `y_mm` | `f64` | Target Y coordinate in millimeters (drives base rotation) |
-| 5 | `z_mm` | `f64` | Target Z coordinate in millimeters |
-| 6 | `l1_mm` | `f64` | Arm segment 1 length: shoulder to elbow (mm) |
-| 7 | `l2_mm` | `f64` | Arm segment 2 length: elbow to TCP (mm) |
-| 8 | `steps_per_rev` | `u64` | Motor full-step count per revolution (typically `200`) |
-| 9 | `microstep` | `u64` | Microstepping divisor set on A4988: `1`, `2`, `4`, `8`, or `16` |
-| 10 | `ccw_positive` | `0`/`1` | `1` = CCW is positive direction, `0` = CW is positive |
+Here `X` is the radial distance from the base, `Y` is the base rotation in
+degrees, and `Z` is the vertical height.
 
-**Example** — Move to X=100 mm, Y=0 mm, Z=50 mm with 200 mm arm segments:
+Raw angle command format:
+
+```text
+base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive
+```
+
+### 7.4 Testing on a PC
+
+The default build does not access GPIO and is safe to run on a regular PC:
 
 ```bash
-sudo ./target/release/rustctl 1000 200 100 0 50 200 200 200 16 1
+cargo test
+cargo run -- --help
+cargo run -- --cli
+cargo run -- --args
 ```
 
-### 7.4 Interactive Mode
+### 7.5 Running on a Raspberry Pi
 
-Run without arguments to be guided through each parameter interactively:
+Build with hardware support on the Pi, then run the selected mode with GPIO access:
 
 ```bash
-sudo ./target/release/rustctl
+cargo build --release --features hardware
+sudo ./target/release/rustctl --args
 ```
 
-```
-=== Interaktiver Modus (Keine CLI-Argumente übergeben) ===
-Gesamtzeit pro Schrittperiode (µs) [z.B. 1000]: 1000
-Puls-Dauer (µs) [z.B. 200]: 200
-Ziel X (mm): 100
-Ziel Y (mm) [Basis-Rotation]: 0
-Ziel Z (mm): 50
-...
-```
-
-Invalid inputs are rejected and re-prompted. Press **Ctrl+C** at any time to stop all motors safely.
+Commands are rejected with an error and the loop continues. Press **Ctrl+C** to
+stop the current hardware operation safely.
 
 ---
 

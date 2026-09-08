@@ -17,6 +17,8 @@ use std::{
 use rppal::gpio::{Gpio, OutputPin};
 
 const GEAR_RATIO: f64 = 16.0;
+const TOTAL_TIME_US: u64 = 1083;
+const PULSE_T_US: u64 = 500;
 const HARDWARE_OVERHEAD_US: u64 = 83;
 const NUM_AXES: usize = 3;
 
@@ -63,69 +65,98 @@ struct MotionConfig {
     ccw_positive: bool,
 }
 
-fn prompt<T: std::str::FromStr>(msg: &str) -> T {
-    loop {
-        print!("{msg}");
-        io::stdout().flush().unwrap();
+fn config_from_position(values: &[&str]) -> Result<MotionConfig, Box<dyn std::error::Error>> {
+    if values.len() != 8 {
+        return Err("Expected: radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive".into());
+    }
+    Ok(MotionConfig {
+        total_time_us: TOTAL_TIME_US,
+        pulse_t_us: PULSE_T_US,
+        x_mm: values[0].parse()?,
+        y_mm: values[1].parse()?,
+        z_mm: values[2].parse()?,
+        l1_mm: values[3].parse()?,
+        l2_mm: values[4].parse()?,
+        steps_per_rev: values[5].parse()?,
+        microstep: values[6].parse()?,
+        ccw_positive: values[7].parse::<u8>()? != 0,
+    })
+}
+
+fn prompt_position() -> Result<MotionConfig, Box<dyn std::error::Error>> {
+    println!("CLI mode (timing is fixed at 1083 µs / 500 µs)");
+    let mut values = Vec::with_capacity(8);
+    for (label, example) in [
+        ("Target radius X (mm)", "100"),
+        ("Base angle Y (degrees)", "0"),
+        ("Target height Z (mm)", "50"),
+        ("Arm 1 length (mm)", "200"),
+        ("Arm 2 length (mm)", "200"),
+        ("Motor steps per revolution", "200"),
+        ("Driver microstep resolution", "16"),
+        ("CCW positive? (1 = yes, 0 = no)", "1"),
+    ] {
+        print!("{label} [{example}]: ");
+        io::stdout().flush()?;
         let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        if let Ok(val) = input.trim().parse() {
-            return val;
-        }
-        println!("Ungültige Eingabe. Bitte erneut versuchen.");
+        io::stdin().read_line(&mut input)?;
+        values.push(input.trim().to_owned());
     }
+    let refs: Vec<&str> = values.iter().map(String::as_str).collect();
+    config_from_position(&refs)
 }
 
-fn prompt_config() -> MotionConfig {
-    println!("Interaktiver Modus");
-    let total_time_us = prompt("Gesamtzeit pro Schrittperiode (µs) [z.B. 1000]: ");
-    let pulse_t_us = prompt("Puls-Dauer (µs) [z.B. 200]: ");
-    let x_mm = prompt("Ziel X (mm): ");
-    let y_mm = prompt("Ziel Y (mm) [Basis-Rotation]: ");
-    let z_mm = prompt("Ziel Z (mm): ");
-    let l1_mm = prompt("Länge Arm 1 (mm): ");
-    let l2_mm = prompt("Länge Arm 2 (mm): ");
-    let steps_per_rev = prompt("Schritte pro Umdrehung (Motor) [z.B. 200]: ");
-    let microstep = prompt("Mikroschritt-Auflösung (Driver) [z.B. 1, 2, 16]: ");
-    let ccw: u8 = prompt("CCW positiv? (1 = Ja, 0 = Nein): ");
-    MotionConfig {
-        total_time_us,
-        pulse_t_us,
-        x_mm,
-        y_mm,
-        z_mm,
-        l1_mm,
-        l2_mm,
-        steps_per_rev,
-        microstep,
-        ccw_positive: ccw != 0,
-    }
+fn config_from_line(line: &str) -> Result<MotionConfig, Box<dyn std::error::Error>> {
+    let values: Vec<&str> = line.split_whitespace().collect();
+    config_from_position(&values)
 }
 
-fn build_config(args: &[String]) -> Result<MotionConfig, Box<dyn std::error::Error>> {
-    if args.len() == 1 {
-        Ok(prompt_config())
-    } else if args.len() < 11 {
-        Err(format!(
-            "Usage: {} <total_time_micros> <pulse_t_micros> <x_mm> <y_mm> <z_mm> \
-             <l1_mm> <l2_mm> <steps_per_rev> <microstep> <ccw_positive(0/1)>",
-            args[0]
-        )
-            .into())
-    } else {
-        Ok(MotionConfig {
-            total_time_us: args[1].parse()?,
-            pulse_t_us: args[2].parse()?,
-            x_mm: args[3].parse()?,
-            y_mm: args[4].parse()?,
-            z_mm: args[5].parse()?,
-            l1_mm: args[6].parse()?,
-            l2_mm: args[7].parse()?,
-            steps_per_rev: args[8].parse()?,
-            microstep: args[9].parse()?,
-            ccw_positive: args[10].parse::<u8>()? != 0,
-        })
+fn print_help(program: &str) {
+    println!("Roboterarm controller\n");
+    println!("Usage: {program} --cli | --args | --raw | --api | --help");
+    println!("\nModes:");
+    println!("  --cli   Prompt for one XYZ position and execute it.");
+    println!("  --args  Repeatedly read radius/angle/height commands from an interactive input loop.");
+    println!("  --raw   Repeatedly read raw angles: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive.");
+    println!("  --api   api server (to be added)");
+    println!("  --help  Show this guide.");
+    println!("\nPosition command format (X = radius, Y = base angle, Z = height):");
+    println!("  radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive");
+    println!("Timing is fixed: total period = {TOTAL_TIME_US} µs, pulse width = {PULSE_T_US} µs.");
+    println!("\nPC testing:");
+    println!("  cargo run -- --cli");
+    println!("  cargo run -- --args");
+    println!("  cargo test");
+    println!("\nRaspberry Pi hardware:");
+    println!("  cargo build --release --features hardware");
+    println!("  sudo ./target/release/rustctl --args");
+    println!("Commands are processed until EOF or Ctrl+C. Without the hardware feature, no GPIO is driven.");
+}
+
+fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box<dyn std::error::Error>> {
+    let values: Vec<&str> = line.split_whitespace().collect();
+    if values.len() != 6 {
+        return Err("Expected: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive".into());
     }
+    let solution = ArmSolution {
+        theta_base_deg: values[0].parse()?,
+        theta1_deg: values[1].parse()?,
+        theta2_deg: values[2].parse()?,
+        z_eff_mm: 0.0,
+    };
+    let config = MotionConfig {
+        total_time_us: TOTAL_TIME_US,
+        pulse_t_us: PULSE_T_US,
+        x_mm: 0.0,
+        y_mm: 0.0,
+        z_mm: 0.0,
+        l1_mm: 1.0,
+        l2_mm: 1.0,
+        steps_per_rev: values[3].parse()?,
+        microstep: values[4].parse()?,
+        ccw_positive: values[5].parse::<u8>()? != 0,
+    };
+    Ok((config, solution))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -154,9 +185,12 @@ fn ik_angles_3d_deg(
     if l1_mm <= 0.0 || l2_mm <= 0.0 {
         return Err("Link lengths must be positive");
     }
+    if x_mm < 0.0 {
+        return Err("Radius X must be non-negative");
+    }
 
-    let theta_base = y_mm.atan2(x_mm);
-    let r = (x_mm * x_mm + y_mm * y_mm).sqrt();
+    let theta_base = y_mm.to_radians();
+    let r = x_mm;
     let r_space = (r * r + z_mm * z_mm).sqrt();
     if r_space > l1_mm + l2_mm {
         return Err("Out of workspace");
@@ -192,6 +226,7 @@ fn deg_to_steps(angle_deg: f64, steps_per_rev: u64, microstep: u64, gear_ratio: 
     (angle_deg * steps_per_deg * gear_ratio).round() as i64
 }
 
+#[cfg(any(feature = "hardware", test))]
 fn direction_is_ccw(steps: i64, ccw_positive: bool) -> bool {
     (steps > 0) == ccw_positive
 }
@@ -211,6 +246,7 @@ fn overhead_sleep_us(total_time_us: u64, pulse_t_us: u64) -> Result<u64, String>
     Ok(total_time_us - min)
 }
 
+#[cfg(any(feature = "hardware", test))]
 struct MultiAxisPlanner<const N: usize> {
     counts: [i64; N],
     accum: [i64; N],
@@ -218,6 +254,7 @@ struct MultiAxisPlanner<const N: usize> {
     remaining: i64,
 }
 
+#[cfg(any(feature = "hardware", test))]
 impl<const N: usize> MultiAxisPlanner<N> {
     fn new(steps: [i64; N]) -> Self {
         let counts: [i64; N] = std::array::from_fn(|i| steps[i].abs());
@@ -231,6 +268,7 @@ impl<const N: usize> MultiAxisPlanner<N> {
     }
 }
 
+#[cfg(any(feature = "hardware", test))]
 impl<const N: usize> Iterator for MultiAxisPlanner<N> {
     type Item = [bool; N];
 
@@ -342,20 +380,23 @@ fn run_motion(
 }
 
 fn print_plan(s: &ArmSolution, steps: &[i64; NUM_AXES]) {
-    println!("\n=== Kinematik Berechnungen ===");
+    println!("\n=== Kinematics ===");
     println!(
-        "Theta Base: {:.3}°, Theta1: {:.3}°, Theta2: {:.3}°, z_eff: {:.3} mm",
+        "Base angle: {:.3}°, Axis 1: {:.3}°, Axis 2: {:.3}°, effective Z: {:.3} mm",
         s.theta_base_deg, s.theta1_deg, s.theta2_deg, s.z_eff_mm
     );
     println!(
-        "Zielschritte (16:1 Getriebe): Base: {}, Axis1: {}, Axis2: {}",
+        "Target steps (16:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
         steps[2], steps[0], steps[1]
     );
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    let config = build_config(&args)?;
+fn execute_solution(
+    config: &MotionConfig,
+    solution: ArmSolution,
+) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(not(feature = "hardware"))]
+    let _ = config.ccw_positive;
 
     let overhead_us = match overhead_sleep_us(config.total_time_us, config.pulse_t_us) {
         Ok(v) => v,
@@ -364,15 +405,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         }
     };
-
-    let solution = ik_angles_3d_deg(
-        config.x_mm,
-        config.y_mm,
-        config.z_mm,
-        config.l1_mm,
-        config.l2_mm,
-    )
-        .map_err(|e| format!("IK error: {e}"))?;
 
     let steps: [i64; NUM_AXES] = [
         deg_to_steps(solution.theta1_deg, config.steps_per_rev, config.microstep, GEAR_RATIO),
@@ -388,10 +420,92 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "hardware"))]
     {
         let _ = overhead_us;
-        println!("\n(ohne `hardware`-Feature gebaut — Motoren werden nicht angesteuert.)");
+        println!("\nSimulation only: this binary was built without hardware support, so no GPIO signals were sent.");
+        println!("Build with 'cargo build --release --features hardware' on a Raspberry Pi for motor control.");
     }
 
     Ok(())
+}
+
+fn execute_position(config: MotionConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let solution = ik_angles_3d_deg(
+        config.x_mm,
+        config.y_mm,
+        config.z_mm,
+        config.l1_mm,
+        config.l2_mm,
+    )
+    .map_err(|e| format!("IK error: {e}"))?;
+    execute_solution(&config, solution)
+}
+
+fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
+    if api {
+        println!("API mode ready. Send one position command per line.");
+    } else {
+        println!("Args mode. Enter one position command per line, or press Ctrl+D to exit.");
+        println!("Format (X = radius, Y = base angle in degrees, Z = height):");
+        println!("radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive");
+        println!("Example: 100 0 50 200 200 200 16 1");
+    }
+    let stdin = io::stdin();
+    loop {
+        if !api {
+            print!("args> ");
+            io::stdout().flush()?;
+        }
+        let mut line = String::new();
+        if stdin.read_line(&mut line)? == 0 {
+            break;
+        }
+        if line.trim().is_empty() {
+            continue;
+        }
+        match config_from_line(&line).and_then(execute_position) {
+            Ok(()) => println!("Command completed."),
+            Err(error) => eprintln!("Command failed: {error}"),
+        }
+    }
+    Ok(())
+}
+
+fn run_raw_loop() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Raw mode. Enter: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive");
+    println!("Press Ctrl+D to exit.");
+    loop {
+        print!("raw> ");
+        io::stdout().flush()?;
+        let mut line = String::new();
+        if io::stdin().read_line(&mut line)? == 0 {
+            break;
+        }
+        if line.trim().is_empty() {
+            continue;
+        }
+        match raw_command(&line).and_then(|(config, solution)| execute_solution(&config, solution)) {
+            Ok(()) => println!("Command completed."),
+            Err(error) => eprintln!("Command failed: {error}"),
+        }
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = env::args().collect();
+    match args.get(1).map(String::as_str) {
+        Some("--cli") => execute_position(prompt_position()?),
+        Some("--args") => run_position_loop(false),
+        Some("--api") => {
+            println!("not yet implemented");
+            Ok(())
+        }
+        Some("--raw") => run_raw_loop(),
+        Some("--help") | None => {
+            print_help(&args[0]);
+            Ok(())
+        }
+        Some(mode) => Err(format!("Unknown mode '{mode}'. Use --help for usage.").into()),
+    }
 }
 
 #[cfg(feature = "hardware")]
@@ -426,9 +540,9 @@ fn run_hardware(
     }
     spare.reset();
 
-    println!("\nAusführung beendet.");
+    println!("\nExecution finished.");
     println!(
-        "Verarbeitete Schritte -> Base: {} (Soll: {}), Axis1: {} (Soll: {}), Axis2: {} (Soll: {})",
+        "Processed steps -> Base: {} (target: {}), Axis 1: {} (target: {}), Axis 2: {} (target: {})",
         stepped[2], steps[2], stepped[0], steps[0], stepped[1], steps[1]
     );
     Ok(())
@@ -506,8 +620,16 @@ mod tests {
 
     #[test]
     fn ik_base_rotation_90() {
-        let s = ik_angles_3d_deg(0.0, 100.0, 100.0, 100.0, 100.0).unwrap();
+        let s = ik_angles_3d_deg(100.0, 90.0, 100.0, 100.0, 100.0).unwrap();
         assert!(approx(s.theta_base_deg, 90.0));
+    }
+
+    #[test]
+    fn ik_negative_radius_rejected() {
+        assert_eq!(
+            ik_angles_3d_deg(-1.0, 0.0, 0.0, 100.0, 100.0),
+            Err("Radius X must be non-negative")
+        );
     }
 
     #[test]
@@ -527,13 +649,12 @@ mod tests {
     #[test]
     fn ik_forward_roundtrip() {
         let (l1, l2) = (120.0, 90.0);
-        for &(x, y, z) in &[(150.0, 30.0, 40.0), (80.0, -60.0, 20.0), (0.0, 0.0, 50.0)] {
-            let s = ik_angles_3d_deg(x, y, z, l1, l2).unwrap();
+        for &(radius, base_angle, height) in &[(150.0, 30.0, 40.0), (80.0, -60.0, 20.0), (0.0, 90.0, 50.0)] {
+            let s = ik_angles_3d_deg(radius, base_angle, height, l1, l2).unwrap();
             let (r_eff, z_eff) = forward_r_z_mm(s.theta1_deg, s.theta2_deg, l1, l2);
-            let r = (x * x + y * y).sqrt();
-            assert!(approx(r_eff, r), "r mismatch: {r_eff} vs {r}");
-            assert!(approx(z_eff, z), "z mismatch: {z_eff} vs {z}");
-            assert!(approx(s.theta_base_deg, y.atan2(x).to_degrees()));
+            assert!(approx(r_eff, radius), "radius mismatch: {r_eff} vs {radius}");
+            assert!(approx(z_eff, height), "height mismatch: {z_eff} vs {height}");
+            assert!(approx(s.theta_base_deg, base_angle));
         }
     }
 
