@@ -120,7 +120,7 @@ fn print_help(program: &str) {
     println!("  --raw   Repeatedly read raw angles: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive.");
     println!("  --api   api server (to be added)");
     println!("  --help  Show this guide.");
-    println!("\nPosition command format (X = radius, Y = base angle, Z = height):");
+    println!("\nPosition command format:");
     println!("  radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive");
     println!("Timing is fixed: total period = {TOTAL_TIME_US} µs, pulse width = {PULSE_T_US} µs.");
     println!("\nPC testing:");
