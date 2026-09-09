@@ -130,7 +130,7 @@ fn print_help(program: &str) {
     println!("\nRaspberry Pi hardware:");
     println!("  cargo build --release --features hardware");
     println!("  sudo ./target/release/rustctl --args");
-    println!("Commands are processed until EOF or Ctrl+C. Without the hardware feature, no GPIO is driven.");
+    println!("Commands are processed until EOF or Ctrl+C. Without the hardware feature, no GPIO is accessed.");
 }
 
 fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box<dyn std::error::Error>> {
