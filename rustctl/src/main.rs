@@ -29,7 +29,7 @@ const PIN_AXIS2: (u8, u8) = (22, 23);
 #[cfg(feature = "hardware")]
 const PIN_BASE: (u8, u8) = (24, 25);
 #[cfg(feature = "hardware")]
-const PIN_SPARE: (u8, u8) = (5, 6);
+const PIN_ENDEFFECTOR: (u8, u8) = (5, 6);
 
 macro_rules! debug_invariant {
     ($cond:expr) => {
