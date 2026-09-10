@@ -244,7 +244,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A([Start]) --> B{CLI mode?}
+e     A([Start]) --> B{CLI mode?}
     B -- Yes --> C[Parse 10 parameters]
     B -- No --> D[Interactive prompt loop]
     C & D --> E[Validate timing constraints]
@@ -453,7 +453,7 @@ rustctl --cli | --shell | --raw | --api | --help
 | `--cli` | Prompt for one XYZ position and execute it. |
 | `--shell` | Repeatedly read position commands until EOF or Ctrl+C. |
 | `--raw` | Repeatedly read raw joint angles until EOF or Ctrl+C. |
-| `--api` | Read newline-delimited position commands from stdin for a future web app. |
+| `--api` | Run the device-local HTTP API (default `127.0.0.1:5000`). |
 | `--help` | Print the complete usage guide. |
 
 Position command format:
@@ -471,6 +471,22 @@ Raw angle command format:
 base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive
 ```
 
+The HTTP API exposes these routes:
+
+```text
+GET  /status
+GET  /help
+POST /args   body: radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive
+POST /raw    body: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive
+```
+
+Set `RUSTCTL_API_ADDR` to change the bind address, for example
+`RUSTCTL_API_ADDR=0.0.0.0:5000`. The API reports
+`hardware_enabled=true|false` in startup, status, and completion responses.
+Successful motion commands return `done mode=args ...` or `done mode=raw ...`;
+invalid commands return an `error` response with HTTP 400, unknown routes return
+404, and unsupported methods return 405.
+
 ### 7.4 Testing on a PC
 
 The default build does not access GPIO and is safe to run on a regular PC:
@@ -487,7 +503,7 @@ cargo run -- --shell
 Build with hardware support on the Pi, then run the selected mode with GPIO access:
 
 ```bash
-cargo build --release --features hardware
+cargo build --release
 sudo ./target/release/rustctl --shell
 ```
 

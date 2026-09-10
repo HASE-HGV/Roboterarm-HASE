@@ -3,10 +3,10 @@ name = "rustctl"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-rppal = { version = "0.22", optional = true }
-ctrlc = { version = "3", optional = true }
-
 [features]
 default = []
-hardware = ["dep:rppal", "dep:ctrlc"]
+hardware = []
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ctrlc = "3"
+rppal = "0.22"

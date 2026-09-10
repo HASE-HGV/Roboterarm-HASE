@@ -1,19 +1,22 @@
 use std::{
     env,
-    io::{self, Write},
+    io::{self, Read, Write},
+    net::{TcpListener, TcpStream},
 };
 
-#[cfg(feature = "hardware")]
+const API_PORT: u16 = 5000;
+
+#[cfg(target_os = "linux")]
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     thread,
     time::Duration,
 };
 
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 use rppal::gpio::{Gpio, OutputPin};
 
 const GEAR_RATIO: f64 = 16.0;
@@ -22,13 +25,13 @@ const PULSE_T_US: u64 = 500;
 const HARDWARE_OVERHEAD_US: u64 = 83;
 const NUM_AXES: usize = 3;
 
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 const PIN_AXIS1: (u8, u8) = (17, 27);
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 const PIN_AXIS2: (u8, u8) = (22, 23);
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 const PIN_BASE: (u8, u8) = (24, 25);
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 const PIN_ENDEFFECTOR: (u8, u8) = (5, 6);
 
 macro_rules! debug_invariant {
@@ -51,7 +54,7 @@ macro_rules! debug_invariant {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct MotionConfig {
     total_time_us: u64,
     pulse_t_us: u64,
@@ -116,27 +119,37 @@ fn print_help(program: &str) {
     println!("Usage: {program} --cli | --shell | --raw | --api | --help");
     println!("\nModes:");
     println!("  --cli   Prompt for one XYZ position and execute it.");
-    println!("  --shell Repeatedly read radius/angle/height commands from an interactive input loop.");
-    println!("  --raw   Repeatedly read raw angles: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive.");
-    println!("  --api   api server (to be added)");
+    println!(
+        "  --shell Repeatedly read radius/angle/height commands from an interactive input loop."
+    );
+    println!(
+        "  --raw   Repeatedly read raw angles: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive."
+    );
+    println!("  --api   Read API commands from stdin and write responses to stdout.");
     println!("  --help  Show this guide.");
     println!("\nPosition command format:");
-    println!("  radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive");
+    println!(
+        "  radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive"
+    );
     println!("Timing is fixed: total period = {TOTAL_TIME_US} µs, pulse width = {PULSE_T_US} µs.");
     println!("\nPC testing:");
     println!("  cargo run -- --cli");
     println!("  cargo run -- --shell");
     println!("  cargo test");
     println!("\nRaspberry Pi hardware:");
-    println!("  cargo build --release --features hardware");
+    println!("  cargo build --release");
     println!("  sudo ./target/release/rustctl --shell");
-    println!("Commands are processed until EOF or Ctrl+C. Without the hardware feature, no GPIO is accessed.");
+    println!(
+        "Commands are processed until EOF or Ctrl+C. Linux builds access GPIO; other platforms simulate motion."
+    );
 }
 
 fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box<dyn std::error::Error>> {
     let values: Vec<&str> = line.split_whitespace().collect();
     if values.len() != 6 {
-        return Err("Expected: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive".into());
+        return Err(
+            "Expected: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive".into(),
+        );
     }
     let solution = ArmSolution {
         theta_base_deg: values[0].parse()?,
@@ -197,8 +210,7 @@ fn ik_angles_3d_deg(
     }
 
     let alpha = z_mm.atan2(r);
-    let cos_theta2 = ((r_space * r_space - l1_mm * l1_mm - l2_mm * l2_mm)
-        / (2.0 * l1_mm * l2_mm))
+    let cos_theta2 = ((r_space * r_space - l1_mm * l1_mm - l2_mm * l2_mm) / (2.0 * l1_mm * l2_mm))
         .clamp(-1.0, 1.0);
     let theta2 = cos_theta2.acos();
     let theta1 = alpha - (l2_mm * theta2.sin()).atan2(l1_mm + l2_mm * theta2.cos());
@@ -246,7 +258,7 @@ fn overhead_sleep_us(total_time_us: u64, pulse_t_us: u64) -> Result<u64, String>
     Ok(total_time_us - min)
 }
 
-#[cfg(any(feature = "hardware", test))]
+#[cfg(any(target_os = "linux", test))]
 struct MultiAxisPlanner<const N: usize> {
     counts: [i64; N],
     accum: [i64; N],
@@ -254,7 +266,7 @@ struct MultiAxisPlanner<const N: usize> {
     remaining: i64,
 }
 
-#[cfg(any(feature = "hardware", test))]
+#[cfg(any(target_os = "linux", test))]
 impl<const N: usize> MultiAxisPlanner<N> {
     fn new(steps: [i64; N]) -> Self {
         let counts: [i64; N] = std::array::from_fn(|i| steps[i].abs());
@@ -268,7 +280,7 @@ impl<const N: usize> MultiAxisPlanner<N> {
     }
 }
 
-#[cfg(any(feature = "hardware", test))]
+#[cfg(any(target_os = "linux", test))]
 impl<const N: usize> Iterator for MultiAxisPlanner<N> {
     type Item = [bool; N];
 
@@ -291,13 +303,13 @@ impl<const N: usize> Iterator for MultiAxisPlanner<N> {
     }
 }
 
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 struct StepperMotor {
     step_pin: OutputPin,
     dir_pin: OutputPin,
 }
 
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 impl StepperMotor {
     fn new(gpio: &Gpio, step: u8, dir: u8) -> Result<Self, rppal::gpio::Error> {
         Ok(Self {
@@ -328,7 +340,7 @@ impl StepperMotor {
     }
 }
 
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 fn run_motion(
     motors: &mut [StepperMotor; NUM_AXES],
     steps: [i64; NUM_AXES],
@@ -395,7 +407,7 @@ fn execute_solution(
     config: &MotionConfig,
     solution: ArmSolution,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(not(feature = "hardware"))]
+    #[cfg(not(target_os = "linux"))]
     let _ = config.ccw_positive;
 
     let overhead_us = match overhead_sleep_us(config.total_time_us, config.pulse_t_us) {
@@ -407,21 +419,38 @@ fn execute_solution(
     };
 
     let steps: [i64; NUM_AXES] = [
-        deg_to_steps(solution.theta1_deg, config.steps_per_rev, config.microstep, GEAR_RATIO),
-        deg_to_steps(solution.theta2_deg, config.steps_per_rev, config.microstep, GEAR_RATIO),
-        deg_to_steps(solution.theta_base_deg, config.steps_per_rev, config.microstep, GEAR_RATIO),
+        deg_to_steps(
+            solution.theta1_deg,
+            config.steps_per_rev,
+            config.microstep,
+            GEAR_RATIO,
+        ),
+        deg_to_steps(
+            solution.theta2_deg,
+            config.steps_per_rev,
+            config.microstep,
+            GEAR_RATIO,
+        ),
+        deg_to_steps(
+            solution.theta_base_deg,
+            config.steps_per_rev,
+            config.microstep,
+            GEAR_RATIO,
+        ),
     ];
 
     print_plan(&solution, &steps);
 
-    #[cfg(feature = "hardware")]
+    #[cfg(target_os = "linux")]
     run_hardware(&config, steps, overhead_us)?;
 
-    #[cfg(not(feature = "hardware"))]
+    #[cfg(not(target_os = "linux"))]
     {
         let _ = overhead_us;
-        println!("\nSimulation only: this binary was built without hardware support, so no GPIO signals were sent.");
-        println!("Build with 'cargo build --release --features hardware' on a Raspberry Pi for motor control.");
+        println!(
+            "\nSimulation only: this binary was built without hardware support, so no GPIO signals were sent."
+        );
+        println!("Build on a Raspberry Pi with 'cargo build --release' for motor control.");
     }
 
     Ok(())
@@ -445,7 +474,9 @@ fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!("Shell mode. Enter one position command per line, or press Ctrl+D to exit.");
         println!("Format (X = radius, Y = base angle in degrees, Z = height):");
-        println!("radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive");
+        println!(
+            "radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive"
+        );
         println!("Example: 100 0 50 200 200 200 16 1");
     }
     let stdin = io::stdin();
@@ -482,9 +513,223 @@ fn run_raw_loop() -> Result<(), Box<dyn std::error::Error>> {
         if line.trim().is_empty() {
             continue;
         }
-        match raw_command(&line).and_then(|(config, solution)| execute_solution(&config, solution)) {
+        match raw_command(&line).and_then(|(config, solution)| execute_solution(&config, solution))
+        {
             Ok(()) => println!("Command completed."),
             Err(error) => eprintln!("Command failed: {error}"),
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, PartialEq)]
+enum ApiCommand {
+    Args(MotionConfig),
+    Raw(MotionConfig, ArmSolution),
+    Status,
+    Help,
+    Quit,
+}
+
+fn hardware_enabled() -> bool {
+    cfg!(target_os = "linux")
+}
+
+fn api_help() -> &'static str {
+    "commands: args <radius_mm> <base_angle_deg> <height_mm> <l1_mm> <l2_mm> <steps_per_rev> <microstep> <ccw_positive> | raw <base_deg> <axis1_deg> <axis2_deg> <steps_per_rev> <microstep> <ccw_positive> | status | help | quit"
+}
+
+fn parse_api_command(line: &str) -> Result<ApiCommand, String> {
+    let mut parts = line.split_whitespace();
+    let command = parts.next().ok_or_else(|| "empty command".to_owned())?;
+    let arguments: Vec<&str> = parts.collect();
+
+    match command.to_ascii_lowercase().as_str() {
+        "args" | "position" => config_from_position(&arguments)
+            .map(ApiCommand::Args)
+            .map_err(|error| error.to_string()),
+        "raw" => raw_command(&arguments.join(" "))
+            .map(|(config, solution)| ApiCommand::Raw(config, solution))
+            .map_err(|error| error.to_string()),
+        "status" => {
+            if !arguments.is_empty() {
+                Err("status does not accept arguments".to_owned())
+            } else {
+                Ok(ApiCommand::Status)
+            }
+        }
+        "help" => {
+            if !arguments.is_empty() {
+                Err("help does not accept arguments".to_owned())
+            } else {
+                Ok(ApiCommand::Help)
+            }
+        }
+        "quit" | "exit" => {
+            if !arguments.is_empty() {
+                Err("quit does not accept arguments".to_owned())
+            } else {
+                Ok(ApiCommand::Quit)
+            }
+        }
+        _ => Err(format!("unknown API command '{command}'")),
+    }
+}
+
+fn api_command_response(command: ApiCommand) -> String {
+    match command {
+        ApiCommand::Status => format!(
+            "status hardware_enabled={} modes=args,raw",
+            hardware_enabled()
+        ),
+        ApiCommand::Help => format!("help {}", api_help()),
+        ApiCommand::Quit => "bye reason=client".to_owned(),
+        ApiCommand::Args(config) => match execute_position(config) {
+            Ok(()) => format!("done mode=args hardware_enabled={}", hardware_enabled()),
+            Err(error) => format!("error mode=args message={error}"),
+        },
+        ApiCommand::Raw(config, solution) => match execute_solution(&config, solution) {
+            Ok(()) => format!("done mode=raw hardware_enabled={}", hardware_enabled()),
+            Err(error) => format!("error mode=raw message={error}"),
+        },
+    }
+}
+
+fn api_command_for_request(method: &str, target: &str, body: &str) -> Result<ApiCommand, String> {
+    let path = target.split('?').next().unwrap_or(target);
+    match (method, path) {
+        ("GET", "/status") if body.is_empty() => Ok(ApiCommand::Status),
+        ("GET", "/help") if body.is_empty() => Ok(ApiCommand::Help),
+        ("POST", "/args") => parse_api_command(&format!("args {body}")),
+        ("POST", "/raw") => parse_api_command(&format!("raw {body}")),
+        ("POST", "/api") => parse_api_command(body),
+        ("GET", _) => Err("unknown API route".to_owned()),
+        (_, _) => Err("method not allowed".to_owned()),
+    }
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Result<(String, String, String), String> {
+    const HEADER_LIMIT: usize = 16 * 1024;
+    let mut buffer = Vec::new();
+    let header_end = loop {
+        let mut chunk = [0u8; 1024];
+        let count = stream.read(&mut chunk).map_err(|error| error.to_string())?;
+        if count == 0 {
+            return Err("connection closed before request headers".to_owned());
+        }
+        buffer.extend_from_slice(&chunk[..count]);
+        if let Some(end) = buffer.windows(4).position(|window| window == b"\r\n\r\n") {
+            break end + 4;
+        }
+        if buffer.len() > HEADER_LIMIT {
+            return Err("request headers are too large".to_owned());
+        }
+    };
+
+    let (method, target, content_length) = {
+        let header_text =
+            std::str::from_utf8(&buffer[..header_end]).map_err(|_| "invalid HTTP headers")?;
+        let mut lines = header_text.split("\r\n");
+        let request_line = lines
+            .next()
+            .ok_or_else(|| "missing HTTP request line".to_owned())?;
+        let mut request_parts = request_line.split_whitespace();
+        let method = request_parts
+            .next()
+            .ok_or_else(|| "missing HTTP method".to_owned())?;
+        let target = request_parts
+            .next()
+            .ok_or_else(|| "missing HTTP target".to_owned())?;
+        let version = request_parts
+            .next()
+            .ok_or_else(|| "missing HTTP version".to_owned())?;
+        if version != "HTTP/1.1" && version != "HTTP/1.0" {
+            return Err("unsupported HTTP version".to_owned());
+        }
+
+        let content_length = lines
+            .filter_map(|line| line.split_once(':'))
+            .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+            .map(|(_, value)| value.trim().parse::<usize>())
+            .transpose()
+            .map_err(|_| "invalid Content-Length".to_owned())?
+            .unwrap_or(0);
+        (method.to_owned(), target.to_owned(), content_length)
+    };
+    if content_length > 1024 * 1024 {
+        return Err("request body is too large".to_owned());
+    }
+
+    while buffer.len() - header_end < content_length {
+        let mut chunk = [0u8; 1024];
+        let count = stream.read(&mut chunk).map_err(|error| error.to_string())?;
+        if count == 0 {
+            return Err("connection closed before request body".to_owned());
+        }
+        buffer.extend_from_slice(&chunk[..count]);
+    }
+    let body = std::str::from_utf8(&buffer[header_end..header_end + content_length])
+        .map_err(|_| "request body is not UTF-8")?;
+    Ok((method, target, body.to_owned()))
+}
+
+fn write_http_response(
+    stream: &mut TcpStream,
+    status: &str,
+    body: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    write!(
+        stream,
+        "HTTP/1.1 {status}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )?;
+    stream.flush()?;
+    Ok(())
+}
+
+fn handle_api_connection(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
+    match read_http_request(&mut stream) {
+        Ok((method, target, body)) => match api_command_for_request(&method, &target, &body) {
+            Ok(command) => {
+                write_http_response(&mut stream, "200 OK", &api_command_response(command))?
+            }
+            Err(error) if error == "method not allowed" => write_http_response(
+                &mut stream,
+                "405 Method Not Allowed",
+                &format!("error message={error}"),
+            )?,
+            Err(error) if error == "unknown API route" => write_http_response(
+                &mut stream,
+                "404 Not Found",
+                &format!("error message={error}"),
+            )?,
+            Err(error) => write_http_response(
+                &mut stream,
+                "400 Bad Request",
+                &format!("error message={error}"),
+            )?,
+        },
+        Err(error) => write_http_response(
+            &mut stream,
+            "400 Bad Request",
+            &format!("error message={error}"),
+        )?,
+    }
+    Ok(())
+}
+
+fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
+    let address = env::var("RUSTCTL_API_ADDR").unwrap_or_else(|_| format!("127.0.0.1:{API_PORT}"));
+    let listener = TcpListener::bind(&address)?;
+    println!(
+        "API listening on http://{address} hardware_enabled={} routes=/status,/help,/args,/raw",
+        hardware_enabled()
+    );
+    io::stdout().flush()?;
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => handle_api_connection(stream)?,
+            Err(error) => eprintln!("API connection failed: {error}"),
         }
     }
     Ok(())
@@ -509,12 +754,7 @@ fn get_mode(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
-    println!("not yet implemented");
-    Ok(())
-}
-
-#[cfg(feature = "hardware")]
+#[cfg(target_os = "linux")]
 fn run_hardware(
     config: &MotionConfig,
     steps: [i64; NUM_AXES],
@@ -526,7 +766,7 @@ fn run_hardware(
         StepperMotor::new(&gpio, PIN_AXIS2.0, PIN_AXIS2.1)?,
         StepperMotor::new(&gpio, PIN_BASE.0, PIN_BASE.1)?,
     ];
-    let mut spare = StepperMotor::new(&gpio, PIN_SPARE.0, PIN_SPARE.1)?;
+    let mut spare = StepperMotor::new(&gpio, PIN_ENDEFFECTOR.0, PIN_ENDEFFECTOR.1)?;
     spare.reset();
 
     for i in 0..NUM_AXES {
@@ -539,7 +779,13 @@ fn run_hardware(
         ctrlc::set_handler(move || t.store(true, Ordering::SeqCst))?;
     }
 
-    let stepped = run_motion(&mut motors, steps, config.pulse_t_us, overhead_us, &terminate);
+    let stepped = run_motion(
+        &mut motors,
+        steps,
+        config.pulse_t_us,
+        overhead_us,
+        &terminate,
+    );
 
     for m in motors.iter_mut() {
         m.reset();
@@ -557,6 +803,109 @@ fn run_hardware(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn api_parses_args_mode() {
+        let command = parse_api_command("args 100 20 50 200 200 200 16 1").unwrap();
+        match command {
+            ApiCommand::Args(config) => {
+                assert_eq!(config.x_mm, 100.0);
+                assert_eq!(config.y_mm, 20.0);
+                assert_eq!(config.z_mm, 50.0);
+                assert_eq!(config.steps_per_rev, 200);
+                assert_eq!(config.microstep, 16);
+                assert!(config.ccw_positive);
+            }
+            other => panic!("expected args command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn api_parses_position_alias_case_insensitively() {
+        assert!(matches!(
+            parse_api_command("PoSiTiOn 100 0 50 200 200 200 16 0"),
+            Ok(ApiCommand::Args(_))
+        ));
+    }
+
+    #[test]
+    fn api_parses_raw_mode() {
+        let command = parse_api_command("raw -10 25 30 400 8 0").unwrap();
+        match command {
+            ApiCommand::Raw(config, solution) => {
+                assert_eq!(solution.theta_base_deg, -10.0);
+                assert_eq!(solution.theta1_deg, 25.0);
+                assert_eq!(solution.theta2_deg, 30.0);
+                assert_eq!(config.steps_per_rev, 400);
+                assert_eq!(config.microstep, 8);
+                assert!(!config.ccw_positive);
+            }
+            other => panic!("expected raw command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn api_parses_control_commands() {
+        assert_eq!(parse_api_command("status"), Ok(ApiCommand::Status));
+        assert_eq!(parse_api_command("help"), Ok(ApiCommand::Help));
+        assert_eq!(parse_api_command("exit"), Ok(ApiCommand::Quit));
+        assert_eq!(parse_api_command("quit"), Ok(ApiCommand::Quit));
+    }
+
+    #[test]
+    fn api_rejects_missing_or_extra_arguments() {
+        assert!(parse_api_command("args 100 0 50").is_err());
+        assert!(parse_api_command("raw 0 0 0 200 16").is_err());
+        assert!(parse_api_command("status now").is_err());
+        assert!(parse_api_command("help now").is_err());
+        assert!(parse_api_command("quit now").is_err());
+    }
+
+    #[test]
+    fn api_rejects_unknown_and_empty_commands() {
+        assert!(parse_api_command("").is_err());
+        assert!(parse_api_command("dance 1 2 3").is_err());
+    }
+
+    #[test]
+    fn api_routes_http_status_and_help() {
+        assert_eq!(
+            api_command_for_request("GET", "/status", ""),
+            Ok(ApiCommand::Status)
+        );
+        assert_eq!(
+            api_command_for_request("GET", "/help?format=text", ""),
+            Ok(ApiCommand::Help)
+        );
+    }
+
+    #[test]
+    fn api_routes_http_motion_modes() {
+        assert!(matches!(
+            api_command_for_request("POST", "/args", "100 0 50 200 200 200 16 1"),
+            Ok(ApiCommand::Args(_))
+        ));
+        assert!(matches!(
+            api_command_for_request("POST", "/raw", "0 0 0 200 16 1"),
+            Ok(ApiCommand::Raw(_, _))
+        ));
+        assert!(matches!(
+            api_command_for_request("POST", "/api", "status"),
+            Ok(ApiCommand::Status)
+        ));
+    }
+
+    #[test]
+    fn api_rejects_invalid_http_routes_and_methods() {
+        assert!(api_command_for_request("GET", "/args", "100 0 50 200 200 200 16 1").is_err());
+        assert!(api_command_for_request("POST", "/missing", "").is_err());
+        assert!(api_command_for_request("GET", "/status", "unexpected").is_err());
+    }
+
+    #[test]
+    fn api_reports_compiled_hardware_capability() {
+        assert_eq!(hardware_enabled(), cfg!(target_os = "linux"));
+    }
 
     fn approx(a: f64, b: f64) -> bool {
         (a - b).abs() <= 1e-6
@@ -655,11 +1004,19 @@ mod tests {
     #[test]
     fn ik_forward_roundtrip() {
         let (l1, l2) = (120.0, 90.0);
-        for &(radius, base_angle, height) in &[(150.0, 30.0, 40.0), (80.0, -60.0, 20.0), (0.0, 90.0, 50.0)] {
+        for &(radius, base_angle, height) in
+            &[(150.0, 30.0, 40.0), (80.0, -60.0, 20.0), (0.0, 90.0, 50.0)]
+        {
             let s = ik_angles_3d_deg(radius, base_angle, height, l1, l2).unwrap();
             let (r_eff, z_eff) = forward_r_z_mm(s.theta1_deg, s.theta2_deg, l1, l2);
-            assert!(approx(r_eff, radius), "radius mismatch: {r_eff} vs {radius}");
-            assert!(approx(z_eff, height), "height mismatch: {z_eff} vs {height}");
+            assert!(
+                approx(r_eff, radius),
+                "radius mismatch: {r_eff} vs {radius}"
+            );
+            assert!(
+                approx(z_eff, height),
+                "height mismatch: {z_eff} vs {height}"
+            );
             assert!(approx(s.theta_base_deg, base_angle));
         }
     }
@@ -718,6 +1075,9 @@ mod tests {
                 gap += 1;
             }
         }
-        assert!(max_gap <= 1, "pulses should be evenly spaced, gap={max_gap}");
+        assert!(
+            max_gap <= 1,
+            "pulses should be evenly spaced, gap={max_gap}"
+        );
     }
 }
