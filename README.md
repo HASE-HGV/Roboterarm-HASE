@@ -107,7 +107,7 @@ All BCM pin numbers reference the [pinout.xyz](https://pinout.xyz) standard.
 
 ```mermaid
 flowchart TD
-    PSU["🔌 Power Supply Unit"]
+    PSU["Power Supply Unit"]
 
     subgraph Power["Power Rails"]
         PSU --> V5["5 V Output"]
@@ -222,7 +222,7 @@ Roboterarm-HASE/
 
 ```mermaid
 flowchart LR
-    Browser["🌐 Browser UI\n(planned — Go)"]
+    Browser["Browser UI\n(planned — Go)"]
     WebServer["Go Webserver\n(planned)"]
     rustctl["rustctl\n(Rust — active)"]
     GPIO["Raspberry Pi GPIO"]
@@ -244,7 +244,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-e     A([Start]) --> B{CLI mode?}
+    A([Start]) --> B{CLI mode?}
     B -- Yes --> C[Parse 10 parameters]
     B -- No --> D[Interactive prompt loop]
     C & D --> E[Validate timing constraints]
