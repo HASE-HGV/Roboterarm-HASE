@@ -492,6 +492,10 @@ fn run_raw_loop() -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
+    get_mode(args)
+}
+
+fn get_mode(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     match args.get(1).map(String::as_str) {
         Some("--cli") => execute_position(prompt_position()?),
         Some("--args") => run_position_loop(false),
