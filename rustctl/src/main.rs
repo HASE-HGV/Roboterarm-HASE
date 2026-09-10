@@ -113,10 +113,10 @@ fn config_from_line(line: &str) -> Result<MotionConfig, Box<dyn std::error::Erro
 
 fn print_help(program: &str) {
     println!("Roboterarm controller\n");
-    println!("Usage: {program} --cli | --args | --raw | --api | --help");
+    println!("Usage: {program} --cli | --shell | --raw | --api | --help");
     println!("\nModes:");
     println!("  --cli   Prompt for one XYZ position and execute it.");
-    println!("  --args  Repeatedly read radius/angle/height commands from an interactive input loop.");
+    println!("  --shell Repeatedly read radius/angle/height commands from an interactive input loop.");
     println!("  --raw   Repeatedly read raw angles: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive.");
     println!("  --api   api server (to be added)");
     println!("  --help  Show this guide.");
@@ -125,11 +125,11 @@ fn print_help(program: &str) {
     println!("Timing is fixed: total period = {TOTAL_TIME_US} µs, pulse width = {PULSE_T_US} µs.");
     println!("\nPC testing:");
     println!("  cargo run -- --cli");
-    println!("  cargo run -- --args");
+    println!("  cargo run -- --shell");
     println!("  cargo test");
     println!("\nRaspberry Pi hardware:");
     println!("  cargo build --release --features hardware");
-    println!("  sudo ./target/release/rustctl --args");
+    println!("  sudo ./target/release/rustctl --shell");
     println!("Commands are processed until EOF or Ctrl+C. Without the hardware feature, no GPIO is accessed.");
 }
 
@@ -443,7 +443,7 @@ fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
     if api {
         println!("API mode ready. Send one position command per line.");
     } else {
-        println!("Args mode. Enter one position command per line, or press Ctrl+D to exit.");
+        println!("Shell mode. Enter one position command per line, or press Ctrl+D to exit.");
         println!("Format (X = radius, Y = base angle in degrees, Z = height):");
         println!("radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive");
         println!("Example: 100 0 50 200 200 200 16 1");
@@ -451,7 +451,7 @@ fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
     let stdin = io::stdin();
     loop {
         if !api {
-            print!("args> ");
+            print!("shell> ");
             io::stdout().flush()?;
         }
         let mut line = String::new();
@@ -498,7 +498,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn get_mode(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     match args.get(1).map(String::as_str) {
         Some("--cli") => execute_position(prompt_position()?),
-        Some("--args") => run_position_loop(false),
+        Some("--shell") => run_position_loop(false),
         Some("--api") => run_api(),
         Some("--raw") => run_raw_loop(),
         Some("--help") | None => {

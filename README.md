@@ -244,7 +244,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A([Start]) --> B{CLI args?}
+    A([Start]) --> B{CLI mode?}
     B -- Yes --> C[Parse 10 parameters]
     B -- No --> D[Interactive prompt loop]
     C & D --> E[Validate timing constraints]
@@ -445,13 +445,13 @@ Timing is fixed in the controller: each step period is **1083 µs** and each STE
 pulse is **500 µs**. The timing values are no longer command-line arguments.
 
 ```text
-rustctl --cli | --args | --raw | --api | --help
+rustctl --cli | --shell | --raw | --api | --help
 ```
 
 | Mode | Description |
 |------|-------------|
 | `--cli` | Prompt for one XYZ position and execute it. |
-| `--args` | Repeatedly read position commands until EOF or Ctrl+C. |
+| `--shell` | Repeatedly read position commands until EOF or Ctrl+C. |
 | `--raw` | Repeatedly read raw joint angles until EOF or Ctrl+C. |
 | `--api` | Read newline-delimited position commands from stdin for a future web app. |
 | `--help` | Print the complete usage guide. |
@@ -479,7 +479,7 @@ The default build does not access GPIO and is safe to run on a regular PC:
 cargo test
 cargo run -- --help
 cargo run -- --cli
-cargo run -- --args
+cargo run -- --shell
 ```
 
 ### 7.5 Running on a Raspberry Pi
@@ -488,7 +488,7 @@ Build with hardware support on the Pi, then run the selected mode with GPIO acce
 
 ```bash
 cargo build --release --features hardware
-sudo ./target/release/rustctl --args
+sudo ./target/release/rustctl --shell
 ```
 
 Commands are rejected with an error and the loop continues. Press **Ctrl+C** to
