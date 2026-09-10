@@ -6,7 +6,7 @@ use std::{
 
 const API_PORT: u16 = 5000;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 use std::{
     sync::{
         Arc,
@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 use rppal::gpio::{Gpio, OutputPin};
 
 const GEAR_RATIO: f64 = 16.0;
@@ -25,13 +25,13 @@ const PULSE_T_US: u64 = 500;
 const HARDWARE_OVERHEAD_US: u64 = 83;
 const NUM_AXES: usize = 3;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 const PIN_AXIS1: (u8, u8) = (17, 27);
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 const PIN_AXIS2: (u8, u8) = (22, 23);
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 const PIN_BASE: (u8, u8) = (24, 25);
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 const PIN_ENDEFFECTOR: (u8, u8) = (5, 6);
 
 macro_rules! debug_invariant {
@@ -137,7 +137,7 @@ fn print_help(program: &str) {
     println!("  cargo run -- --shell");
     println!("  cargo test");
     println!("\nRaspberry Pi hardware:");
-    println!("  cargo build --release");
+    println!("  cargo build --release --features hardware");
     println!("  sudo ./target/release/rustctl --shell");
     println!(
         "Commands are processed until EOF or Ctrl+C. Linux builds access GPIO; other platforms simulate motion."
@@ -303,13 +303,13 @@ impl<const N: usize> Iterator for MultiAxisPlanner<N> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 struct StepperMotor {
     step_pin: OutputPin,
     dir_pin: OutputPin,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 impl StepperMotor {
     fn new(gpio: &Gpio, step: u8, dir: u8) -> Result<Self, rppal::gpio::Error> {
         Ok(Self {
@@ -340,7 +340,7 @@ impl StepperMotor {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 fn run_motion(
     motors: &mut [StepperMotor; NUM_AXES],
     steps: [i64; NUM_AXES],
@@ -407,7 +407,7 @@ fn execute_solution(
     config: &MotionConfig,
     solution: ArmSolution,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(feature = "hardware", target_os = "linux")))]
     let _ = config.ccw_positive;
 
     let overhead_us = match overhead_sleep_us(config.total_time_us, config.pulse_t_us) {
@@ -441,16 +441,18 @@ fn execute_solution(
 
     print_plan(&solution, &steps);
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(feature = "hardware", target_os = "linux"))]
     run_hardware(&config, steps, overhead_us)?;
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(feature = "hardware", target_os = "linux")))]
     {
         let _ = overhead_us;
         println!(
             "\nSimulation only: this binary was built without hardware support, so no GPIO signals were sent."
         );
-        println!("Build on a Raspberry Pi with 'cargo build --release' for motor control.");
+        println!(
+            "Build on a Raspberry Pi with 'cargo build --release --features hardware' for motor control."
+        );
     }
 
     Ok(())
@@ -532,7 +534,7 @@ enum ApiCommand {
 }
 
 fn hardware_enabled() -> bool {
-    cfg!(target_os = "linux")
+    cfg!(all(feature = "hardware", target_os = "linux"))
 }
 
 fn api_help() -> &'static str {
@@ -754,7 +756,7 @@ fn get_mode(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "hardware", target_os = "linux"))]
 fn run_hardware(
     config: &MotionConfig,
     steps: [i64; NUM_AXES],
@@ -904,7 +906,10 @@ mod tests {
 
     #[test]
     fn api_reports_compiled_hardware_capability() {
-        assert_eq!(hardware_enabled(), cfg!(target_os = "linux"));
+        assert_eq!(
+            hardware_enabled(),
+            cfg!(all(feature = "hardware", target_os = "linux"))
+        );
     }
 
     fn approx(a: f64, b: f64) -> bool {

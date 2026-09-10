@@ -421,7 +421,7 @@ The 83 µs constant accounts for measured code overhead (mutex lock/unlock, loop
 ```bash
 git clone https://github.com/HASE-HGV/Roboterarm-HASE.git
 cd Roboterarm-HASE/rustctl
-cargo build --release
+cargo build --release --features hardware
 sudo ./target/release/rustctl
 ```
 
@@ -432,7 +432,7 @@ Cross-compiling from a non-Pi machine (e.g. a laptop):
 rustup target add aarch64-unknown-linux-gnu
 
 # Build
-cargo build --release --target aarch64-unknown-linux-gnu
+cargo build --release --features hardware --target aarch64-unknown-linux-gnu
 
 # Copy to Pi and run
 scp target/aarch64-unknown-linux-gnu/release/rustctl pi@<IP>:~/
@@ -503,7 +503,7 @@ cargo run -- --shell
 Build with hardware support on the Pi, then run the selected mode with GPIO access:
 
 ```bash
-cargo build --release
+cargo build --release --features hardware
 sudo ./target/release/rustctl --shell
 ```
 

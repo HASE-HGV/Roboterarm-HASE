@@ -5,8 +5,8 @@ edition = "2024"
 
 [features]
 default = []
-hardware = []
+hardware = ["dep:ctrlc", "dep:rppal"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-ctrlc = "3"
-rppal = "0.22"
+ctrlc = { version = "3", optional = true }
+rppal = { version = "0.22", optional = true }
