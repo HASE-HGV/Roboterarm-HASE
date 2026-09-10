@@ -495,10 +495,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match args.get(1).map(String::as_str) {
         Some("--cli") => execute_position(prompt_position()?),
         Some("--args") => run_position_loop(false),
-        Some("--api") => {
-            println!("not yet implemented");
-            Ok(())
-        }
+        Some("--api") => run_api(),
         Some("--raw") => run_raw_loop(),
         Some("--help") | None => {
             print_help(&args[0]);
@@ -506,6 +503,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(mode) => Err(format!("Unknown mode '{mode}'. Use --help for usage.").into()),
     }
+}
+
+fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
+    println!("not yet implemented");
+    Ok(())
 }
 
 #[cfg(feature = "hardware")]
