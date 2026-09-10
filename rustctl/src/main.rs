@@ -203,13 +203,13 @@ fn ik_angles_3d_deg(
     let theta2 = cos_theta2.acos();
     let theta1 = alpha - (l2_mm * theta2.sin()).atan2(l1_mm + l2_mm * theta2.cos());
 
-    let (r_eff, z_eff) = forward_r_z_mm(theta1.to_degrees(), theta2.to_degrees(), l1_mm, l2_mm);
+    let (_r_eff, z_eff) = forward_r_z_mm(theta1.to_degrees(), theta2.to_degrees(), l1_mm, l2_mm);
 
     debug_invariant!(
-        (r_eff - r).abs() < 1e-6 && (z_eff - z_mm).abs() < 1e-6,
+        (_r_eff - r).abs() < 1e-6 && (z_eff - z_mm).abs() < 1e-6,
         r,
         z_mm,
-        r_eff,
+        _r_eff,
         z_eff
     );
 
