@@ -140,7 +140,7 @@ fn print_help(program: &str) {
     println!("  cargo build --release --features hardware");
     println!("  sudo ./target/release/rustctl --shell");
     println!(
-        "Commands are processed until EOF or Ctrl+C. Linux builds access GPIO; other platforms simulate motion."
+        "Commands are processed until EOF or Ctrl+C. Linux builds access GPIO; other platforms simulate motion and present it in a table view."
     );
 }
 

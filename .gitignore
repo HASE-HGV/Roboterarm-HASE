@@ -13,6 +13,11 @@
 /rustctl/target/*
 gpioTest/target/*
 
+# local coding notes
+
+doc.typ
+doc.pdf
+
 # Go .test-Dateien
 *.test
 
