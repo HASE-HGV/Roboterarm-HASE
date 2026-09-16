@@ -35,8 +35,10 @@
 7. [Installation & Usage](#7-installation--usage)
    - 7.1 [Prerequisites](#71-prerequisites)
    - 7.2 [Build & Run](#72-build--run)
-   - 7.3 [CLI Parameters](#73-cli-parameters)
-   - 7.4 [Interactive Mode](#74-interactive-mode)
+  - 7.3 [CLI Modes](#73-cli-modes)
+  - 7.4 [API Implementation Guide](#74-api-implementation-guide)
+  - 7.5 [Testing on a PC](#75-testing-on-a-pc)
+  - 7.6 [Running on a Raspberry Pi](#76-running-on-a-raspberry-pi)
 8. [Known Issues & Limitations](#8-known-issues--limitations)
 9. [Future Goals](#9-future-goals)
 10. [References](#10-references)
@@ -107,7 +109,7 @@ All BCM pin numbers reference the [pinout.xyz](https://pinout.xyz) standard.
 
 ```mermaid
 flowchart TD
-    PSU["🔌 Power Supply Unit"]
+    PSU["Power Supply Unit"]
 
     subgraph Power["Power Rails"]
         PSU --> V5["5 V Output"]
@@ -199,7 +201,12 @@ The [A4988](https://www.pololu.com/file/0J450/A4988.pdf) is a microstepping driv
 Roboterarm-HASE/
 ├── rustctl/                     ← Main control program
 │   ├── Cargo.toml
-│   └── src/main.rs
+│   └── src/
+│       ├── main.rs              ← CLI, shell, hardware execution, shared wiring
+│       ├── api.rs               ← JSON API parsing, routing, and responses
+│       ├── kinematics.rs         ← IK, forward kinematics, steps, timing
+│       ├── bresenham.rs          ← Multi-axis step synchronization planner
+│       └── tests.rs              ← Unit tests for API, kinematics, timing, planner
 ├── gpioTest/                    ← Early GPIO motor test
 │   ├── Cargo.toml
 │   └── src/main.rs
@@ -222,7 +229,7 @@ Roboterarm-HASE/
 
 ```mermaid
 flowchart LR
-    Browser["🌐 Browser UI\n(planned — Go)"]
+    Browser["Browser UI\n(planned — Go)"]
     WebServer["Go Webserver\n(planned)"]
     rustctl["rustctl\n(Rust — active)"]
     GPIO["Raspberry Pi GPIO"]
@@ -231,7 +238,7 @@ flowchart LR
     Arm["Robot Arm"]
 
     Browser -->|"HTTP / REST"| WebServer
-    WebServer -->|"stdin / process"| rustctl
+    WebServer -->|"HTTP / TCP"| rustctl
     rustctl -->|"rppal GPIO"| GPIO
     GPIO -->|"STEP + DIR pulses"| A4988s
     A4988s -->|"Motor current"| Motors
@@ -421,7 +428,7 @@ The 83 µs constant accounts for measured code overhead (mutex lock/unlock, loop
 ```bash
 git clone https://github.com/HASE-HGV/Roboterarm-HASE.git
 cd Roboterarm-HASE/rustctl
-cargo build --release
+cargo build --release --features hardware
 sudo ./target/release/rustctl
 ```
 
@@ -432,7 +439,7 @@ Cross-compiling from a non-Pi machine (e.g. a laptop):
 rustup target add aarch64-unknown-linux-gnu
 
 # Build
-cargo build --release --target aarch64-unknown-linux-gnu
+cargo build --release --features hardware --target aarch64-unknown-linux-gnu
 
 # Copy to Pi and run
 scp target/aarch64-unknown-linux-gnu/release/rustctl pi@<IP>:~/
@@ -453,7 +460,7 @@ rustctl --cli | --shell | --raw | --api | --help
 | `--cli` | Prompt for one XYZ position and execute it. |
 | `--shell` | Repeatedly read position commands until EOF or Ctrl+C. |
 | `--raw` | Repeatedly read raw joint angles until EOF or Ctrl+C. |
-| `--api` | Read newline-delimited position commands from stdin for a future web app. |
+| `--api` | Run the device-local HTTP API (default `127.0.0.1:5000`). |
 | `--help` | Print the complete usage guide. |
 
 Position command format:
@@ -471,7 +478,302 @@ Raw angle command format:
 base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive
 ```
 
-### 7.4 Testing on a PC
+### 7.4 API Implementation Guide
+
+The `--api` mode is a deliberately small HTTP server intended to be wrapped by
+a web server, desktop application, script, or another robot controller. It
+uses JSON request bodies and JSON responses. The same JSON objects can be sent
+as newline-delimited input to `--api` when HTTP is not needed.
+
+#### Start the API
+
+Run the controller in simulation mode on a development machine:
+
+```bash
+cd rustctl
+cargo run -- --api
+```
+
+The default listener is `http://127.0.0.1:5000`. The startup line tells the
+client whether this process can access GPIO:
+
+```text
+API listening on http://127.0.0.1:5000 hardware_enabled=false routes=/status,/help,/test,/args,/raw
+```
+
+On a Raspberry Pi, build with hardware support and run the same mode:
+
+```bash
+cargo build --release --features hardware
+sudo ./target/release/rustctl --api
+```
+
+To listen on another address or allow other machines on the network to reach
+the controller, set `RUSTCTL_API_ADDR` before starting it:
+
+```bash
+RUSTCTL_API_ADDR=192.168.1.50:5000 sudo -E ./target/release/rustctl --api
+```
+
+Use `0.0.0.0:5000` only when the host firewall and network access are suitably
+restricted. The server has no authentication, TLS, rate limiting, or request
+authorization. The default loopback binding is the safest option when the API
+is consumed by a local web server.
+
+#### Wire contract
+
+Every request is a normal HTTP/1.0 or HTTP/1.1 request. The response has
+`Content-Type: application/json; charset=utf-8`, includes a `Content-Length`, and
+closes the TCP connection after one request. HTTP clients normally set
+`Content-Length` automatically; do not send chunked request bodies.
+
+| Method | Path | Body | Purpose |
+|--------|------|------|---------|
+| `GET` | `/status` | empty | Read hardware capability and supported JSON commands. |
+| `GET` | `/help` | empty | Read the JSON command format advertised by the controller. |
+| `GET` | `/test` | empty | Run the runtime self-tests and return named failures. |
+| `POST` | `/args` | JSON object | Convert a Cartesian target using inverse kinematics, then execute it. |
+| `POST` | `/raw` | JSON object | Execute supplied joint angles without inverse kinematics. |
+| `POST` | `/api` | JSON object | Use the `command` field to select any API operation. |
+
+Paths may contain a query string. Routing ignores the query part, so
+`/status?format=json` is equivalent to `/status`. Motion requests use named JSON
+fields, not positional text values.
+
+#### Position endpoint: `POST /args`
+
+The body contains these named fields:
+
+```json
+{
+  "radius_mm": 100,
+  "base_angle_deg": 0,
+  "height_mm": 50,
+  "l1_mm": 200,
+  "l2_mm": 200,
+  "steps_per_rev": 200,
+  "microstep": 16,
+  "ccw_positive": true
+}
+```
+
+| Position | Type | Meaning |
+|----------|------|---------|
+| `radius_mm` | number | Non-negative horizontal distance from the base axis (`X`). |
+| `base_angle_deg` | number | Base rotation around the vertical axis (`Y`), in degrees. |
+| `height_mm` | number | Target height (`Z`), in millimeters. |
+| `l1_mm` | positive number | Length of the first arm link. |
+| `l2_mm` | positive number | Length of the second arm link. |
+| `steps_per_rev` | integer | Full motor steps per motor revolution, commonly `200`. |
+| `microstep` | integer | Driver subdivision, commonly `1`, `2`, `4`, `8`, or `16`. |
+| `ccw_positive` | `1` or `0` | Maps positive calculated steps to CCW (`1`) or CW (`0`). |
+
+Example request:
+
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:5000/args \
+  -H 'Content-Type: application/json' \
+  --data '{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}'
+```
+
+The controller interprets the first three values as cylindrical coordinates:
+`radius_mm` is the radial distance, `base_angle_deg` is the M3 rotation, and
+`height_mm` is the vertical coordinate. The target must be within the modeled
+workspace: `sqrt(radius_mm^2 + height_mm^2) <= l1_mm + l2_mm`.
+
+#### Raw endpoint: `POST /raw`
+
+The body contains these named fields:
+
+```json
+{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true}
+```
+
+This bypasses inverse kinematics. It is useful for calibration, manually
+verified joint targets, and applications that perform their own kinematics.
+The angle-to-step conversion is:
+
+```text
+motor_steps = round(angle_deg × steps_per_rev × microstep × 16 / 360)
+```
+
+The factor `16` is the controller's fixed gearbox ratio. The raw endpoint still
+uses the same timing, microstep, and direction parameters as `/args`.
+
+Example:
+
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:5000/raw \
+  -H 'Content-Type: application/json' \
+  --data '{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true}'
+```
+
+#### Status, help, and command endpoint
+
+```bash
+curl http://127.0.0.1:5000/status
+# {"ok":true,"status":"ready","hardware_enabled":false,"commands":["args","raw","status","help","test","quit"]}
+
+curl http://127.0.0.1:5000/help
+# {"ok":true,"help":"JSON commands: ..."}
+
+curl http://127.0.0.1:5000/test
+# {"ok":true,"status":"tests_completed","tests":{"passed":4,"failed":0,"failures":[]}}
+```
+
+`POST /api` accepts a JSON object with a `command` field. This is convenient
+for clients that want one generic command function:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api -H 'Content-Type: application/json' --data '{"command":"status"}'
+curl -X POST http://127.0.0.1:5000/api -H 'Content-Type: application/json' --data '{"command":"test"}'
+curl -X POST http://127.0.0.1:5000/api -H 'Content-Type: application/json' --data '{"command":"args","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}'
+```
+
+`position` is accepted as a case-insensitive alias for `args`. `tests` is an
+alias for `test`, and `quit`/`exit` return a JSON bye response; they do not shut
+down the HTTP server because each request is handled independently.
+
+#### Runtime tests and status updates
+
+The `test` command runs the controller's kinematics, step conversion, timing,
+and multi-axis planner checks inside the running process. A response reports
+the number passed and failed. Every failure includes the exact test function
+name and a message explaining what was observed:
+
+```json
+{
+  "ok": true,
+  "status": "tests_completed",
+  "tests": {
+    "passed": 3,
+    "failed": 1,
+    "failures": [
+      {
+        "function": "runtime_test_step_conversion",
+        "message": "expected 3200 steps, got 3199"
+      }
+    ]
+  }
+}
+```
+
+#### Responses and errors
+
+Successful motion responses are JSON:
+
+```json
+{"ok":true,"status":"done","mode":"args","hardware_enabled":true}
+```
+
+The `hardware_enabled` value is `true` only for a Linux build compiled with
+the `hardware` Cargo feature. A successful non-hardware build performs the
+kinematics and step planning but sends no GPIO pulses.
+
+There are two error layers that an API client should handle:
+
+| HTTP status | Example body | Meaning |
+|-------------|--------------|---------|
+| `200 OK` | `{"ok":false,"error":{"mode":"args","message":"IK error: Out of workspace"}}` | The request syntax was valid, but the requested motion could not be executed. |
+| `400 Bad Request` | `{"ok":false,"error":{"message":"invalid JSON: ..."}}` | Invalid JSON, missing fields, or invalid HTTP request. |
+| `404 Not Found` | `{"ok":false,"error":{"message":"unknown API route"}}` | Path is not implemented. |
+| `405 Method Not Allowed` | `{"ok":false,"error":{"message":"method not allowed"}}` | Path exists but the HTTP method is not supported. |
+
+Do not treat every `200 OK` as a completed move: inspect the text body and
+require it to start with `done`. For a small client, splitting the response
+into whitespace-separated `key=value` fields works for `status` and `done`
+responses. Error messages may contain spaces, so preserve everything after
+`message=` as a human-readable diagnostic.
+
+#### Python client example
+
+This complete example sends a target, checks the HTTP status, and distinguishes
+a transport/protocol failure from a rejected motion:
+
+```python
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+
+BASE_URL = "http://127.0.0.1:5000"
+
+
+def request(method, path, body=None):
+    data = None if body is None else body.encode("utf-8")
+    request = Request(
+        BASE_URL + path,
+        data=data,
+        method=method,
+        headers={"Content-Type": "text/plain"},
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            return response.status, response.read().decode("utf-8")
+    except HTTPError as error:
+        return error.code, error.read().decode("utf-8")
+    except URLError as error:
+        raise RuntimeError(f"controller is unreachable: {error.reason}") from error
+
+
+status_code, status_body = request("GET", "/status")
+if status_code != 200:
+    raise RuntimeError(status_body)
+
+command = "100 0 50 200 200 200 16 1"
+status_code, body = request("POST", "/args", command)
+if status_code != 200:
+    raise RuntimeError(f"API rejected the request ({status_code}): {body}")
+if not body.startswith("done "):
+    raise RuntimeError(f"motion was not completed: {body}")
+print(body)
+```
+
+#### JavaScript / browser client example
+
+The same API can be called from a browser or Node.js runtime with `fetch`:
+
+```javascript
+async function moveArm(radius, baseAngle, height) {
+  const body = `${radius} ${baseAngle} ${height} 200 200 200 16 1`;
+  const response = await fetch("http://127.0.0.1:5000/args", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+  if (!text.startsWith("done ")) {
+    throw new Error(`Motion failed: ${text}`);
+  }
+  return text;
+}
+
+await moveArm(100, 0, 50);
+```
+
+When browser code is served from a different origin, place a same-origin proxy
+in front of `rustctl`. The controller does not emit CORS headers.
+
+#### Integration and safety rules
+
+- A motion request is synchronous: the HTTP response is written after the
+  motion finishes or fails. Set a client timeout longer than the expected move.
+- The listener processes connections sequentially. Queue commands in the
+  application layer and wait for `done` before sending the next move.
+- There is no position feedback, homing, acceleration profile, joint limit, or
+  collision detection. Your API should validate application-specific limits
+  before forwarding commands.
+- `/raw` can command arbitrary joint angles. Restrict it to trusted operators
+  and calibration tooling.
+- The default build simulates motion. Verify `hardware_enabled=true` before
+  assuming that motors were energized.
+- The API does not provide authentication or encryption. Keep it on loopback,
+  or put it behind a trusted network, firewall, and authenticated TLS proxy.
+- Do not send a new command after a client timeout until you have determined
+  whether the original request completed; the controller may still be moving.
+
+### 7.5 Testing on a PC
 
 The default build does not access GPIO and is safe to run on a regular PC:
 
@@ -482,7 +784,7 @@ cargo run -- --cli
 cargo run -- --shell
 ```
 
-### 7.5 Running on a Raspberry Pi
+### 7.6 Running on a Raspberry Pi
 
 Build with hardware support on the Pi, then run the selected mode with GPIO access:
 
