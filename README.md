@@ -805,9 +805,127 @@ The latest local measurement is:
 | Regions | **80.98%** |
 | Functions | **82.00%** |
 
-The remaining uncovered code is mainly the long-running API listener wrapper,
-the real process entry point, standard terminal I/O wrappers, and Raspberry Pi
-GPIO code that is compiled only on Linux with the `hardware` feature.
+Full per-file report:
+
+| File | Function Coverage | Line Coverage | Region Coverage | Branch Coverage |
+|------|:-----------------:|:-------------:|:---------------:|:---------------:|
+| `api.rs` | 100.00% (12/12) | 91.54% (119/130) | 89.64% (225/251) | - (0/0) |
+| `bresenham.rs` | 100.00% (3/3) | 100.00% (26/26) | 100.00% (36/36) | - (0/0) |
+| `cli.rs` | 75.00% (3/4) | 91.67% (55/60) | 77.66% (73/94) | - (0/0) |
+| `config.rs` | 100.00% (3/3) | 100.00% (33/33) | 100.00% (65/65) | - (0/0) |
+| `http_api.rs` | 66.67% (8/12) | 71.68% (81/113) | 69.63% (149/214) | - (0/0) |
+| `kinematics.rs` | 100.00% (6/6) | 100.00% (78/78) | 100.00% (108/108) | - (0/0) |
+| `main.rs` | 0.00% (0/1) | 0.00% (0/4) | 0.00% (0/8) | - (0/0) |
+| `motion.rs` | 75.00% (3/4) | 98.15% (53/54) | 93.75% (45/48) | - (0/0) |
+| `shell.rs` | 60.00% (3/5) | 63.24% (43/68) | 52.14% (61/117) | - (0/0) |
+| **Totals** | **82.00% (41/50)** | **86.22% (488/566)** | **80.98% (762/941)** | **- (0/0)** |
+
+#### Why coverage is not 100%
+
+The high-coverage modules are mostly deterministic calculations and parsers.
+The lower-coverage modules contain process boundaries, blocking loops, or
+hardware-specific code. Coverage measures which code executed during the test
+run; it does not mean that a lower percentage automatically indicates a bug.
+
+**`main.rs`: 0%**
+
+The test binary is started by Rust's test harness, so it does not call the
+production `main` function. The function only collects process arguments and
+forwards them to the CLI dispatcher:
+
+```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+  let args: Vec<String> = env::args().collect();
+  cli::get_mode(&args)
+}
+```
+
+The dispatch behavior itself is tested through `get_mode`; launching a second
+process just to execute this two-line forwarding function would add little
+value.
+
+**`cli.rs`: 75% of functions, 91.67% of lines**
+
+The prompt parser and help/unknown-mode paths are covered. The missing function
+is the real terminal wrapper, which binds directly to process stdin and stdout:
+
+```rust
+pub(crate) fn prompt_position() -> Result<MotionConfig, Box<dyn std::error::Error>> {
+  let stdin = io::stdin();
+  let stdout = io::stdout();
+  prompt_position_with_io(stdin.lock(), stdout.lock())
+}
+```
+
+Tests use `prompt_position_with_io` with `Cursor` buffers instead. This avoids
+interactive tests that could block waiting for a user and still exercises the
+actual prompt parsing logic.
+
+**`shell.rs`: 60% of functions, 63.24% of lines**
+
+The injected-I/O loops are tested for EOF, invalid input, valid simulation
+commands, and API-mode responses. The remaining wrapper functions use the real
+terminal streams:
+
+```rust
+pub(crate) fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
+  let stdin = io::stdin();
+  let stdout = io::stdout();
+  run_position_loop_with_io(stdin.lock(), stdout.lock(), api)
+}
+```
+
+The hardware-facing and interactive wrapper behavior is intentionally not
+tested by feeding a live terminal into the test process. The underlying generic
+loops are the meaningful unit under test.
+
+**`http_api.rs`: 66.67% of functions, 71.68% of lines**
+
+The request handler is covered through real loopback TCP connections, including
+successful requests and `400`, `404`, and `405` responses. The main uncovered
+path is the long-running server entry point:
+
+```rust
+for stream in listener.incoming() {
+  match stream {
+    Ok(stream) => handle_connection(stream)?,
+    Err(error) => eprintln!("API connection failed: {error}"),
+  }
+}
+```
+
+`run_api` intentionally waits forever for incoming connections. Calling it in a
+unit test would hang the test process unless the server were redesigned with a
+shutdown channel or a test-only single-request mode. The request parsing and
+connection handling are therefore tested directly, which covers the useful
+behavior without introducing a fragile background server.
+
+**`motion.rs`: 75% of functions, 98.15% of lines**
+
+Simulation-mode execution is covered, including position and raw commands.
+The missing function and a few branches belong to the Raspberry Pi-only GPIO
+path:
+
+```rust
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+fn run_hardware(...) -> Result<(), Box<dyn Error>> {
+  // GPIO initialization, Ctrl+C handling, and motor pulses
+}
+```
+
+The coverage run is performed on macOS without physical GPIO hardware. These
+lines are compiled and checked separately with `cargo check --features
+hardware` where possible, but exercising them safely requires a Linux
+Raspberry Pi or a dedicated GPIO mock.
+
+**`api.rs`: 91.54% of lines and `config.rs`, `kinematics.rs`, and
+`bresenham.rs`: 100%**
+
+The core parsers, API routing, kinematics, timing validation, and planner are
+highly deterministic and are therefore extensively covered. The remaining API
+lines are defensive error responses around execution failures and runtime
+failure-report formatting. They require deliberately injected execution or
+planner failures, which the current production APIs do not expose directly.
 
 Run the normal tests with:
 
