@@ -4,6 +4,9 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
 const API_PORT: u16 = 5000;
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
@@ -238,7 +241,7 @@ fn deg_to_steps(angle_deg: f64, steps_per_rev: u64, microstep: u64, gear_ratio: 
     (angle_deg * steps_per_deg * gear_ratio).round() as i64
 }
 
-#[cfg(any(feature = "hardware", test))]
+#[cfg(any(all(feature = "hardware", target_os = "linux"), test))]
 fn direction_is_ccw(steps: i64, ccw_positive: bool) -> bool {
     (steps > 0) == ccw_positive
 }
@@ -258,7 +261,6 @@ fn overhead_sleep_us(total_time_us: u64, pulse_t_us: u64) -> Result<u64, String>
     Ok(total_time_us - min)
 }
 
-#[cfg(any(target_os = "linux", test))]
 struct MultiAxisPlanner<const N: usize> {
     counts: [i64; N],
     accum: [i64; N],
@@ -266,7 +268,6 @@ struct MultiAxisPlanner<const N: usize> {
     remaining: i64,
 }
 
-#[cfg(any(target_os = "linux", test))]
 impl<const N: usize> MultiAxisPlanner<N> {
     fn new(steps: [i64; N]) -> Self {
         let counts: [i64; N] = std::array::from_fn(|i| steps[i].abs());
@@ -280,7 +281,6 @@ impl<const N: usize> MultiAxisPlanner<N> {
     }
 }
 
-#[cfg(any(target_os = "linux", test))]
 impl<const N: usize> Iterator for MultiAxisPlanner<N> {
     type Item = [bool; N];
 
@@ -494,9 +494,17 @@ fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
         if line.trim().is_empty() {
             continue;
         }
-        match config_from_line(&line).and_then(execute_position) {
-            Ok(()) => println!("Command completed."),
-            Err(error) => eprintln!("Command failed: {error}"),
+        if api {
+            let response = match parse_api_request(&line, None) {
+                Ok(command) => api_command_response(command),
+                Err(error) => json!({"ok": false, "error": {"message": error}}),
+            };
+            println!("{}", response);
+        } else {
+            match config_from_line(&line).and_then(execute_position) {
+                Ok(()) => println!("Command completed."),
+                Err(error) => eprintln!("Command failed: {error}"),
+            }
         }
     }
     Ok(())
@@ -524,13 +532,44 @@ fn run_raw_loop() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+struct ApiRequest {
+    #[serde(default)]
+    command: Option<String>,
+    radius_mm: Option<f64>,
+    base_angle_deg: Option<f64>,
+    height_mm: Option<f64>,
+    l1_mm: Option<f64>,
+    l2_mm: Option<f64>,
+    steps_per_rev: Option<u64>,
+    microstep: Option<u64>,
+    ccw_positive: Option<bool>,
+    base_deg: Option<f64>,
+    axis1_deg: Option<f64>,
+    axis2_deg: Option<f64>,
+}
+
 #[derive(Debug, PartialEq)]
 enum ApiCommand {
     Args(MotionConfig),
     Raw(MotionConfig, ArmSolution),
     Status,
     Help,
+    Test,
     Quit,
+}
+
+#[derive(Debug, Serialize)]
+struct RuntimeTestFailure {
+    function: &'static str,
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RuntimeTestReport {
+    passed: usize,
+    failed: usize,
+    failures: Vec<RuntimeTestFailure>,
 }
 
 fn hardware_enabled() -> bool {
@@ -538,61 +577,148 @@ fn hardware_enabled() -> bool {
 }
 
 fn api_help() -> &'static str {
-    "commands: args <radius_mm> <base_angle_deg> <height_mm> <l1_mm> <l2_mm> <steps_per_rev> <microstep> <ccw_positive> | raw <base_deg> <axis1_deg> <axis2_deg> <steps_per_rev> <microstep> <ccw_positive> | status | help | quit"
+    "JSON commands: {\"command\":\"args\",\"radius_mm\":100,\"base_angle_deg\":0,\"height_mm\":50,\"l1_mm\":200,\"l2_mm\":200,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true} | {\"command\":\"raw\",\"base_deg\":0,\"axis1_deg\":25,\"axis2_deg\":30,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true} | {\"command\":\"status\"} | {\"command\":\"test\"} | {\"command\":\"help\"} | {\"command\":\"quit\"}"
 }
 
-fn parse_api_command(line: &str) -> Result<ApiCommand, String> {
-    let mut parts = line.split_whitespace();
-    let command = parts.next().ok_or_else(|| "empty command".to_owned())?;
-    let arguments: Vec<&str> = parts.collect();
+fn parse_api_request(body: &str, default_command: Option<&str>) -> Result<ApiCommand, String> {
+    let request: ApiRequest =
+        serde_json::from_str(body).map_err(|error| format!("invalid JSON: {error}"))?;
+    let command = request
+        .command
+        .as_deref()
+        .or(default_command)
+        .ok_or_else(|| "missing JSON field 'command'".to_owned())?
+        .to_ascii_lowercase();
 
-    match command.to_ascii_lowercase().as_str() {
-        "args" | "position" => config_from_position(&arguments)
-            .map(ApiCommand::Args)
-            .map_err(|error| error.to_string()),
-        "raw" => raw_command(&arguments.join(" "))
-            .map(|(config, solution)| ApiCommand::Raw(config, solution))
-            .map_err(|error| error.to_string()),
-        "status" => {
-            if !arguments.is_empty() {
-                Err("status does not accept arguments".to_owned())
-            } else {
-                Ok(ApiCommand::Status)
-            }
+    match command.as_str() {
+        "args" | "position" => {
+            let config = MotionConfig {
+                total_time_us: TOTAL_TIME_US,
+                pulse_t_us: PULSE_T_US,
+                x_mm: request.radius_mm.ok_or("missing radius_mm")?,
+                y_mm: request.base_angle_deg.ok_or("missing base_angle_deg")?,
+                z_mm: request.height_mm.ok_or("missing height_mm")?,
+                l1_mm: request.l1_mm.ok_or("missing l1_mm")?,
+                l2_mm: request.l2_mm.ok_or("missing l2_mm")?,
+                steps_per_rev: request.steps_per_rev.ok_or("missing steps_per_rev")?,
+                microstep: request.microstep.ok_or("missing microstep")?,
+                ccw_positive: request.ccw_positive.ok_or("missing ccw_positive")?,
+            };
+            Ok(ApiCommand::Args(config))
         }
-        "help" => {
-            if !arguments.is_empty() {
-                Err("help does not accept arguments".to_owned())
-            } else {
-                Ok(ApiCommand::Help)
-            }
+        "raw" => {
+            let solution = ArmSolution {
+                theta_base_deg: request.base_deg.ok_or("missing base_deg")?,
+                theta1_deg: request.axis1_deg.ok_or("missing axis1_deg")?,
+                theta2_deg: request.axis2_deg.ok_or("missing axis2_deg")?,
+                z_eff_mm: 0.0,
+            };
+            let config = MotionConfig {
+                total_time_us: TOTAL_TIME_US,
+                pulse_t_us: PULSE_T_US,
+                x_mm: 0.0,
+                y_mm: 0.0,
+                z_mm: 0.0,
+                l1_mm: 1.0,
+                l2_mm: 1.0,
+                steps_per_rev: request.steps_per_rev.ok_or("missing steps_per_rev")?,
+                microstep: request.microstep.ok_or("missing microstep")?,
+                ccw_positive: request.ccw_positive.ok_or("missing ccw_positive")?,
+            };
+            Ok(ApiCommand::Raw(config, solution))
         }
-        "quit" | "exit" => {
-            if !arguments.is_empty() {
-                Err("quit does not accept arguments".to_owned())
-            } else {
-                Ok(ApiCommand::Quit)
-            }
-        }
+        "status" => Ok(ApiCommand::Status),
+        "help" => Ok(ApiCommand::Help),
+        "test" | "tests" => Ok(ApiCommand::Test),
+        "quit" | "exit" => Ok(ApiCommand::Quit),
         _ => Err(format!("unknown API command '{command}'")),
     }
 }
 
-fn api_command_response(command: ApiCommand) -> String {
-    match command {
-        ApiCommand::Status => format!(
-            "status hardware_enabled={} modes=args,raw",
-            hardware_enabled()
+fn runtime_test_report() -> RuntimeTestReport {
+    let tests: [(&str, fn() -> Result<(), String>); 4] = [
+        ("runtime_test_ik_roundtrip", || {
+            let solution =
+                ik_angles_3d_deg(150.0, 30.0, 40.0, 120.0, 90.0).map_err(str::to_owned)?;
+            let (radius, height) =
+                forward_r_z_mm(solution.theta1_deg, solution.theta2_deg, 120.0, 90.0);
+            if (radius - 150.0).abs() > 1e-6 || (height - 40.0).abs() > 1e-6 {
+                return Err(format!(
+                    "forward result was radius={radius}, height={height}"
+                ));
+            }
+            Ok(())
+        }),
+        ("runtime_test_step_conversion", || {
+            let steps = deg_to_steps(360.0, 200, 1, GEAR_RATIO);
+            if steps != 3200 {
+                Err(format!("expected 3200 steps, got {steps}"))
+            } else {
+                Ok(())
+            }
+        }),
+        (
+            "runtime_test_timing_validation",
+            || match overhead_sleep_us(482, 200) {
+                Ok(value) => Err(format!("accepted invalid timing and returned {value}")),
+                Err(_) => Ok(()),
+            },
         ),
-        ApiCommand::Help => format!("help {}", api_help()),
-        ApiCommand::Quit => "bye reason=client".to_owned(),
+        ("runtime_test_multi_axis_planner", || {
+            let mut totals = [0; 3];
+            for pulse in MultiAxisPlanner::new([10, 5, 0]) {
+                for axis in 0..3 {
+                    if pulse[axis] {
+                        totals[axis] += 1;
+                    }
+                }
+            }
+            if totals != [10, 5, 0] {
+                Err(format!("planner totals were {totals:?}"))
+            } else {
+                Ok(())
+            }
+        }),
+    ];
+    let mut failures = Vec::new();
+    for (function, test) in tests {
+        if let Err(message) = test() {
+            failures.push(RuntimeTestFailure { function, message });
+        }
+    }
+    RuntimeTestReport {
+        passed: tests.len() - failures.len(),
+        failed: failures.len(),
+        failures,
+    }
+}
+
+fn api_command_response(command: ApiCommand) -> Value {
+    match command {
+        ApiCommand::Status => {
+            json!({"ok": true, "status": "ready", "hardware_enabled": hardware_enabled(), "commands": ["args", "raw", "status", "help", "test", "quit"]})
+        }
+        ApiCommand::Help => json!({"ok": true, "help": api_help()}),
+        ApiCommand::Test => {
+            let tests = runtime_test_report();
+            json!({"ok": tests.failed == 0, "status": "tests_completed", "tests": tests})
+        }
+        ApiCommand::Quit => json!({"ok": true, "status": "bye", "reason": "client"}),
         ApiCommand::Args(config) => match execute_position(config) {
-            Ok(()) => format!("done mode=args hardware_enabled={}", hardware_enabled()),
-            Err(error) => format!("error mode=args message={error}"),
+            Ok(()) => {
+                json!({"ok": true, "status": "done", "mode": "args", "hardware_enabled": hardware_enabled()})
+            }
+            Err(error) => {
+                json!({"ok": false, "error": {"mode": "args", "message": error.to_string()}})
+            }
         },
         ApiCommand::Raw(config, solution) => match execute_solution(&config, solution) {
-            Ok(()) => format!("done mode=raw hardware_enabled={}", hardware_enabled()),
-            Err(error) => format!("error mode=raw message={error}"),
+            Ok(()) => {
+                json!({"ok": true, "status": "done", "mode": "raw", "hardware_enabled": hardware_enabled()})
+            }
+            Err(error) => {
+                json!({"ok": false, "error": {"mode": "raw", "message": error.to_string()}})
+            }
         },
     }
 }
@@ -602,9 +728,10 @@ fn api_command_for_request(method: &str, target: &str, body: &str) -> Result<Api
     match (method, path) {
         ("GET", "/status") if body.is_empty() => Ok(ApiCommand::Status),
         ("GET", "/help") if body.is_empty() => Ok(ApiCommand::Help),
-        ("POST", "/args") => parse_api_command(&format!("args {body}")),
-        ("POST", "/raw") => parse_api_command(&format!("raw {body}")),
-        ("POST", "/api") => parse_api_command(body),
+        ("GET", "/test") if body.is_empty() => Ok(ApiCommand::Test),
+        ("POST", "/args") => parse_api_request(body, Some("args")),
+        ("POST", "/raw") => parse_api_request(body, Some("raw")),
+        ("POST", "/api") => parse_api_request(body, None),
         ("GET", _) => Err("unknown API route".to_owned()),
         (_, _) => Err("method not allowed".to_owned()),
     }
@@ -678,11 +805,12 @@ fn read_http_request(stream: &mut TcpStream) -> Result<(String, String, String),
 fn write_http_response(
     stream: &mut TcpStream,
     status: &str,
-    body: &str,
+    body: &Value,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let body = serde_json::to_string(body)?;
     write!(
         stream,
-        "HTTP/1.1 {status}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "HTTP/1.1 {status}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     )?;
     stream.flush()?;
@@ -698,23 +826,23 @@ fn handle_api_connection(mut stream: TcpStream) -> Result<(), Box<dyn std::error
             Err(error) if error == "method not allowed" => write_http_response(
                 &mut stream,
                 "405 Method Not Allowed",
-                &format!("error message={error}"),
+                &json!({"ok": false, "error": {"message": error}}),
             )?,
             Err(error) if error == "unknown API route" => write_http_response(
                 &mut stream,
                 "404 Not Found",
-                &format!("error message={error}"),
+                &json!({"ok": false, "error": {"message": error}}),
             )?,
             Err(error) => write_http_response(
                 &mut stream,
                 "400 Bad Request",
-                &format!("error message={error}"),
+                &json!({"ok": false, "error": {"message": error}}),
             )?,
         },
         Err(error) => write_http_response(
             &mut stream,
             "400 Bad Request",
-            &format!("error message={error}"),
+            &json!({"ok": false, "error": {"message": error}}),
         )?,
     }
     Ok(())
@@ -724,7 +852,7 @@ fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let address = env::var("RUSTCTL_API_ADDR").unwrap_or_else(|_| format!("127.0.0.1:{API_PORT}"));
     let listener = TcpListener::bind(&address)?;
     println!(
-        "API listening on http://{address} hardware_enabled={} routes=/status,/help,/args,/raw",
+        "API listening on http://{address} hardware_enabled={} routes=/status,/help,/test,/args,/raw",
         hardware_enabled()
     );
     io::stdout().flush()?;
@@ -808,7 +936,11 @@ mod tests {
 
     #[test]
     fn api_parses_args_mode() {
-        let command = parse_api_command("args 100 20 50 200 200 200 16 1").unwrap();
+        let command = parse_api_request(
+            r#"{"command":"args","radius_mm":100,"base_angle_deg":20,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+            None,
+        )
+        .unwrap();
         match command {
             ApiCommand::Args(config) => {
                 assert_eq!(config.x_mm, 100.0);
@@ -825,14 +957,21 @@ mod tests {
     #[test]
     fn api_parses_position_alias_case_insensitively() {
         assert!(matches!(
-            parse_api_command("PoSiTiOn 100 0 50 200 200 200 16 0"),
+            parse_api_request(
+                r#"{"command":"POSITION","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":false}"#,
+                None,
+            ),
             Ok(ApiCommand::Args(_))
         ));
     }
 
     #[test]
     fn api_parses_raw_mode() {
-        let command = parse_api_command("raw -10 25 30 400 8 0").unwrap();
+        let command = parse_api_request(
+            r#"{"command":"raw","base_deg":-10,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":400,"microstep":8,"ccw_positive":false}"#,
+            None,
+        )
+        .unwrap();
         match command {
             ApiCommand::Raw(config, solution) => {
                 assert_eq!(solution.theta_base_deg, -10.0);
@@ -848,25 +987,35 @@ mod tests {
 
     #[test]
     fn api_parses_control_commands() {
-        assert_eq!(parse_api_command("status"), Ok(ApiCommand::Status));
-        assert_eq!(parse_api_command("help"), Ok(ApiCommand::Help));
-        assert_eq!(parse_api_command("exit"), Ok(ApiCommand::Quit));
-        assert_eq!(parse_api_command("quit"), Ok(ApiCommand::Quit));
+        assert_eq!(
+            parse_api_request(r#"{"command":"status"}"#, None),
+            Ok(ApiCommand::Status)
+        );
+        assert_eq!(
+            parse_api_request(r#"{"command":"help"}"#, None),
+            Ok(ApiCommand::Help)
+        );
+        assert_eq!(
+            parse_api_request(r#"{"command":"test"}"#, None),
+            Ok(ApiCommand::Test)
+        );
+        assert_eq!(
+            parse_api_request(r#"{"command":"quit"}"#, None),
+            Ok(ApiCommand::Quit)
+        );
     }
 
     #[test]
     fn api_rejects_missing_or_extra_arguments() {
-        assert!(parse_api_command("args 100 0 50").is_err());
-        assert!(parse_api_command("raw 0 0 0 200 16").is_err());
-        assert!(parse_api_command("status now").is_err());
-        assert!(parse_api_command("help now").is_err());
-        assert!(parse_api_command("quit now").is_err());
+        assert!(parse_api_request(r#"{"command":"args","radius_mm":100}"#, None).is_err());
+        assert!(parse_api_request(r#"{"command":"raw","base_deg":0,"axis1_deg":0,"axis2_deg":0,"steps_per_rev":200,"microstep":16}"#, None).is_err());
+        assert!(parse_api_request(r#"{"command":"unknown"}"#, None).is_err());
     }
 
     #[test]
     fn api_rejects_unknown_and_empty_commands() {
-        assert!(parse_api_command("").is_err());
-        assert!(parse_api_command("dance 1 2 3").is_err());
+        assert!(parse_api_request("", None).is_err());
+        assert!(parse_api_request(r#"{"command":"dance"}"#, None).is_err());
     }
 
     #[test]
@@ -879,27 +1028,39 @@ mod tests {
             api_command_for_request("GET", "/help?format=text", ""),
             Ok(ApiCommand::Help)
         );
+        assert_eq!(
+            api_command_for_request("GET", "/test", ""),
+            Ok(ApiCommand::Test)
+        );
     }
 
     #[test]
     fn api_routes_http_motion_modes() {
         assert!(matches!(
-            api_command_for_request("POST", "/args", "100 0 50 200 200 200 16 1"),
+            api_command_for_request(
+                "POST",
+                "/args",
+                r#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#
+            ),
             Ok(ApiCommand::Args(_))
         ));
         assert!(matches!(
-            api_command_for_request("POST", "/raw", "0 0 0 200 16 1"),
+            api_command_for_request(
+                "POST",
+                "/raw",
+                r#"{"base_deg":0,"axis1_deg":0,"axis2_deg":0,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#
+            ),
             Ok(ApiCommand::Raw(_, _))
         ));
         assert!(matches!(
-            api_command_for_request("POST", "/api", "status"),
+            api_command_for_request("POST", "/api", r#"{"command":"status"}"#),
             Ok(ApiCommand::Status)
         ));
     }
 
     #[test]
     fn api_rejects_invalid_http_routes_and_methods() {
-        assert!(api_command_for_request("GET", "/args", "100 0 50 200 200 200 16 1").is_err());
+        assert!(api_command_for_request("GET", "/args", "{}").is_err());
         assert!(api_command_for_request("POST", "/missing", "").is_err());
         assert!(api_command_for_request("GET", "/status", "unexpected").is_err());
     }
@@ -910,6 +1071,14 @@ mod tests {
             hardware_enabled(),
             cfg!(all(feature = "hardware", target_os = "linux"))
         );
+    }
+
+    #[test]
+    fn runtime_tests_report_named_failures() {
+        let report = runtime_test_report();
+        assert_eq!(report.failed, 0);
+        assert_eq!(report.passed, 4);
+        assert!(report.failures.is_empty());
     }
 
     fn approx(a: f64, b: f64) -> bool {

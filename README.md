@@ -477,8 +477,8 @@ base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive
 
 The `--api` mode is a deliberately small HTTP server intended to be wrapped by
 a web server, desktop application, script, or another robot controller. It
-uses plain UTF-8 text rather than JSON, so it can be used with `curl` or any
-HTTP library without an additional schema package.
+uses JSON request bodies and JSON responses. The same JSON objects can be sent
+as newline-delimited input to `--api` when HTTP is not needed.
 
 #### Start the API
 
@@ -493,7 +493,7 @@ The default listener is `http://127.0.0.1:5000`. The startup line tells the
 client whether this process can access GPIO:
 
 ```text
-API listening on http://127.0.0.1:5000 hardware_enabled=false routes=/status,/help,/args,/raw
+API listening on http://127.0.0.1:5000 hardware_enabled=false routes=/status,/help,/test,/args,/raw
 ```
 
 On a Raspberry Pi, build with hardware support and run the same mode:
@@ -518,28 +518,38 @@ is consumed by a local web server.
 #### Wire contract
 
 Every request is a normal HTTP/1.0 or HTTP/1.1 request. The response has
-`Content-Type: text/plain; charset=utf-8`, includes a `Content-Length`, and
+`Content-Type: application/json; charset=utf-8`, includes a `Content-Length`, and
 closes the TCP connection after one request. HTTP clients normally set
 `Content-Length` automatically; do not send chunked request bodies.
 
 | Method | Path | Body | Purpose |
 |--------|------|------|---------|
-| `GET` | `/status` | empty | Read the compiled hardware capability and supported motion modes. |
-| `GET` | `/help` | empty | Read the command grammar advertised by the controller. |
-| `POST` | `/args` | 8 whitespace-separated values | Convert a Cartesian target using inverse kinematics, then execute it. |
-| `POST` | `/raw` | 6 whitespace-separated values | Execute supplied joint angles without inverse kinematics. |
-| `POST` | `/api` | One command line | Use the same command grammar as the stdin API mode. |
+| `GET` | `/status` | empty | Read hardware capability and supported JSON commands. |
+| `GET` | `/help` | empty | Read the JSON command format advertised by the controller. |
+| `GET` | `/test` | empty | Run the runtime self-tests and return named failures. |
+| `POST` | `/args` | JSON object | Convert a Cartesian target using inverse kinematics, then execute it. |
+| `POST` | `/raw` | JSON object | Execute supplied joint angles without inverse kinematics. |
+| `POST` | `/api` | JSON object | Use the `command` field to select any API operation. |
 
 Paths may contain a query string. Routing ignores the query part, so
-`/status?format=text` is equivalent to `/status`. Request bodies are plain text,
-not JSON, and values are separated with any whitespace.
+`/status?format=json` is equivalent to `/status`. Motion requests use named JSON
+fields, not positional text values.
 
 #### Position endpoint: `POST /args`
 
-The body must contain exactly these eight values, in this order:
+The body contains these named fields:
 
-```text
-radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive
+```json
+{
+  "radius_mm": 100,
+  "base_angle_deg": 0,
+  "height_mm": 50,
+  "l1_mm": 200,
+  "l2_mm": 200,
+  "steps_per_rev": 200,
+  "microstep": 16,
+  "ccw_positive": true
+}
 ```
 
 | Position | Type | Meaning |
@@ -557,8 +567,8 @@ Example request:
 
 ```bash
 curl --fail-with-body -X POST http://127.0.0.1:5000/args \
-  -H 'Content-Type: text/plain' \
-  --data '100 0 50 200 200 200 16 1'
+  -H 'Content-Type: application/json' \
+  --data '{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}'
 ```
 
 The controller interprets the first three values as cylindrical coordinates:
@@ -568,10 +578,10 @@ workspace: `sqrt(radius_mm^2 + height_mm^2) <= l1_mm + l2_mm`.
 
 #### Raw endpoint: `POST /raw`
 
-The body must contain exactly these six values:
+The body contains these named fields:
 
-```text
-base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive
+```json
+{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true}
 ```
 
 This bypasses inverse kinematics. It is useful for calibration, manually
@@ -589,40 +599,66 @@ Example:
 
 ```bash
 curl --fail-with-body -X POST http://127.0.0.1:5000/raw \
-  -H 'Content-Type: text/plain' \
-  --data '0 25 30 200 16 1'
+  -H 'Content-Type: application/json' \
+  --data '{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true}'
 ```
 
 #### Status, help, and command endpoint
 
 ```bash
 curl http://127.0.0.1:5000/status
-# status hardware_enabled=false modes=args,raw
+# {"ok":true,"status":"ready","hardware_enabled":false,"commands":["args","raw","status","help","test","quit"]}
 
 curl http://127.0.0.1:5000/help
-# help commands: args <radius_mm> <base_angle_deg> <height_mm> <l1_mm> <l2_mm> <steps_per_rev> <microstep> <ccw_positive> | raw <base_deg> <axis1_deg> <axis2_deg> <steps_per_rev> <microstep> <ccw_positive> | status | help | quit
+# {"ok":true,"help":"JSON commands: ..."}
+
+curl http://127.0.0.1:5000/test
+# {"ok":true,"status":"tests_completed","tests":{"passed":4,"failed":0,"failures":[]}}
 ```
 
-`POST /api` accepts one of the same command lines as the older stdin API. This
-is convenient for clients that want one generic command function:
+`POST /api` accepts a JSON object with a `command` field. This is convenient
+for clients that want one generic command function:
 
 ```bash
-curl -X POST http://127.0.0.1:5000/api --data 'status'
-curl -X POST http://127.0.0.1:5000/api --data 'args 100 0 50 200 200 200 16 1'
-curl -X POST http://127.0.0.1:5000/api --data 'raw 0 25 30 200 16 1'
+curl -X POST http://127.0.0.1:5000/api -H 'Content-Type: application/json' --data '{"command":"status"}'
+curl -X POST http://127.0.0.1:5000/api -H 'Content-Type: application/json' --data '{"command":"test"}'
+curl -X POST http://127.0.0.1:5000/api -H 'Content-Type: application/json' --data '{"command":"args","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}'
 ```
 
-`position` is accepted as a case-insensitive alias for `args` on `/api`.
-`quit` and `exit` return `bye reason=client`; they do not shut down the HTTP
-server, because each HTTP request is handled independently.
+`position` is accepted as a case-insensitive alias for `args`. `tests` is an
+alias for `test`, and `quit`/`exit` return a JSON bye response; they do not shut
+down the HTTP server because each request is handled independently.
+
+#### Runtime tests and status updates
+
+The `test` command runs the controller's kinematics, step conversion, timing,
+and multi-axis planner checks inside the running process. A response reports
+the number passed and failed. Every failure includes the exact test function
+name and a message explaining what was observed:
+
+```json
+{
+  "ok": true,
+  "status": "tests_completed",
+  "tests": {
+    "passed": 3,
+    "failed": 1,
+    "failures": [
+      {
+        "function": "runtime_test_step_conversion",
+        "message": "expected 3200 steps, got 3199"
+      }
+    ]
+  }
+}
+```
 
 #### Responses and errors
 
-Successful motion responses are plain text:
+Successful motion responses are JSON:
 
-```text
-done mode=args hardware_enabled=true
-done mode=raw hardware_enabled=true
+```json
+{"ok":true,"status":"done","mode":"args","hardware_enabled":true}
 ```
 
 The `hardware_enabled` value is `true` only for a Linux build compiled with
@@ -633,10 +669,10 @@ There are two error layers that an API client should handle:
 
 | HTTP status | Example body | Meaning |
 |-------------|--------------|---------|
-| `200 OK` | `error mode=args message=IK error: Out of workspace` | The request syntax was valid, but the requested motion could not be executed. |
-| `400 Bad Request` | `error message=Expected: ...` | Invalid command, wrong argument count, invalid number, invalid HTTP request, or non-empty GET body. |
-| `404 Not Found` | `error message=unknown API route` | Path is not implemented. |
-| `405 Method Not Allowed` | `error message=method not allowed` | Path exists but the HTTP method is not supported. |
+| `200 OK` | `{"ok":false,"error":{"mode":"args","message":"IK error: Out of workspace"}}` | The request syntax was valid, but the requested motion could not be executed. |
+| `400 Bad Request` | `{"ok":false,"error":{"message":"invalid JSON: ..."}}` | Invalid JSON, missing fields, or invalid HTTP request. |
+| `404 Not Found` | `{"ok":false,"error":{"message":"unknown API route"}}` | Path is not implemented. |
+| `405 Method Not Allowed` | `{"ok":false,"error":{"message":"method not allowed"}}` | Path exists but the HTTP method is not supported. |
 
 Do not treat every `200 OK` as a completed move: inspect the text body and
 require it to start with `done`. For a small client, splitting the response
