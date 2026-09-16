@@ -1,3 +1,13 @@
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
+use crate::bresenham::MultiAxisPlanner;
+use crate::config::{GEAR_RATIO, MotionConfig, PULSE_T_US, TOTAL_TIME_US};
+use crate::kinematics::{
+    ArmSolution, deg_to_steps, forward_r_z_mm, ik_angles_3d_deg, overhead_sleep_us,
+};
+use crate::motion::{execute_position, execute_solution};
+
 #[derive(Debug, Deserialize)]
 struct ApiRequest {
     #[serde(default)]
@@ -16,7 +26,7 @@ struct ApiRequest {
 }
 
 #[derive(Debug, PartialEq)]
-enum ApiCommand {
+pub(crate) enum ApiCommand {
     Args(MotionConfig),
     Raw(MotionConfig, ArmSolution),
     Status,
@@ -26,27 +36,30 @@ enum ApiCommand {
 }
 
 #[derive(Debug, Serialize)]
-struct RuntimeTestFailure {
-    function: &'static str,
-    message: String,
+pub(crate) struct RuntimeTestFailure {
+    pub(crate) function: &'static str,
+    pub(crate) message: String,
 }
 
 #[derive(Debug, Serialize)]
-struct RuntimeTestReport {
-    passed: usize,
-    failed: usize,
-    failures: Vec<RuntimeTestFailure>,
+pub(crate) struct RuntimeTestReport {
+    pub(crate) passed: usize,
+    pub(crate) failed: usize,
+    pub(crate) failures: Vec<RuntimeTestFailure>,
 }
 
-fn hardware_enabled() -> bool {
+pub(crate) fn hardware_enabled() -> bool {
     cfg!(all(feature = "hardware", target_os = "linux"))
 }
 
-fn api_help() -> &'static str {
+pub(crate) fn api_help() -> &'static str {
     "JSON commands: {\"command\":\"args\",\"radius_mm\":100,\"base_angle_deg\":0,\"height_mm\":50,\"l1_mm\":200,\"l2_mm\":200,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true} | {\"command\":\"raw\",\"base_deg\":0,\"axis1_deg\":25,\"axis2_deg\":30,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true} | {\"command\":\"status\"} | {\"command\":\"test\"} | {\"command\":\"help\"} | {\"command\":\"quit\"}"
 }
 
-fn parse_api_request(body: &str, default_command: Option<&str>) -> Result<ApiCommand, String> {
+pub(crate) fn parse_api_request(
+    body: &str,
+    default_command: Option<&str>,
+) -> Result<ApiCommand, String> {
     let request: ApiRequest =
         serde_json::from_str(body).map_err(|error| format!("invalid JSON: {error}"))?;
     let command = request
@@ -101,7 +114,7 @@ fn parse_api_request(body: &str, default_command: Option<&str>) -> Result<ApiCom
     }
 }
 
-fn runtime_test_report() -> RuntimeTestReport {
+pub(crate) fn runtime_test_report() -> RuntimeTestReport {
     let tests: [(&str, fn() -> Result<(), String>); 4] = [
         ("runtime_test_ik_roundtrip", || {
             let solution =
@@ -159,7 +172,7 @@ fn runtime_test_report() -> RuntimeTestReport {
     }
 }
 
-fn api_command_response(command: ApiCommand) -> Value {
+pub(crate) fn api_command_response(command: ApiCommand) -> Value {
     match command {
         ApiCommand::Status => {
             json!({"ok": true, "status": "ready", "hardware_enabled": hardware_enabled(), "commands": ["args", "raw", "status", "help", "test", "quit"]})
@@ -189,7 +202,11 @@ fn api_command_response(command: ApiCommand) -> Value {
     }
 }
 
-fn api_command_for_request(method: &str, target: &str, body: &str) -> Result<ApiCommand, String> {
+pub(crate) fn api_command_for_request(
+    method: &str,
+    target: &str,
+    body: &str,
+) -> Result<ApiCommand, String> {
     let path = target.split('?').next().unwrap_or(target);
     match (method, path) {
         ("GET", "/status") if body.is_empty() => Ok(ApiCommand::Status),

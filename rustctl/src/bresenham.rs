@@ -1,4 +1,4 @@
-struct MultiAxisPlanner<const N: usize> {
+pub(crate) struct MultiAxisPlanner<const N: usize> {
     counts: [i64; N],
     accum: [i64; N],
     max_steps: i64,
@@ -6,7 +6,7 @@ struct MultiAxisPlanner<const N: usize> {
 }
 
 impl<const N: usize> MultiAxisPlanner<N> {
-    fn new(steps: [i64; N]) -> Self {
+    pub(crate) fn new(steps: [i64; N]) -> Self {
         let counts: [i64; N] = std::array::from_fn(|i| steps[i].abs());
         let max_steps = counts.iter().copied().max().unwrap_or(0);
         Self {
