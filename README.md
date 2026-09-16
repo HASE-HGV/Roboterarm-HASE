@@ -201,7 +201,12 @@ The [A4988](https://www.pololu.com/file/0J450/A4988.pdf) is a microstepping driv
 Roboterarm-HASE/
 ├── rustctl/                     ← Main control program
 │   ├── Cargo.toml
-│   └── src/main.rs
+│   └── src/
+│       ├── main.rs              ← CLI, shell, hardware execution, shared wiring
+│       ├── api.rs               ← JSON API parsing, routing, and responses
+│       ├── kinematics.rs         ← IK, forward kinematics, steps, timing
+│       ├── bresenham.rs          ← Multi-axis step synchronization planner
+│       └── tests.rs              ← Unit tests for API, kinematics, timing, planner
 ├── gpioTest/                    ← Early GPIO motor test
 │   ├── Cargo.toml
 │   └── src/main.rs
