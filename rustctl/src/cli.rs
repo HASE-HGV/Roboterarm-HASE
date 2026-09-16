@@ -6,8 +6,8 @@ use crate::motion::execute_position;
 use crate::shell::{run_position_loop, run_raw_loop};
 
 pub(crate) fn prompt_position() -> Result<MotionConfig, Box<dyn std::error::Error>> {
-    let stdin = io::stdin();
-    let stdout = io::stdout();
+    let stdin: io::Stdin = io::stdin();
+    let stdout: io::Stdout = io::stdout();
     prompt_position_with_io(stdin.lock(), stdout.lock())
 }
 
@@ -16,7 +16,7 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
     mut writer: W,
 ) -> Result<MotionConfig, Box<dyn std::error::Error>> {
     writeln!(writer, "CLI mode (timing is fixed at 1083 µs / 500 µs)")?;
-    let mut values = Vec::with_capacity(8);
+    let mut values: Vec<String> = Vec::with_capacity(8);
     for (label, example) in [
         ("Target radius X (mm)", "100"),
         ("Base angle Y (degrees)", "0"),
@@ -29,7 +29,7 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
     ] {
         write!(writer, "{label} [{example}]: ")?;
         writer.flush()?;
-        let mut input = String::new();
+        let mut input: String = String::new();
         reader.read_line(&mut input)?;
         values.push(input.trim().to_owned());
     }
