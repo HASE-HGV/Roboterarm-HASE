@@ -1,3 +1,11 @@
+use std::io::{Cursor, Read, Write};
+use std::net::{Shutdown, TcpListener, TcpStream};
+use std::thread;
+
+use crate::cli::{get_mode, print_help, prompt_position_with_io};
+use crate::http_api::handle_connection;
+use crate::shell::{run_position_loop_with_io, run_raw_loop_with_io};
+
 #[test]
 fn api_parses_args_mode() {
     let command = parse_api_request(
@@ -636,4 +644,160 @@ fn planner_counts_are_exact_for_many_vectors() {
             }
         }
     }
+}
+
+fn http_exchange(request: &[u8]) -> Vec<u8> {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        handle_connection(stream).unwrap();
+    });
+
+    let mut client = TcpStream::connect(address).unwrap();
+    client.write_all(request).unwrap();
+    client.shutdown(Shutdown::Write).unwrap();
+    let mut response = Vec::new();
+    client.read_to_end(&mut response).unwrap();
+    server.join().unwrap();
+    response
+}
+
+#[test]
+fn cli_prompt_parses_injected_input() {
+    let input = b"100\n20\n50\n200\n150\n400\n8\n1\n";
+    let mut output = Vec::new();
+    let config = prompt_position_with_io(Cursor::new(input), &mut output).unwrap();
+    assert_eq!(config.x_mm, 100.0);
+    assert_eq!(config.y_mm, 20.0);
+    assert_eq!(config.l2_mm, 150.0);
+    assert!(config.ccw_positive);
+    assert!(String::from_utf8(output).unwrap().contains("Target radius X"));
+}
+
+#[test]
+fn cli_prompt_reports_incomplete_input() {
+    let error = prompt_position_with_io(Cursor::new(b"100\n"), Vec::new()).unwrap_err();
+    assert!(error.to_string().contains("invalid digit") || error.to_string().contains("cannot parse"));
+}
+
+#[test]
+fn cli_help_and_dispatch_cover_help_branches() {
+    print_help("robot-arm");
+    assert!(get_mode(&[]).is_ok());
+    assert!(get_mode(&["robot-arm".to_owned(), "--help".to_owned()]).is_ok());
+    let error = get_mode(&["robot-arm".to_owned(), "--unknown".to_owned()]).unwrap_err();
+    assert!(error.to_string().contains("Unknown mode '--unknown'"));
+}
+
+#[test]
+fn shell_api_loop_handles_status_empty_line_and_invalid_json() {
+    let input = Cursor::new(
+        b"\n{\"command\":\"status\"}\nnot json\n",
+    );
+    let mut output = Vec::new();
+    run_position_loop_with_io(input, &mut output, true).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("API mode ready"));
+    assert!(output.contains("\"status\":\"ready\""));
+    assert!(output.contains("invalid JSON"));
+}
+
+#[test]
+fn shell_loops_exit_cleanly_at_eof() {
+    let mut position_output = Vec::new();
+    run_position_loop_with_io(Cursor::new(b""), &mut position_output, false).unwrap();
+    assert!(String::from_utf8(position_output).unwrap().contains("Shell mode"));
+
+    let mut raw_output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b""), &mut raw_output).unwrap();
+    assert!(String::from_utf8(raw_output).unwrap().contains("Raw mode"));
+}
+
+#[test]
+fn shell_position_loop_reports_invalid_command() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(Cursor::new(b"bad command\n"), &mut output, false).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command failed"));
+}
+
+#[test]
+fn shell_position_loop_executes_valid_simulation_command() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(
+        Cursor::new(b"100 0 50 200 200 200 16 1\n"),
+        &mut output,
+        false,
+    )
+    .unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+}
+
+#[test]
+fn shell_raw_loop_reports_invalid_command() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"bad command\n"), &mut output).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command failed"));
+}
+
+#[test]
+fn shell_raw_loop_executes_valid_simulation_command() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1\n"), &mut output).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+}
+
+#[test]
+fn http_status_request_returns_json_success() {
+    let response = http_exchange(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    let response = String::from_utf8(response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    assert!(response.contains("Content-Type: application/json"));
+    assert!(response.contains("\"status\":\"ready\""));
+}
+
+#[test]
+fn http_post_args_returns_success() {
+    let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
+    let request = format!(
+        "POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        std::str::from_utf8(body).unwrap()
+    );
+    let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    assert!(response.contains("\"mode\":\"args\""));
+}
+
+#[test]
+fn http_routes_return_expected_error_statuses() {
+    let not_found = http_exchange(b"GET /missing HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(String::from_utf8(not_found).unwrap().starts_with("HTTP/1.1 404 Not Found\r\n"));
+
+    let method = http_exchange(b"PUT /status HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(String::from_utf8(method).unwrap().starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
+
+    let bad_json = http_exchange(
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 8\r\n\r\nnot-json",
+    );
+    assert!(String::from_utf8(bad_json).unwrap().starts_with("HTTP/1.1 400 Bad Request\r\n"));
+}
+
+#[test]
+fn http_malformed_requests_return_bad_request() {
+    let response = http_exchange(b"not an HTTP request\r\n\r\n");
+    let response = String::from_utf8(response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 400 Bad Request\r\n"));
+    assert!(response.contains("unsupported HTTP version"));
+}
+
+#[test]
+fn http_rejects_unsupported_version_and_invalid_content_length() {
+    let version = http_exchange(b"GET /status HTTP/2.0\r\nHost: localhost\r\n\r\n");
+    assert!(String::from_utf8(version).unwrap().contains("unsupported HTTP version"));
+
+    let length = http_exchange(
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n",
+    );
+    assert!(String::from_utf8(length).unwrap().contains("invalid Content-Length"));
 }
