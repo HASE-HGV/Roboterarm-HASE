@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 
 use crate::config::{MotionConfig, config_from_position};
 use crate::http_api::run_api;
@@ -6,7 +6,16 @@ use crate::motion::execute_position;
 use crate::shell::{run_position_loop, run_raw_loop};
 
 pub(crate) fn prompt_position() -> Result<MotionConfig, Box<dyn std::error::Error>> {
-    println!("CLI mode (timing is fixed at 1083 µs / 500 µs)");
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    prompt_position_with_io(stdin.lock(), stdout.lock())
+}
+
+pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
+    mut reader: R,
+    mut writer: W,
+) -> Result<MotionConfig, Box<dyn std::error::Error>> {
+    writeln!(writer, "CLI mode (timing is fixed at 1083 µs / 500 µs)")?;
     let mut values = Vec::with_capacity(8);
     for (label, example) in [
         ("Target radius X (mm)", "100"),
@@ -18,10 +27,10 @@ pub(crate) fn prompt_position() -> Result<MotionConfig, Box<dyn std::error::Erro
         ("Driver microstep resolution", "16"),
         ("CCW positive? (1 = yes, 0 = no)", "1"),
     ] {
-        print!("{label} [{example}]: ");
-        io::stdout().flush()?;
+        write!(writer, "{label} [{example}]: ")?;
+        writer.flush()?;
         let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        reader.read_line(&mut input)?;
         values.push(input.trim().to_owned());
     }
     let refs: Vec<&str> = values.iter().map(String::as_str).collect();

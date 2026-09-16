@@ -10,7 +10,9 @@ use crate::api::{api_command_for_request, api_command_response, hardware_enabled
 
 const API_PORT: u16 = 5000;
 
-fn read_http_request(stream: &mut TcpStream) -> Result<(String, String, String), String> {
+pub(crate) fn read_http_request(
+    stream: &mut TcpStream,
+) -> Result<(String, String, String), String> {
     const HEADER_LIMIT: usize = 16 * 1024;
     let mut buffer = Vec::new();
     let header_end = loop {
@@ -66,7 +68,7 @@ fn read_http_request(stream: &mut TcpStream) -> Result<(String, String, String),
     Ok((method, target, body.to_owned()))
 }
 
-fn write_http_response(
+pub(crate) fn write_http_response(
     stream: &mut TcpStream,
     status: &str,
     body: &Value,
@@ -81,7 +83,7 @@ fn write_http_response(
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn handle_connection(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
     match read_http_request(&mut stream) {
         Ok((method, target, body)) => match api_command_for_request(&method, &target, &body) {
             Ok(command) => {

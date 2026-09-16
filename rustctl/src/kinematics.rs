@@ -40,6 +40,14 @@ pub(crate) fn ik_angles_3d_deg(
     l1_mm: f64,
     l2_mm: f64,
 ) -> Result<ArmSolution, &'static str> {
+    if !x_mm.is_finite()
+        || !y_mm.is_finite()
+        || !z_mm.is_finite()
+        || !l1_mm.is_finite()
+        || !l2_mm.is_finite()
+    {
+        return Err("Kinematics inputs must be finite");
+    }
     if l1_mm <= 0.0 || l2_mm <= 0.0 {
         return Err("Link lengths must be positive");
     }
@@ -50,7 +58,7 @@ pub(crate) fn ik_angles_3d_deg(
     let theta_base = y_mm.to_radians();
     let r = x_mm;
     let r_space = (r * r + z_mm * z_mm).sqrt();
-    if r_space > l1_mm + l2_mm {
+    if r_space > l1_mm + l2_mm || r_space < (l1_mm - l2_mm).abs() {
         return Err("Out of workspace");
     }
 

@@ -1,4 +1,10 @@
-use super::*;
+use std::io::{Cursor, Read, Write};
+use std::net::{Shutdown, TcpListener, TcpStream};
+use std::thread;
+
+use crate::cli::{get_mode, print_help, prompt_position_with_io};
+use crate::http_api::handle_connection;
+use crate::shell::{run_position_loop_with_io, run_raw_loop_with_io};
 
 #[test]
 fn api_parses_args_mode() {
@@ -316,4 +322,482 @@ fn planner_distributes_evenly() {
         max_gap <= 1,
         "pulses should be evenly spaced, gap={max_gap}"
     );
+}
+
+#[test]
+fn config_parses_position_values_and_fixed_timing() {
+    let config = config_from_position(&[
+        "100", "-20.5", "50", "200", "150", "400", "8", "1",
+    ])
+    .unwrap();
+    assert_eq!(config.total_time_us, TOTAL_TIME_US);
+    assert_eq!(config.pulse_t_us, PULSE_T_US);
+    assert_eq!(config.x_mm, 100.0);
+    assert_eq!(config.y_mm, -20.5);
+    assert_eq!(config.z_mm, 50.0);
+    assert_eq!(config.l1_mm, 200.0);
+    assert_eq!(config.l2_mm, 150.0);
+    assert_eq!(config.steps_per_rev, 400);
+    assert_eq!(config.microstep, 8);
+    assert!(config.ccw_positive);
+}
+
+#[test]
+fn config_accepts_zero_and_nonzero_direction_flags() {
+    let zero = config_from_line("1 2 3 4 5 6 7 0").unwrap();
+    let nonzero = config_from_line("1 2 3 4 5 6 7 2").unwrap();
+    assert!(!zero.ccw_positive);
+    assert!(nonzero.ccw_positive);
+}
+
+#[test]
+fn config_rejects_wrong_position_argument_counts() {
+    for values in [
+        vec![],
+        vec!["1"],
+        vec!["1", "2", "3", "4", "5", "6", "7"],
+        vec!["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    ] {
+        assert!(config_from_position(&values).is_err(), "values={values:?}");
+    }
+}
+
+#[test]
+fn config_rejects_invalid_position_numbers() {
+    let cases = [
+        ["x", "2", "3", "4", "5", "6", "7", "0"],
+        ["1", "x", "3", "4", "5", "6", "7", "0"],
+        ["1", "2", "x", "4", "5", "6", "7", "0"],
+        ["1", "2", "3", "x", "5", "6", "7", "0"],
+        ["1", "2", "3", "4", "x", "6", "7", "0"],
+        ["1", "2", "3", "4", "5", "x", "7", "0"],
+        ["1", "2", "3", "4", "5", "6", "x", "0"],
+        ["1", "2", "3", "4", "5", "6", "7", "x"],
+    ];
+    for values in cases {
+        assert!(config_from_position(&values).is_err(), "values={values:?}");
+    }
+}
+
+#[test]
+fn raw_command_parses_values_and_fixed_geometry() {
+    let (config, solution) = raw_command("-10 25 30 400 8 1").unwrap();
+    assert_eq!(solution.theta_base_deg, -10.0);
+    assert_eq!(solution.theta1_deg, 25.0);
+    assert_eq!(solution.theta2_deg, 30.0);
+    assert_eq!(solution.z_eff_mm, 0.0);
+    assert_eq!(config.l1_mm, 1.0);
+    assert_eq!(config.l2_mm, 1.0);
+    assert_eq!(config.steps_per_rev, 400);
+    assert_eq!(config.microstep, 8);
+}
+
+#[test]
+fn raw_command_rejects_wrong_counts_and_invalid_numbers() {
+    assert!(raw_command("").is_err());
+    assert!(raw_command("1 2 3 4 5").is_err());
+    assert!(raw_command("1 2 3 4 5 6 7").is_err());
+    assert!(raw_command("x 2 3 4 5 1").is_err());
+    assert!(raw_command("1 x 3 4 5 1").is_err());
+    assert!(raw_command("1 2 x 4 5 1").is_err());
+    assert!(raw_command("1 2 3 x 5 1").is_err());
+    assert!(raw_command("1 2 3 4 x 1").is_err());
+    assert!(raw_command("1 2 3 4 5 x").is_err());
+}
+
+#[test]
+fn api_command_names_are_case_insensitive_and_aliases_work() {
+    for name in ["status", "STATUS", "help", "HELP", "test", "tests", "quit", "exit"] {
+        assert!(parse_api_request(&format!(r#"{{"command":"{name}"}}"#), None).is_ok());
+    }
+    assert!(matches!(
+        parse_api_request(
+            r#"{"radius_mm":1,"base_angle_deg":2,"height_mm":3,"l1_mm":4,"l2_mm":5,"steps_per_rev":6,"microstep":7,"ccw_positive":true}"#,
+            Some("ARGS")
+        ),
+        Ok(ApiCommand::Args(_))
+    ));
+}
+
+#[test]
+fn api_rejects_invalid_json_and_missing_command() {
+    assert!(parse_api_request("not json", None)
+        .unwrap_err()
+        .starts_with("invalid JSON:"));
+    assert_eq!(
+        parse_api_request("{}", None).unwrap_err(),
+        "missing JSON field 'command'"
+    );
+    assert!(parse_api_request(r#"{"command":null}"#, None).is_err());
+    assert!(parse_api_request(r#"{"command":123}"#, None).is_err());
+}
+
+#[test]
+fn api_rejects_missing_each_position_field() {
+    let fields = [
+        "radius_mm",
+        "base_angle_deg",
+        "height_mm",
+        "l1_mm",
+        "l2_mm",
+        "steps_per_rev",
+        "microstep",
+        "ccw_positive",
+    ];
+    for missing in fields {
+        let mut request = serde_json::json!({
+            "command": "args",
+            "radius_mm": 1,
+            "base_angle_deg": 2,
+            "height_mm": 3,
+            "l1_mm": 4,
+            "l2_mm": 5,
+            "steps_per_rev": 6,
+            "microstep": 7,
+            "ccw_positive": true,
+        });
+        request.as_object_mut().unwrap().remove(missing);
+        let body = request.to_string();
+        assert!(parse_api_request(&body, None).is_err(), "missing={missing}");
+    }
+}
+
+#[test]
+fn api_rejects_missing_each_raw_field() {
+    let fields = ["base_deg", "axis1_deg", "axis2_deg", "steps_per_rev", "microstep", "ccw_positive"];
+    for missing in fields {
+        let mut request = serde_json::json!({
+            "command": "raw",
+            "base_deg": 1,
+            "axis1_deg": 2,
+            "axis2_deg": 3,
+            "steps_per_rev": 4,
+            "microstep": 5,
+            "ccw_positive": true,
+        });
+        request.as_object_mut().unwrap().remove(missing);
+        let body = request.to_string();
+        assert!(parse_api_request(&body, None).is_err(), "missing={missing}");
+    }
+}
+
+#[test]
+fn api_response_shapes_are_stable_for_control_commands() {
+    let status = api_command_response(ApiCommand::Status);
+    assert_eq!(status["ok"], true);
+    assert_eq!(status["status"], "ready");
+    assert!(status["commands"].as_array().unwrap().contains(&serde_json::json!("raw")));
+
+    let help = api_command_response(ApiCommand::Help);
+    assert_eq!(help["ok"], true);
+    assert!(help["help"].as_str().unwrap().contains("JSON commands"));
+
+    let quit = api_command_response(ApiCommand::Quit);
+    assert_eq!(quit, serde_json::json!({"ok": true, "status": "bye", "reason": "client"}));
+}
+
+#[test]
+fn api_test_response_contains_runtime_report() {
+    let response = api_command_response(ApiCommand::Test);
+    assert_eq!(response["ok"], true);
+    assert_eq!(response["status"], "tests_completed");
+    assert_eq!(response["tests"]["failed"], 0);
+    assert_eq!(response["tests"]["passed"], 4);
+    assert_eq!(response["tests"]["failures"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn api_executes_valid_simulation_commands() {
+    let args = parse_api_request(
+        r#"{"command":"args","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+        None,
+    )
+    .unwrap();
+    let raw = parse_api_request(
+        r#"{"command":"raw","base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+        None,
+    )
+    .unwrap();
+    let args_response = api_command_response(args);
+    let raw_response = api_command_response(raw);
+    assert_eq!(args_response["ok"], true);
+    assert_eq!(args_response["mode"], "args");
+    assert_eq!(raw_response["ok"], true);
+    assert_eq!(raw_response["mode"], "raw");
+}
+
+#[test]
+fn api_route_query_strings_do_not_change_routes() {
+    assert_eq!(
+        api_command_for_request("GET", "/status?format=json", ""),
+        Ok(ApiCommand::Status)
+    );
+    assert!(api_command_for_request("GET", "/status", " ").is_err());
+    assert!(api_command_for_request("POST", "/args?verbose=true", "{}").is_err());
+}
+
+#[test]
+fn api_route_method_errors_are_distinct() {
+    assert_eq!(
+        api_command_for_request("PUT", "/status", "").unwrap_err(),
+        "method not allowed"
+    );
+    assert_eq!(
+        api_command_for_request("GET", "/missing", "").unwrap_err(),
+        "unknown API route"
+    );
+}
+
+#[test]
+fn forward_kinematics_known_angles() {
+    assert_eq!(forward_r_z_mm(0.0, 0.0, 10.0, 5.0), (15.0, 0.0));
+    let (radius, height) = forward_r_z_mm(90.0, 0.0, 10.0, 5.0);
+    assert!(approx(radius, 0.0));
+    assert!(approx(height, 15.0));
+    let (radius, height) = forward_r_z_mm(0.0, 90.0, 10.0, 5.0);
+    assert!(approx(radius, 10.0));
+    assert!(approx(height, 5.0));
+}
+
+#[test]
+fn ik_accepts_outer_workspace_boundary() {
+    let solution = ik_angles_3d_deg(300.0, 12.0, 0.0, 200.0, 100.0).unwrap();
+    assert!(approx(solution.theta_base_deg, 12.0));
+    assert!(approx(solution.theta1_deg, 0.0));
+    assert!(approx(solution.theta2_deg, 0.0));
+}
+
+#[test]
+fn ik_accepts_negative_height_and_preserves_it() {
+    let solution = ik_angles_3d_deg(100.0, -30.0, -50.0, 100.0, 100.0).unwrap();
+    let (radius, height) = forward_r_z_mm(solution.theta1_deg, solution.theta2_deg, 100.0, 100.0);
+    assert!(approx(radius, 100.0));
+    assert!(approx(height, -50.0));
+    assert!(approx(solution.theta_base_deg, -30.0));
+}
+
+#[test]
+fn ik_rejects_inner_workspace_boundary() {
+    assert_eq!(
+        ik_angles_3d_deg(50.0, 0.0, 0.0, 100.0, 25.0),
+        Err("Out of workspace")
+    );
+}
+
+#[test]
+fn ik_rejects_non_finite_inputs() {
+    assert!(ik_angles_3d_deg(f64::NAN, 0.0, 0.0, 100.0, 100.0).is_err());
+    assert!(ik_angles_3d_deg(f64::INFINITY, 0.0, 0.0, 100.0, 100.0).is_err());
+    assert!(ik_angles_3d_deg(100.0, f64::NAN, 0.0, 100.0, 100.0).is_err());
+    assert!(ik_angles_3d_deg(100.0, 0.0, f64::INFINITY, 100.0, 100.0).is_err());
+    assert!(ik_angles_3d_deg(100.0, 0.0, 0.0, f64::NAN, 100.0).is_err());
+}
+
+#[test]
+fn deg_to_steps_zero_parameters_are_predictable() {
+    assert_eq!(deg_to_steps(90.0, 0, 16, GEAR_RATIO), 0);
+    assert_eq!(deg_to_steps(90.0, 200, 0, GEAR_RATIO), 0);
+    assert_eq!(deg_to_steps(90.0, 200, 16, 0.0), 0);
+}
+
+#[test]
+fn deg_to_steps_is_antisymmetric_for_many_angles() {
+    for angle in -720..=720 {
+        let angle = angle as f64 / 3.0;
+        assert_eq!(
+            deg_to_steps(-angle, 200, 16, GEAR_RATIO),
+            -deg_to_steps(angle, 200, 16, GEAR_RATIO),
+            "angle={angle}"
+        );
+    }
+}
+
+#[test]
+fn direction_logic_zero_is_not_positive() {
+    assert!(!direction_is_ccw(0, true));
+    assert!(direction_is_ccw(0, false));
+}
+
+#[test]
+fn timing_validation_handles_multiple_pulse_widths() {
+    for pulse in [0, 1, 10, 200, 1_000] {
+        let minimum = minimum_period_us(pulse);
+        assert_eq!(overhead_sleep_us(minimum, pulse), Ok(0));
+        assert!(overhead_sleep_us(minimum.saturating_sub(1), pulse).is_err());
+        assert_eq!(overhead_sleep_us(minimum + 17, pulse), Ok(17));
+    }
+}
+
+#[test]
+fn planner_counts_are_exact_for_many_vectors() {
+    for a in 0..=20 {
+        for b in 0..=20 {
+            for c in 0..=20 {
+                let expected = [a, b, c];
+                let mut actual = [0; 3];
+                for pulse in MultiAxisPlanner::new([a, -b, c]) {
+                    for axis in 0..3 {
+                        actual[axis] += i64::from(pulse[axis]);
+                    }
+                }
+                assert_eq!(actual, expected, "steps={expected:?}");
+            }
+        }
+    }
+}
+
+fn http_exchange(request: &[u8]) -> Vec<u8> {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        handle_connection(stream).unwrap();
+    });
+
+    let mut client = TcpStream::connect(address).unwrap();
+    client.write_all(request).unwrap();
+    client.shutdown(Shutdown::Write).unwrap();
+    let mut response = Vec::new();
+    client.read_to_end(&mut response).unwrap();
+    server.join().unwrap();
+    response
+}
+
+#[test]
+fn cli_prompt_parses_injected_input() {
+    let input = b"100\n20\n50\n200\n150\n400\n8\n1\n";
+    let mut output = Vec::new();
+    let config = prompt_position_with_io(Cursor::new(input), &mut output).unwrap();
+    assert_eq!(config.x_mm, 100.0);
+    assert_eq!(config.y_mm, 20.0);
+    assert_eq!(config.l2_mm, 150.0);
+    assert!(config.ccw_positive);
+    assert!(String::from_utf8(output).unwrap().contains("Target radius X"));
+}
+
+#[test]
+fn cli_prompt_reports_incomplete_input() {
+    let error = prompt_position_with_io(Cursor::new(b"100\n"), Vec::new()).unwrap_err();
+    assert!(error.to_string().contains("invalid digit") || error.to_string().contains("cannot parse"));
+}
+
+#[test]
+fn cli_help_and_dispatch_cover_help_branches() {
+    print_help("robot-arm");
+    assert!(get_mode(&[]).is_ok());
+    assert!(get_mode(&["robot-arm".to_owned(), "--help".to_owned()]).is_ok());
+    let error = get_mode(&["robot-arm".to_owned(), "--unknown".to_owned()]).unwrap_err();
+    assert!(error.to_string().contains("Unknown mode '--unknown'"));
+}
+
+#[test]
+fn shell_api_loop_handles_status_empty_line_and_invalid_json() {
+    let input = Cursor::new(
+        b"\n{\"command\":\"status\"}\nnot json\n",
+    );
+    let mut output = Vec::new();
+    run_position_loop_with_io(input, &mut output, true).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("API mode ready"));
+    assert!(output.contains("\"status\":\"ready\""));
+    assert!(output.contains("invalid JSON"));
+}
+
+#[test]
+fn shell_loops_exit_cleanly_at_eof() {
+    let mut position_output = Vec::new();
+    run_position_loop_with_io(Cursor::new(b""), &mut position_output, false).unwrap();
+    assert!(String::from_utf8(position_output).unwrap().contains("Shell mode"));
+
+    let mut raw_output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b""), &mut raw_output).unwrap();
+    assert!(String::from_utf8(raw_output).unwrap().contains("Raw mode"));
+}
+
+#[test]
+fn shell_position_loop_reports_invalid_command() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(Cursor::new(b"bad command\n"), &mut output, false).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command failed"));
+}
+
+#[test]
+fn shell_position_loop_executes_valid_simulation_command() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(
+        Cursor::new(b"100 0 50 200 200 200 16 1\n"),
+        &mut output,
+        false,
+    )
+    .unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+}
+
+#[test]
+fn shell_raw_loop_reports_invalid_command() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"bad command\n"), &mut output).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command failed"));
+}
+
+#[test]
+fn shell_raw_loop_executes_valid_simulation_command() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1\n"), &mut output).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+}
+
+#[test]
+fn http_status_request_returns_json_success() {
+    let response = http_exchange(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    let response = String::from_utf8(response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    assert!(response.contains("Content-Type: application/json"));
+    assert!(response.contains("\"status\":\"ready\""));
+}
+
+#[test]
+fn http_post_args_returns_success() {
+    let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
+    let request = format!(
+        "POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        std::str::from_utf8(body).unwrap()
+    );
+    let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    assert!(response.contains("\"mode\":\"args\""));
+}
+
+#[test]
+fn http_routes_return_expected_error_statuses() {
+    let not_found = http_exchange(b"GET /missing HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(String::from_utf8(not_found).unwrap().starts_with("HTTP/1.1 404 Not Found\r\n"));
+
+    let method = http_exchange(b"PUT /status HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert!(String::from_utf8(method).unwrap().starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
+
+    let bad_json = http_exchange(
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 8\r\n\r\nnot-json",
+    );
+    assert!(String::from_utf8(bad_json).unwrap().starts_with("HTTP/1.1 400 Bad Request\r\n"));
+}
+
+#[test]
+fn http_malformed_requests_return_bad_request() {
+    let response = http_exchange(b"not an HTTP request\r\n\r\n");
+    let response = String::from_utf8(response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 400 Bad Request\r\n"));
+    assert!(response.contains("unsupported HTTP version"));
+}
+
+#[test]
+fn http_rejects_unsupported_version_and_invalid_content_length() {
+    let version = http_exchange(b"GET /status HTTP/2.0\r\nHost: localhost\r\n\r\n");
+    assert!(String::from_utf8(version).unwrap().contains("unsupported HTTP version"));
+
+    let length = http_exchange(
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n",
+    );
+    assert!(String::from_utf8(length).unwrap().contains("invalid Content-Length"));
 }
