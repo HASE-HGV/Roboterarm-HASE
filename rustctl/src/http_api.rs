@@ -118,14 +118,20 @@ pub(crate) fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let address = env::var("RUSTCTL_API_ADDR").unwrap_or_else(|_| format!("127.0.0.1:{API_PORT}"));
     let listener = TcpListener::bind(&address)?;
     println!(
-        "API listening on http://{address} hardware_enabled={} routes=/status,/help,/test,/args,/raw",
-        hardware_enabled()
+        "{}",
+        crate::pretty::info(&format!(
+            "API listening on http://{address} | hardware_enabled={} | routes=/status,/help,/test,/args,/raw",
+            hardware_enabled()
+        ))
     );
     io::stdout().flush()?;
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => handle_connection(stream)?,
-            Err(error) => eprintln!("API connection failed: {error}"),
+            Err(error) => eprintln!(
+                "{}",
+                crate::pretty::warning(&format!("API connection failed: {error}"))
+            ),
         }
     }
     Ok(())

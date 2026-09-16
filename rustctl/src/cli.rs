@@ -3,6 +3,7 @@ use std::io::{self, BufRead, Write};
 use crate::config::{MotionConfig, config_from_position};
 use crate::http_api::run_api;
 use crate::motion::execute_position;
+use crate::pretty;
 use crate::shell::{run_position_loop, run_raw_loop};
 
 pub(crate) fn prompt_position() -> Result<MotionConfig, Box<dyn std::error::Error>> {
@@ -15,7 +16,12 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
     mut reader: R,
     mut writer: W,
 ) -> Result<MotionConfig, Box<dyn std::error::Error>> {
-    writeln!(writer, "CLI mode (timing is fixed at 1083 µs / 500 µs)")?;
+    writeln!(writer, "{}", pretty::title("CLI mode"))?;
+    writeln!(
+        writer,
+        "{}",
+        pretty::info("Timing is fixed at 1083 us / 500 us.")
+    )?;
     let mut values: Vec<String> = Vec::with_capacity(8);
     for (label, example) in [
         ("Target radius X (mm)", "100"),
@@ -27,7 +33,7 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
         ("Driver microstep resolution", "16"),
         ("CCW positive? (1 = yes, 0 = no)", "1"),
     ] {
-        write!(writer, "{label} [{example}]: ")?;
+        write!(writer, "{}", pretty::prompt(label, example))?;
         writer.flush()?;
         let mut input: String = String::new();
         reader.read_line(&mut input)?;
@@ -38,26 +44,7 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
 }
 
 pub(crate) fn print_help(program: &str) {
-    println!("Roboterarm controller\n");
-    println!("Usage: {program} --cli | --shell | --raw | --api | --help");
-    println!("\nModes:");
-    println!("  --cli   Prompt for one XYZ position and execute it.");
-    println!("  --shell Repeatedly read position commands from an interactive input loop.");
-    println!("  --raw   Repeatedly read raw angles from an interactive input loop.");
-    println!("  --api   Run the HTTP API server.");
-    println!("  --help  Show this guide.");
-    println!("\nPosition command format:");
-    println!(
-        "  radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive"
-    );
-    println!("Timing is fixed: total period = 1083 µs, pulse width = 500 µs.");
-    println!("\nPC testing:");
-    println!("  cargo run -- --cli");
-    println!("  cargo run -- --shell");
-    println!("  cargo test");
-    println!("\nRaspberry Pi hardware:");
-    println!("  cargo build --release --features hardware");
-    println!("  sudo ./target/release/rustctl --shell");
+    println!("{}", pretty::help(program));
 }
 
 pub(crate) fn get_mode(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {

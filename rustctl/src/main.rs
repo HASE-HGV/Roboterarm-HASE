@@ -5,6 +5,7 @@ mod config;
 mod http_api;
 mod kinematics;
 mod motion;
+mod pretty;
 mod shell;
 
 use std::env;

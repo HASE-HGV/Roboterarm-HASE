@@ -2,6 +2,7 @@ use std::error::Error;
 
 use crate::config::{GEAR_RATIO, MotionConfig, NUM_AXES};
 use crate::kinematics::{ArmSolution, deg_to_steps, ik_angles_3d_deg, overhead_sleep_us};
+use crate::pretty;
 
 pub(crate) fn execute_position(config: MotionConfig) -> Result<(), Box<dyn Error>> {
     let solution = ik_angles_3d_deg(
@@ -49,24 +50,33 @@ pub(crate) fn execute_solution(
     {
         let _ = overhead_us;
         println!(
-            "\nSimulation only: this binary was built without hardware support, so no GPIO signals were sent."
+            "{}",
+            pretty::warning(
+                "Simulation only: this binary was built without hardware support, so no GPIO signals were sent."
+            )
         );
         println!(
-            "Build on a Raspberry Pi with 'cargo build --release --features hardware' for motor control."
+            "{}",
+            pretty::info(
+                "Build on a Raspberry Pi with 'cargo build --release --features hardware' for motor control."
+            )
         );
     }
     Ok(())
 }
 
 fn print_plan(solution: &ArmSolution, steps: &[i64; NUM_AXES]) {
-    println!("\n=== Kinematics ===");
+    println!("{}", pretty::title("Kinematics"));
     println!(
         "Base angle: {:.3}°, Axis 1: {:.3}°, Axis 2: {:.3}°, effective Z: {:.3} mm",
         solution.theta_base_deg, solution.theta1_deg, solution.theta2_deg, solution.z_eff_mm
     );
     println!(
-        "Target steps (16:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
-        steps[2], steps[0], steps[1]
+        "{}",
+        pretty::info(&format!(
+            "Target steps (16:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
+            steps[2], steps[0], steps[1]
+        ))
     );
 }
 
@@ -164,7 +174,7 @@ fn run_hardware(
         motor.reset();
     }
     spare.reset();
-    println!("\nExecution finished.");
+    println!("{}", pretty::success("Execution finished."));
     println!(
         "Processed steps -> Base: {} (target: {}), Axis 1: {} (target: {}), Axis 2: {} (target: {})",
         stepped[2], steps[2], stepped[0], steps[0], stepped[1], steps[1]
