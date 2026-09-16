@@ -784,6 +784,51 @@ cargo run -- --cli
 cargo run -- --shell
 ```
 
+#### Test coverage
+
+The `rustctl` test suite contains 70 tests covering, among other things:
+
+- JSON API parsing, aliases, validation, responses, and HTTP routing
+- CLI help, argument prompts, shell loops, raw commands, EOF, and error paths
+- In-process HTTP requests and 200/400/404/405 responses
+- Forward and inverse kinematics, workspace boundaries, invalid numeric inputs,
+  timing validation, and degree-to-step conversion
+- Multi-axis step planning, including exact pulse counts across thousands of
+  deterministic step combinations
+- Simulation-mode motion execution and the runtime self-test report
+
+The latest local measurement is:
+
+| Metric | Coverage |
+|--------|:--------:|
+| Lines | **86.22%** |
+| Regions | **80.98%** |
+| Functions | **82.00%** |
+
+The remaining uncovered code is mainly the long-running API listener wrapper,
+the real process entry point, standard terminal I/O wrappers, and Raspberry Pi
+GPIO code that is compiled only on Linux with the `hardware` feature.
+
+Run the normal tests with:
+
+```bash
+cargo test
+```
+
+To generate the LLVM coverage report, install the tooling once:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov
+```
+
+Then run a summary report or generate an HTML report:
+
+```bash
+cargo llvm-cov --summary-only
+cargo llvm-cov --html --open
+```
+
 ### 7.6 Running on a Raspberry Pi
 
 Build with hardware support on the Pi, then run the selected mode with GPIO access:
