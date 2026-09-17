@@ -110,7 +110,7 @@ pub(crate) fn parse_api_request(
         "help" => Ok(ApiCommand::Help),
         "test" | "tests" => Ok(ApiCommand::Test),
         "quit" | "exit" => Ok(ApiCommand::Quit),
-        _ => Err(format!("unknown API command '{command}'")),
+        _catch_all => Err(format!("unknown API command '{command}'")),
     }
 }
 
