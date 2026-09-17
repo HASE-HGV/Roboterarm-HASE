@@ -251,20 +251,74 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A([Start]) --> B{CLI mode?}
-    B -- Yes --> C[Parse 10 parameters]
-    B -- No --> D[Interactive prompt loop]
-    C & D --> E[Validate timing constraints]
-    E --> F[Run 3D Inverse Kinematics]
-    F --> G{Reachable?}
-    G -- No --> ERR([Error: Out of workspace])
-    G -- Yes --> H[Convert angles → steps\nvia gear ratio + microstep]
-    H --> I[Init 8 GPIO pins via rppal]
-    I --> J[Register Ctrl+C handler]
-    J --> K[Set DIR pins for all 3 axes]
-    K --> L[Bresenham sync loop\nmax_steps iterations]
-    L --> M[Reset all GPIO pins LOW]
-    M --> N([Done])
+
+subgraph group_interfaces["Command interfaces"]
+  node_main["rustctl binary<br/>Rust entrypoint<br/>[main.rs]"]
+  node_cli["CLI commands<br/>command parser<br/>[cli.rs]"]
+  node_shell["Interactive shell<br/>REPL<br/>[shell.rs]"]
+  node_http["Local HTTP API<br/>sync HTTP server<br/>[http_api.rs]"]
+  node_api["JSON command parser<br/>API validation<br/>[api.rs]"]
+end
+
+subgraph group_controller["Rust controller"]
+  node_config["Motion configuration<br/>validated settings<br/>[config.rs]"]
+  node_kinematics["Inverse kinematics<br/>Cartesian solver<br/>[kinematics.rs]"]
+  node_step_conversion["Joint-to-step conversion<br/>motor conversion<br/>[kinematics.rs]"]
+  node_planner["Synchronized pulse planner<br/>Bresenham scheduler<br/>[bresenham.rs]"]
+  node_motion["Motion orchestrator<br/>execution coordinator<br/>[motion.rs]"]
+  node_simulation["Simulation execution<br/>default backend<br/>[motion.rs]"]
+end
+
+subgraph group_hardware["Hardware boundary"]
+  node_gpio_backend["GPIO pulse backend<br/>hardware-feature backend<br/>[motion.rs]"]
+  node_drivers["A4988 motor drivers<br/>stepper drivers<br/>[pins.md]"]
+  node_robot["3-DOF robot arm<br/>physical mechanism<br/>[Gearbox.md]"]
+  node_gpio_test["Legacy GPIO test<br/>direct pulse utility<br/>[main.rs]"]
+end
+
+node_main -->|"one-shot mode"| node_cli
+node_main -->|"interactive mode"| node_shell
+node_main -->|"HTTP mode"| node_http
+node_http -->|"JSON request"| node_api
+node_cli -->|"normalized input"| node_config
+node_shell -->|"normalized input"| node_config
+node_api -->|"validated command"| node_config
+node_config -->|"Cartesian target"| node_kinematics
+node_kinematics -->|"joint angles"| node_step_conversion
+node_config -->|"motor settings"| node_step_conversion
+node_step_conversion -->|"signed steps"| node_planner
+node_planner -->|"tick schedule"| node_motion
+node_motion -->|"default build"| node_simulation
+node_motion -.->|"hardware feature"| node_gpio_backend
+node_gpio_backend -->|"DIR and STEP GPIO"| node_drivers
+node_drivers -->|"motor power"| node_robot
+
+click node_main "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/main.rs"
+click node_cli "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/cli.rs"
+click node_shell "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/shell.rs"
+click node_http "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/http_api.rs"
+click node_api "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/api.rs"
+click node_config "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/config.rs"
+click node_kinematics "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/kinematics.rs"
+click node_step_conversion "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/kinematics.rs"
+click node_planner "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/bresenham.rs"
+click node_motion "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/motion.rs"
+click node_simulation "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/motion.rs"
+click node_gpio_backend "https://github.com/hase-hgv/roboterarm-hase/blob/main/rustctl/src/motion.rs"
+click node_drivers "https://github.com/hase-hgv/roboterarm-hase/blob/main/pins.md"
+click node_robot "https://github.com/hase-hgv/roboterarm-hase/blob/main/VI21-Anlagen/Gearbox.md"
+click node_gpio_test "https://github.com/hase-hgv/roboterarm-hase/blob/main/gpioTest/src/main.rs"
+
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_main,node_cli,node_shell,node_http,node_api toneBlue
+class node_config,node_kinematics,node_step_conversion,node_planner,node_motion,node_simulation toneAmber
+class node_gpio_backend,node_drivers,node_robot,node_gpio_test toneMint
 ```
 
 **Motor mapping:**
