@@ -1,4 +1,4 @@
-use std::thread;
+use std::{thread, u8};
 use std::time::Duration;
 use std::io;
 
@@ -85,7 +85,7 @@ fn multi_motor_handler(count: u8) {
         2 => m_drive_2m(pins),
         3 => m_drive_3m(pins),
         4 => m_drive_4m(pins),
-        _ => println!("There aren't as many motors as you requested"),
+        catch_rest => println!("There aren't as many motors as you requested, {catch_rest} were requested but only 4 motors are currently configured"),
     }
 }
 
