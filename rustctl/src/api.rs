@@ -215,7 +215,7 @@ pub(crate) fn api_command_for_request(
         ("POST", "/args") => parse_api_request(body, Some("args")),
         ("POST", "/raw") => parse_api_request(body, Some("raw")),
         ("POST", "/api") => parse_api_request(body, None),
-        ("GET", _) => Err("unknown API route".to_owned()),
-        (_, _) => Err("method not allowed".to_owned()),
+        ("GET", _routecatch) => Err("unknown API route".to_owned()),
+        (_methodcatch, _routecatch) => Err("method not allowed".to_owned()),
     }
 }
