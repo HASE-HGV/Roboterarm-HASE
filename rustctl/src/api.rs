@@ -175,7 +175,7 @@ pub(crate) fn runtime_test_report() -> RuntimeTestReport {
 pub(crate) fn api_command_response(command: ApiCommand) -> Value {
     match command {
         ApiCommand::Status => {
-            json!({"ok": true, "status": "ready", "hardware_enabled": hardware_enabled(), "commands": ["args", "raw", "status", "help", "test", "quit"]})
+            json!({"ok": true, "status": "ready", "hardware_enabled": hardware_enabled(), "busy": crate::control::is_busy(), "commands": ["args", "raw", "status", "help", "test", "quit"]})
         }
         ApiCommand::Help => json!({"ok": true, "help": api_help()}),
         ApiCommand::Test => {

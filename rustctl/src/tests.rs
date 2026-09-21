@@ -1,10 +1,34 @@
 use std::io::{Cursor, Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::sync::Mutex;
 use std::thread;
+use std::time::Duration;
 
 use crate::cli::{get_mode, print_help, prompt_position_with_io};
-use crate::http_api::handle_connection;
+use crate::control::{BusyGuard, is_busy};
+use crate::http_api::{
+    PAGE_HTML, RequestError, banner_lines, handle_connection, handle_request, origin_is_trusted,
+    read_http_request, resolve_bind_address, resolve_bind_address_with,
+};
+use crate::net::{Address, hostname_url, rank_addresses};
 use crate::shell::{run_position_loop_with_io, run_raw_loop_with_io};
+
+/// Serializes every test that touches the process-wide busy flag
+/// (`crate::control`). The flag is deliberately real global state (the
+/// controller drives one physical arm), so tests that acquire or observe it
+/// must not run concurrently with each other, even though `cargo test` runs
+/// different tests in parallel by default. Tests that never reach the busy
+/// gate (e.g. a rejected or malformed request) do not need this lock.
+static BUSY_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+/// Acquires BUSY_TEST_LOCK, recovering from poisoning. If an earlier test
+/// panicked while holding the lock, a plain `.lock().unwrap()` here would
+/// make every later busy-gate test fail with an unrelated `PoisonError`,
+/// hiding the real failure behind a wall of noise. The data behind this
+/// lock is just `()` - there is nothing to recover incorrectly.
+fn busy_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    BUSY_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 #[test]
 fn api_parses_args_mode() {
@@ -259,7 +283,10 @@ fn ik_forward_roundtrip() {
             approx(r_eff, radius),
             "radius mismatch: {r_eff} vs {radius}"
         );
-        assert!(approx(z_eff, height), "height mismatch: {z_eff} vs {height}");
+        assert!(
+            approx(z_eff, height),
+            "height mismatch: {z_eff} vs {height}"
+        );
         assert!(approx(s.theta_base_deg, base_angle));
     }
 }
@@ -326,10 +353,8 @@ fn planner_distributes_evenly() {
 
 #[test]
 fn config_parses_position_values_and_fixed_timing() {
-    let config = config_from_position(&[
-        "100", "-20.5", "50", "200", "150", "400", "8", "1",
-    ])
-    .unwrap();
+    let config =
+        config_from_position(&["100", "-20.5", "50", "200", "150", "400", "8", "1"]).unwrap();
     assert_eq!(config.total_time_us, TOTAL_TIME_US);
     assert_eq!(config.pulse_t_us, PULSE_T_US);
     assert_eq!(config.x_mm, 100.0);
@@ -407,7 +432,9 @@ fn raw_command_rejects_wrong_counts_and_invalid_numbers() {
 
 #[test]
 fn api_command_names_are_case_insensitive_and_aliases_work() {
-    for name in ["status", "STATUS", "help", "HELP", "test", "tests", "quit", "exit"] {
+    for name in [
+        "status", "STATUS", "help", "HELP", "test", "tests", "quit", "exit",
+    ] {
         assert!(parse_api_request(&format!(r#"{{"command":"{name}"}}"#), None).is_ok());
     }
     assert!(matches!(
@@ -421,9 +448,11 @@ fn api_command_names_are_case_insensitive_and_aliases_work() {
 
 #[test]
 fn api_rejects_invalid_json_and_missing_command() {
-    assert!(parse_api_request("not json", None)
-        .unwrap_err()
-        .starts_with("invalid JSON:"));
+    assert!(
+        parse_api_request("not json", None)
+            .unwrap_err()
+            .starts_with("invalid JSON:")
+    );
     assert_eq!(
         parse_api_request("{}", None).unwrap_err(),
         "missing JSON field 'command'"
@@ -464,7 +493,14 @@ fn api_rejects_missing_each_position_field() {
 
 #[test]
 fn api_rejects_missing_each_raw_field() {
-    let fields = ["base_deg", "axis1_deg", "axis2_deg", "steps_per_rev", "microstep", "ccw_positive"];
+    let fields = [
+        "base_deg",
+        "axis1_deg",
+        "axis2_deg",
+        "steps_per_rev",
+        "microstep",
+        "ccw_positive",
+    ];
     for missing in fields {
         let mut request = serde_json::json!({
             "command": "raw",
@@ -486,14 +522,22 @@ fn api_response_shapes_are_stable_for_control_commands() {
     let status = api_command_response(ApiCommand::Status);
     assert_eq!(status["ok"], true);
     assert_eq!(status["status"], "ready");
-    assert!(status["commands"].as_array().unwrap().contains(&serde_json::json!("raw")));
+    assert!(
+        status["commands"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("raw"))
+    );
 
     let help = api_command_response(ApiCommand::Help);
     assert_eq!(help["ok"], true);
     assert!(help["help"].as_str().unwrap().contains("JSON commands"));
 
     let quit = api_command_response(ApiCommand::Quit);
-    assert_eq!(quit, serde_json::json!({"ok": true, "status": "bye", "reason": "client"}));
+    assert_eq!(
+        quit,
+        serde_json::json!({"ok": true, "status": "bye", "reason": "client"})
+    );
 }
 
 #[test]
@@ -672,13 +716,19 @@ fn cli_prompt_parses_injected_input() {
     assert_eq!(config.y_mm, 20.0);
     assert_eq!(config.l2_mm, 150.0);
     assert!(config.ccw_positive);
-    assert!(String::from_utf8(output).unwrap().contains("Target radius X"));
+    assert!(
+        String::from_utf8(output)
+            .unwrap()
+            .contains("Target radius X")
+    );
 }
 
 #[test]
 fn cli_prompt_reports_incomplete_input() {
     let error = prompt_position_with_io(Cursor::new(b"100\n"), Vec::new()).unwrap_err();
-    assert!(error.to_string().contains("invalid digit") || error.to_string().contains("cannot parse"));
+    assert!(
+        error.to_string().contains("invalid digit") || error.to_string().contains("cannot parse")
+    );
 }
 
 #[test]
@@ -692,9 +742,7 @@ fn cli_help_and_dispatch_cover_help_branches() {
 
 #[test]
 fn shell_api_loop_handles_status_empty_line_and_invalid_json() {
-    let input = Cursor::new(
-        b"\n{\"command\":\"status\"}\nnot json\n",
-    );
+    let input = Cursor::new(b"\n{\"command\":\"status\"}\nnot json\n");
     let mut output = Vec::new();
     run_position_loop_with_io(input, &mut output, true).unwrap();
     let output = String::from_utf8(output).unwrap();
@@ -707,7 +755,11 @@ fn shell_api_loop_handles_status_empty_line_and_invalid_json() {
 fn shell_loops_exit_cleanly_at_eof() {
     let mut position_output = Vec::new();
     run_position_loop_with_io(Cursor::new(b""), &mut position_output, false).unwrap();
-    assert!(String::from_utf8(position_output).unwrap().contains("Shell mode"));
+    assert!(
+        String::from_utf8(position_output)
+            .unwrap()
+            .contains("Shell mode")
+    );
 
     let mut raw_output = Vec::new();
     run_raw_loop_with_io(Cursor::new(b""), &mut raw_output).unwrap();
@@ -718,7 +770,11 @@ fn shell_loops_exit_cleanly_at_eof() {
 fn shell_position_loop_reports_invalid_command() {
     let mut output = Vec::new();
     run_position_loop_with_io(Cursor::new(b"bad command\n"), &mut output, false).unwrap();
-    assert!(String::from_utf8(output).unwrap().contains("Command failed"));
+    assert!(
+        String::from_utf8(output)
+            .unwrap()
+            .contains("Command failed")
+    );
 }
 
 #[test]
@@ -730,21 +786,33 @@ fn shell_position_loop_executes_valid_simulation_command() {
         false,
     )
     .unwrap();
-    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+    assert!(
+        String::from_utf8(output)
+            .unwrap()
+            .contains("Command completed")
+    );
 }
 
 #[test]
 fn shell_raw_loop_reports_invalid_command() {
     let mut output = Vec::new();
     run_raw_loop_with_io(Cursor::new(b"bad command\n"), &mut output).unwrap();
-    assert!(String::from_utf8(output).unwrap().contains("Command failed"));
+    assert!(
+        String::from_utf8(output)
+            .unwrap()
+            .contains("Command failed")
+    );
 }
 
 #[test]
 fn shell_raw_loop_executes_valid_simulation_command() {
     let mut output = Vec::new();
     run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1\n"), &mut output).unwrap();
-    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+    assert!(
+        String::from_utf8(output)
+            .unwrap()
+            .contains("Command completed")
+    );
 }
 
 #[test]
@@ -758,6 +826,7 @@ fn http_status_request_returns_json_success() {
 
 #[test]
 fn http_post_args_returns_success() {
+    let _serial = busy_test_lock();
     let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
     let request = format!(
         "POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
@@ -772,15 +841,27 @@ fn http_post_args_returns_success() {
 #[test]
 fn http_routes_return_expected_error_statuses() {
     let not_found = http_exchange(b"GET /missing HTTP/1.1\r\nHost: localhost\r\n\r\n");
-    assert!(String::from_utf8(not_found).unwrap().starts_with("HTTP/1.1 404 Not Found\r\n"));
+    assert!(
+        String::from_utf8(not_found)
+            .unwrap()
+            .starts_with("HTTP/1.1 404 Not Found\r\n")
+    );
 
     let method = http_exchange(b"PUT /status HTTP/1.1\r\nHost: localhost\r\n\r\n");
-    assert!(String::from_utf8(method).unwrap().starts_with("HTTP/1.1 405 Method Not Allowed\r\n"));
+    assert!(
+        String::from_utf8(method)
+            .unwrap()
+            .starts_with("HTTP/1.1 405 Method Not Allowed\r\n")
+    );
 
     let bad_json = http_exchange(
         b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 8\r\n\r\nnot-json",
     );
-    assert!(String::from_utf8(bad_json).unwrap().starts_with("HTTP/1.1 400 Bad Request\r\n"));
+    assert!(
+        String::from_utf8(bad_json)
+            .unwrap()
+            .starts_with("HTTP/1.1 400 Bad Request\r\n")
+    );
 }
 
 #[test]
@@ -794,10 +875,605 @@ fn http_malformed_requests_return_bad_request() {
 #[test]
 fn http_rejects_unsupported_version_and_invalid_content_length() {
     let version = http_exchange(b"GET /status HTTP/2.0\r\nHost: localhost\r\n\r\n");
-    assert!(String::from_utf8(version).unwrap().contains("unsupported HTTP version"));
-
-    let length = http_exchange(
-        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n",
+    assert!(
+        String::from_utf8(version)
+            .unwrap()
+            .contains("unsupported HTTP version")
     );
-    assert!(String::from_utf8(length).unwrap().contains("invalid Content-Length"));
+
+    let length =
+        http_exchange(b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n");
+    assert!(
+        String::from_utf8(length)
+            .unwrap()
+            .contains("invalid Content-Length")
+    );
+}
+
+// ---------------------------------------------------------------------
+// CLI: --site / --api rename
+// ---------------------------------------------------------------------
+
+#[test]
+fn cli_help_text_describes_site_mode_not_api() {
+    let text = crate::pretty::help("rustctl");
+    assert!(text.contains("--site"));
+    assert!(text.contains("RUSTCTL_SITE_ADDR"));
+    assert!(!text.contains("--api"));
+}
+
+#[test]
+fn cli_rejects_removed_api_flag_with_helpful_message() {
+    let error = get_mode(&["rustctl".to_owned(), "--api".to_owned()]).unwrap_err();
+    assert!(error.to_string().contains("renamed to '--site'"), "{error}");
+}
+
+// ---------------------------------------------------------------------
+// control: the process-wide motion gate
+// ---------------------------------------------------------------------
+
+#[test]
+fn control_second_acquire_fails_until_released() {
+    let _serial = busy_test_lock();
+    assert!(!is_busy());
+    let first = BusyGuard::acquire().expect("first acquire should succeed");
+    assert!(is_busy());
+    assert!(
+        BusyGuard::acquire().is_none(),
+        "a second acquire must fail while a motion is in progress"
+    );
+    drop(first);
+    assert!(!is_busy());
+    let second = BusyGuard::acquire().expect("acquire should succeed again after release");
+    drop(second);
+    assert!(!is_busy());
+}
+
+#[test]
+fn control_guard_releases_the_flag_even_after_a_panic() {
+    let _serial = busy_test_lock();
+    assert!(!is_busy());
+    let result = std::panic::catch_unwind(|| {
+        let _guard = BusyGuard::acquire().unwrap();
+        assert!(is_busy());
+        panic!("simulated failure while a move is in progress");
+    });
+    assert!(result.is_err());
+    assert!(
+        !is_busy(),
+        "the guard must release the flag during unwind, not just on a normal return"
+    );
+}
+
+// ---------------------------------------------------------------------
+// http_api: Origin/Host cross-origin check (unit level)
+// ---------------------------------------------------------------------
+
+#[test]
+fn origin_absent_is_always_trusted() {
+    assert!(origin_is_trusted(None, None));
+    assert!(origin_is_trusted(None, Some("localhost:5000")));
+}
+
+#[test]
+fn origin_matching_host_is_trusted_regardless_of_scheme_or_case() {
+    assert!(origin_is_trusted(
+        Some("http://localhost:5000"),
+        Some("localhost:5000")
+    ));
+    assert!(origin_is_trusted(
+        Some("https://LOCALHOST:5000"),
+        Some("localhost:5000")
+    ));
+    assert!(origin_is_trusted(
+        Some("http://192.168.1.50:5000"),
+        Some("192.168.1.50:5000")
+    ));
+}
+
+#[test]
+fn origin_mismatched_host_is_rejected() {
+    assert!(!origin_is_trusted(
+        Some("http://evil.example"),
+        Some("localhost:5000")
+    ));
+    assert!(!origin_is_trusted(
+        Some("http://localhost:5000"),
+        Some("localhost:5001")
+    ));
+}
+
+#[test]
+fn origin_without_scheme_or_without_host_header_is_rejected() {
+    // No "http(s)://" prefix at all - refuse rather than guess.
+    assert!(!origin_is_trusted(
+        Some("localhost:5000"),
+        Some("localhost:5000")
+    ));
+    // Origin present but no Host header to compare against - can't verify, so refuse.
+    assert!(!origin_is_trusted(Some("http://localhost:5000"), None));
+    // The literal string browsers send for opaque/sandboxed origins.
+    assert!(!origin_is_trusted(Some("null"), Some("localhost:5000")));
+}
+
+// ---------------------------------------------------------------------
+// http_api: request parsing timeouts (fixes finding F-1)
+// ---------------------------------------------------------------------
+
+#[test]
+fn req_oversized_headers_are_rejected() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        read_http_request(&mut stream)
+    });
+    let mut client = TcpStream::connect(address).unwrap();
+    // A request line plus 17 KiB of header bytes with no terminating
+    // "\r\n\r\n" - well past the 16 KiB header limit.
+    client
+        .write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n")
+        .unwrap();
+    client.write_all(&vec![b'x'; 17 * 1024]).unwrap();
+    let result = server.join().unwrap();
+    match result {
+        Err(RequestError::Malformed(message)) => {
+            assert!(message.contains("too large"), "{message}")
+        }
+        other => panic!("expected a Malformed(too large) error, got {other:?}"),
+    }
+}
+
+#[test]
+fn req_content_length_over_one_mib_is_rejected_before_reading_the_body() {
+    let response = String::from_utf8(http_exchange(
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5000000\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(
+        response.starts_with("HTTP/1.1 400 Bad Request\r\n"),
+        "{response}"
+    );
+    assert!(response.contains("too large"));
+}
+
+#[test]
+fn req_body_delivered_across_multiple_reads_is_reassembled() {
+    // A body that is small enough to fit in a single 1024-byte read (as
+    // every other test's body does) never exercises the body-assembly
+    // loop's own stream.read() call - only the fast path where the whole
+    // body already arrived alongside the headers. Splitting the write
+    // into two parts, with a short pause between them, forces the server
+    // to make a second read() call to finish assembling the body.
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
+    let head = format!(
+        "POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n",
+        body.len()
+    );
+    let split_at = body.len() / 2;
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        read_http_request(&mut stream)
+    });
+    let mut client = TcpStream::connect(address).unwrap();
+    client.write_all(head.as_bytes()).unwrap();
+    client.write_all(&body[..split_at]).unwrap();
+    thread::sleep(Duration::from_millis(80));
+    client.write_all(&body[split_at..]).unwrap();
+    let request = server.join().unwrap().expect("request should parse");
+    assert_eq!(request.method, "POST");
+    assert_eq!(request.body, std::str::from_utf8(body).unwrap());
+}
+
+#[test]
+fn req_body_closing_early_is_reported_as_malformed() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        read_http_request(&mut stream)
+    });
+    let mut client = TcpStream::connect(address).unwrap();
+    client
+        .write_all(
+            b"POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n{\"partial",
+        )
+        .unwrap();
+    client.shutdown(Shutdown::Both).unwrap();
+    let result = server.join().unwrap();
+    match result {
+        Err(RequestError::Malformed(message)) => {
+            assert!(message.contains("before request body"), "{message}")
+        }
+        other => panic!("expected a Malformed(before request body) error, got {other:?}"),
+    }
+}
+
+#[test]
+fn req_body_read_can_time_out_independently_of_the_header_read() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_millis(150)))
+            .unwrap();
+        read_http_request(&mut stream)
+    });
+    let mut client = TcpStream::connect(address).unwrap();
+    client
+        .write_all(
+            b"POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n{\"partial",
+        )
+        .unwrap();
+    // Never send the rest - the body read loop must time out on its own.
+    let result = server.join().unwrap();
+    assert_eq!(result.unwrap_err(), RequestError::Timeout);
+    drop(client);
+}
+
+#[test]
+fn req_read_http_request_times_out_without_data() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_millis(150)))
+            .unwrap();
+        read_http_request(&mut stream)
+    });
+    // Connect but never send a byte - this is exactly what triggered F-1
+    // against the original --api (a hung server, no response ever sent).
+    let _client = TcpStream::connect(address).unwrap();
+    let result = server.join().unwrap();
+    assert_eq!(result.unwrap_err(), RequestError::Timeout);
+}
+
+#[test]
+fn req_handle_request_maps_timeout_to_408() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_millis(150)))
+            .unwrap();
+        stream
+            .set_write_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        handle_request(&mut stream).unwrap();
+    });
+    let mut client = TcpStream::connect(address).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let mut response = Vec::new();
+    client.read_to_end(&mut response).unwrap();
+    server.join().unwrap();
+    let response = String::from_utf8(response).unwrap();
+    assert!(
+        response.starts_with("HTTP/1.1 408 Request Timeout\r\n"),
+        "{response}"
+    );
+    assert!(response.contains("request timed out"));
+}
+
+// ---------------------------------------------------------------------
+// con_*: whole-connection / accept-loop behaviour (fixes F-1 and F-2)
+// ---------------------------------------------------------------------
+
+/// Mirrors run_site()'s accept loop (bind + thread-per-connection) without
+/// its env var / banner / infinite-loop concerns, so tests can exercise the
+/// real concurrency behaviour against an ephemeral port.
+fn spawn_accept_loop() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    thread::spawn(move || {
+        for stream in listener.incoming() {
+            if let Ok(stream) = stream {
+                thread::spawn(move || {
+                    let _ = handle_connection(stream);
+                });
+            }
+        }
+    });
+    address
+}
+
+fn read_full_response(stream: &mut TcpStream) -> String {
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response).unwrap();
+    String::from_utf8(response).unwrap()
+}
+
+#[test]
+fn con_second_connection_served_while_first_is_idle() {
+    let address = spawn_accept_loop();
+    // Client A connects but never sends anything - a browser's speculative
+    // pre-connect looks exactly like this. Under the old sequential --api
+    // loop this alone was enough to block every other client (finding F-1).
+    let _idle = TcpStream::connect(address).unwrap();
+
+    let mut b = TcpStream::connect(address).unwrap();
+    b.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    b.write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .unwrap();
+    let response = read_full_response(&mut b);
+    assert!(
+        response.starts_with("HTTP/1.1 200 OK\r\n"),
+        "a second client must be served promptly while the first is idle: {response}"
+    );
+}
+
+#[test]
+fn con_accept_loop_survives_abrupt_client_disconnect() {
+    let address = spawn_accept_loop();
+    {
+        let mut a = TcpStream::connect(address).unwrap();
+        a.write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            .unwrap();
+        // Abandon the connection without ever reading the response - this
+        // reproduces finding F-2, where the old sequential --api's accept
+        // loop propagated a write/connection error with `?` and the whole
+        // process exited.
+        a.shutdown(Shutdown::Both).ok();
+    }
+    thread::sleep(Duration::from_millis(150));
+    let mut b = TcpStream::connect(address).unwrap();
+    b.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    b.write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .unwrap();
+    let response = read_full_response(&mut b);
+    assert!(
+        response.starts_with("HTTP/1.1 200 OK\r\n"),
+        "the accept loop must keep serving requests after another client disconnects abruptly: {response}"
+    );
+}
+
+#[test]
+fn con_cross_origin_post_is_rejected() {
+    let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
+    let request = format!(
+        "POST /args HTTP/1.1\r\nHost: localhost:5000\r\nOrigin: http://evil.example\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        std::str::from_utf8(body).unwrap()
+    );
+    let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
+    assert!(
+        response.starts_with("HTTP/1.1 403 Forbidden\r\n"),
+        "{response}"
+    );
+    assert!(response.contains("cross-origin request refused"));
+}
+
+#[test]
+fn con_same_origin_post_is_allowed() {
+    let _serial = busy_test_lock();
+    let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
+    let request = format!(
+        "POST /args HTTP/1.1\r\nHost: localhost:5000\r\nOrigin: http://localhost:5000\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        std::str::from_utf8(body).unwrap()
+    );
+    let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    assert!(response.contains("\"mode\":\"args\""));
+}
+
+#[test]
+fn con_get_ignores_origin_header() {
+    let request =
+        b"GET /status HTTP/1.1\r\nHost: localhost:5000\r\nOrigin: http://evil.example\r\n\r\n";
+    let response = String::from_utf8(http_exchange(request)).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+}
+
+#[test]
+fn con_busy_arm_rejects_concurrent_motion_request_with_409() {
+    let _serial = busy_test_lock();
+    let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
+    let request = format!(
+        "POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        std::str::from_utf8(body).unwrap()
+    );
+
+    let guard = BusyGuard::acquire().unwrap();
+    let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
+    assert!(
+        response.starts_with("HTTP/1.1 409 Conflict\r\n"),
+        "{response}"
+    );
+    assert!(response.contains("arm is busy"));
+    assert!(response.contains("\"busy\":true"));
+    drop(guard);
+
+    // Once released, the identical request succeeds.
+    let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+}
+
+#[test]
+fn con_status_reports_busy_field() {
+    let _serial = busy_test_lock();
+    let idle = String::from_utf8(http_exchange(
+        b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(idle.contains("\"busy\":false"), "{idle}");
+
+    let guard = BusyGuard::acquire().unwrap();
+    let busy = String::from_utf8(http_exchange(
+        b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(busy.contains("\"busy\":true"), "{busy}");
+    drop(guard);
+}
+
+// ---------------------------------------------------------------------
+// page: the barebones control page served at / and /index.html
+// ---------------------------------------------------------------------
+
+#[test]
+fn page_html_constant_has_no_style_or_external_resources() {
+    let lower = PAGE_HTML.to_ascii_lowercase();
+    assert!(
+        !lower.contains("<style"),
+        "page must not define a <style> block"
+    );
+    assert!(
+        !lower.contains("style="),
+        "page must not use inline style attributes"
+    );
+    assert!(
+        !lower.contains("stylesheet"),
+        "page must not link a stylesheet"
+    );
+    assert!(
+        !lower.contains(".css"),
+        "page must not reference a CSS file"
+    );
+    assert!(
+        !PAGE_HTML.contains("http://") && !PAGE_HTML.contains("https://"),
+        "page must be self-contained: no external URLs"
+    );
+    assert!(!lower.contains("innerhtml"), "page must not use innerHTML");
+    assert!(!lower.contains("eval("), "page must not use eval()");
+    assert!(!lower.contains("document.write"));
+}
+
+#[test]
+fn page_form_fields_match_the_json_api_field_names() {
+    for field in [
+        "radius_mm",
+        "base_angle_deg",
+        "height_mm",
+        "l1_mm",
+        "l2_mm",
+        "steps_per_rev",
+        "microstep",
+        "ccw_positive",
+        "base_deg",
+        "axis1_deg",
+        "axis2_deg",
+    ] {
+        assert!(
+            PAGE_HTML.contains(&format!("name=\"{field}\"")),
+            "page is missing a field for {field}"
+        );
+    }
+}
+
+#[test]
+fn page_root_serves_html_with_expected_headers() {
+    let response =
+        String::from_utf8(http_exchange(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    assert!(response.contains("Content-Type: text/html"));
+    assert!(response.contains("Connection: close"));
+    assert!(response.contains("<h1>Roboterarm HASE</h1>"));
+}
+
+#[test]
+fn page_index_html_alias_serves_identical_content() {
+    let root = http_exchange(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    let alias = http_exchange(b"GET /index.html HTTP/1.1\r\nHost: localhost\r\n\r\n");
+    assert_eq!(root, alias);
+}
+
+#[test]
+fn page_query_string_is_ignored() {
+    let response = String::from_utf8(http_exchange(
+        b"GET /?debug=1 HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+}
+
+#[test]
+fn page_other_unknown_paths_still_404() {
+    let response = String::from_utf8(http_exchange(
+        b"GET /favicon.ico HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(
+        response.starts_with("HTTP/1.1 404 Not Found\r\n"),
+        "{response}"
+    );
+}
+
+#[test]
+fn page_post_to_root_is_not_treated_as_the_page_route() {
+    // Only GET / serves the page; this just documents that POST / falls
+    // through to the ordinary API routing (existing "method not allowed"
+    // catch-all), unchanged by adding the page route.
+    let response = String::from_utf8(http_exchange(
+        b"POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(!response.starts_with("HTTP/1.1 200 OK\r\n"));
+}
+
+// ---------------------------------------------------------------------
+// net: interface discovery and ranking (pure logic only - discover_addresses
+// and read_hostname do real I/O and are exercised via the e2e/banner tests)
+// ---------------------------------------------------------------------
+
+fn addr(interface: &str, ip: [u8; 4]) -> Address {
+    Address {
+        interface: interface.to_owned(),
+        ip: Ipv4Addr::from(ip),
+    }
+}
+
+#[test]
+fn net_filters_loopback_and_virtual_interfaces() {
+    let ranked = rank_addresses(vec![
+        addr("lo", [127, 0, 0, 1]),
+        addr("docker0", [172, 17, 0, 1]),
+        addr("veth1234", [172, 18, 0, 1]),
+        addr("br-abcdef", [172, 19, 0, 1]),
+        addr("virbr0", [192, 168, 122, 1]),
+        addr("eth0", [192, 168, 1, 50]),
+    ]);
+    assert_eq!(ranked, vec![addr("eth0", [192, 168, 1, 50])]);
+}
+
+#[test]
+fn net_ranks_wired_before_wireless_before_usb_before_other() {
+    let ranked = rank_addresses(vec![
+        addr("wlan0", [192, 168, 1, 20]),
+        addr("usb0", [192, 168, 2, 20]),
+        addr("eth0", [192, 168, 1, 50]),
+        addr("tun0", [10, 0, 0, 5]),
+    ]);
+    let order: Vec<&str> = ranked.iter().map(|a| a.interface.as_str()).collect();
+    assert_eq!(order, vec!["eth0", "wlan0", "usb0", "tun0"]);
+}
+
+#[test]
+fn net_dedups_duplicate_ip_addresses() {
+    let ranked = rank_addresses(vec![
+        addr("eth0", [192, 168, 1, 50]),
+        addr("eth0:1", [192, 168, 1, 50]),
+    ]);
+    assert_eq!(ranked.len(), 1);
+}
+
+#[test]
+fn net_empty_input_yields_empty_output() {
+    assert!(rank_addresses(vec![]).is_empty());
 }

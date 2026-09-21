@@ -51,7 +51,7 @@ pub(crate) fn get_mode(args: &[String]) -> Result<(), Box<dyn std::error::Error>
     match args.get(1).map(String::as_str) {
         Some("--cli") => execute_position(prompt_position()?),
         Some("--shell") => run_position_loop(false),
-        Some("--api") => run_api(),
+        Some("--site") => run_api(),
         Some("--raw") => run_raw_loop(),
         Some("--help") | None => {
             print_help(args.first().map(String::as_str).unwrap_or("rustctl"));

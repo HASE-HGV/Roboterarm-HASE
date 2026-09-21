@@ -23,18 +23,18 @@ pub(crate) struct MotionConfig {
 
 pub(crate) fn config_from_position(values: &[&str]) -> Result<MotionConfig, Box<dyn Error>> {
     if values.len() != 8 {
-        return Err("Expected: radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive".into());
+        return Err("Expected: radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive, count: {values.len()}".into());
     }
     Ok(MotionConfig {
         total_time_us: TOTAL_TIME_US,
         pulse_t_us: PULSE_T_US,
-        x_mm: values[0].parse()?,
-        y_mm: values[1].parse()?,
-        z_mm: values[2].parse()?,
-        l1_mm: values[3].parse()?,
-        l2_mm: values[4].parse()?,
-        steps_per_rev: values[5].parse()?,
-        microstep: values[6].parse()?,
+        x_mm: values[0].parse::<f64>()?,
+        y_mm: values[1].parse::<f64>()?,
+        z_mm: values[2].parse::<f64>()?,
+        l1_mm: values[3].parse::<f64>()?,
+        l2_mm: values[4].parse::<f64>()?,
+        steps_per_rev: values[5].parse::<u64>()?,
+        microstep: values[6].parse::<u64>()?,
         ccw_positive: values[7].parse::<u8>()? != 0,
     })
 }
@@ -51,9 +51,9 @@ pub(crate) fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box
         );
     }
     let solution = ArmSolution {
-        theta_base_deg: values[0].parse()?,
-        theta1_deg: values[1].parse()?,
-        theta2_deg: values[2].parse()?,
+        theta_base_deg: values[0].parse::<f64>()?,
+        theta1_deg: values[1].parse::<f64>()?,
+        theta2_deg: values[2].parse::<f64>()?,
         z_eff_mm: 0.0,
     };
     let config = MotionConfig {
@@ -64,8 +64,8 @@ pub(crate) fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box
         z_mm: 0.0,
         l1_mm: 1.0,
         l2_mm: 1.0,
-        steps_per_rev: values[3].parse()?,
-        microstep: values[4].parse()?,
+        steps_per_rev: values[3].parse::<u64>()?,
+        microstep: values[4].parse::<u64>()?,
         ccw_positive: values[5].parse::<u8>()? != 0,
     };
     Ok((config, solution))

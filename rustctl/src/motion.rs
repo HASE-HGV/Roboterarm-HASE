@@ -83,7 +83,7 @@ fn print_plan(solution: &ArmSolution, steps: &[i64; NUM_AXES]) {
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 use std::{
     sync::{
-        Arc,
+        Once,
         atomic::{AtomicBool, Ordering},
     },
     thread,
@@ -140,6 +140,27 @@ impl StepperMotor {
     }
 }
 
+// A signal handler can only ever be installed once per process. On real
+// hardware, calling ctrlc::set_handler on every move made every move after
+// the first fail with `MultipleHandlers`, since --shell and the old --api
+// both called run_hardware repeatedly in the same process. TERMINATE is
+// therefore a single process-wide flag rather than a fresh Arc per call,
+// and the handler is installed exactly once via Once, no matter how many
+// moves run.
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+static TERMINATE: AtomicBool = AtomicBool::new(false);
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+static CTRLC_INIT: Once = Once::new();
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+fn ensure_ctrlc_handler_installed() -> Result<(), Box<dyn Error>> {
+    let mut install_result: Result<(), ctrlc::Error> = Ok(());
+    CTRLC_INIT.call_once(|| {
+        install_result = ctrlc::set_handler(|| TERMINATE.store(true, Ordering::SeqCst));
+    });
+    install_result.map_err(Into::into)
+}
+
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 fn run_hardware(
     config: &MotionConfig,
@@ -160,16 +181,10 @@ fn run_hardware(
             config.ccw_positive,
         ));
     }
-    let terminate = Arc::new(AtomicBool::new(false));
-    let signal = Arc::clone(&terminate);
-    ctrlc::set_handler(move || signal.store(true, Ordering::SeqCst))?;
-    let stepped = run_motion(
-        &mut motors,
-        steps,
-        config.pulse_t_us,
-        overhead_us,
-        &terminate,
-    );
+    // A stale Ctrl+C from a *previous* move must not abort this one.
+    TERMINATE.store(false, Ordering::SeqCst);
+    ensure_ctrlc_handler_installed()?;
+    let stepped = run_motion(&mut motors, steps, config.pulse_t_us, overhead_us, &TERMINATE);
     for motor in &mut motors {
         motor.reset();
     }

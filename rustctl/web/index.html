@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roboterarm HASE</title>
+<link rel="icon" href="data:,">
+</head>
+<body>
+
+<p>Status: <output id="status">unknown</output></p>
+<p><button type="button" id="refresh">Refresh status</button> <button type="button" id="selftest">Run self-test</button></p>
+
+<form id="args" data-path="/args">
+<fieldset>
+<legend>Move to position (inverse kinematics)</legend>
+<p><label>Radius X (mm) <input name="radius_mm" type="number" step="any" min="0" value="100" required></label></p>
+<p><label>Base angle Y (degrees) <input name="base_angle_deg" type="number" step="any" value="0" required></label></p>
+<p><label>Height Z (mm) <input name="height_mm" type="number" step="any" value="50" required></label></p>
+<p><label>Arm 1 length (mm) <input name="l1_mm" type="number" step="any" min="0" value="500" required></label></p>
+<p><label>Arm 2 length (mm) <input name="l2_mm" type="number" step="any" min="0" value="525" required></label></p>
+<p><label>Motor steps per revolution <input name="steps_per_rev" type="number" step="1" min="1" value="200" required></label></p>
+<p><label>Driver microstep resolution <input name="microstep" type="number" step="1" min="1" value="1" required></label></p>
+<p><label><input name="ccw_positive" type="checkbox" checked> Positive steps turn counter-clockwise</label></p>
+<p><button type="submit">Move</button></p>
+</fieldset>
+</form>
+
+<form id="raw" data-path="/raw">
+<fieldset>
+<legend>Raw joint angles (no inverse kinematics)</legend>
+<p><label>Base (degrees) <input name="base_deg" type="number" step="any" value="0" required></label></p>
+<p><label>Axis 1 (degrees) <input name="axis1_deg" type="number" step="any" value="25" required></label></p>
+<p><label>Axis 2 (degrees) <input name="axis2_deg" type="number" step="any" value="30" required></label></p>
+<p><label>Motor steps per revolution <input name="steps_per_rev" type="number" step="1" min="1" value="200" required></label></p>
+<p><label>Driver microstep resolution <input name="microstep" type="number" step="1" min="1" value="16" required></label></p>
+<p><label><input name="ccw_positive" type="checkbox" checked> Positive steps turn counter-clockwise</label></p>
+<p><button type="submit">Move</button></p>
+</fieldset>
+</form>
+
+<h2>Log</h2>
+<pre id="out"></pre>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let locked = 0;
+
+function log(title, text) {
+  $("out").textContent = title + "\n" + text + "\n\n" + $("out").textContent;
+}
+
+function lock(on) {
+  locked += on ? 1 : -1;
+  for (const b of document.querySelectorAll("form button")) b.disabled = locked > 0;
+}
+
+async function call(method, path, body, motion) {
+  if (motion) lock(true);
+  try {
+    const res = await fetch(path, {
+      method,
+      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await res.text();
+    log(method + " " + path + " -> HTTP " + res.status, text);
+    try { return JSON.parse(text); } catch (_) { return null; }
+  } catch (err) {
+    log(method + " " + path + " failed", String(err));
+    return null;
+  } finally {
+    if (motion) lock(false);
+  }
+}
+
+function formBody(form) {
+  const body = {};
+  for (const el of form.elements) {
+    if (el.name) body[el.name] = el.type === "checkbox" ? el.checked : Number(el.value);
+  }
+  return body;
+}
+
+async function refresh() {
+  const s = await call("GET", "/status");
+  $("status").textContent = s && s.ok
+    ? "ready, GPIO " + (s.hardware_enabled ? "ON" : "OFF (simulation)") + (s.busy ? ", MOVING" : "")
+    : "unreachable";
+}
+
+for (const form of document.querySelectorAll("form[data-path]")) {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await call("POST", form.dataset.path, formBody(form), true);
+    await refresh();
+  });
+}
+$("refresh").addEventListener("click", refresh);
+$("selftest").addEventListener("click", () => call("GET", "/test"));
+refresh();
+</script>
+</body>
+</html>
