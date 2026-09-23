@@ -7,10 +7,10 @@ use std::time::Duration;
 use crate::cli::{get_mode, print_help, prompt_position_with_io};
 use crate::control::{BusyGuard, is_busy};
 use crate::http_api::{
-    PAGE_HTML, RequestError, banner_lines, handle_connection, handle_request, origin_is_trusted,
-    read_http_request, resolve_bind_address, resolve_bind_address_with,
+    PAGE_HTML, RequestError, handle_connection, handle_request, origin_is_trusted,
+    read_http_request,
 };
-use crate::net::{Address, hostname_url, rank_addresses};
+use crate::net::{Address, rank_addresses};
 use crate::shell::{run_position_loop_with_io, run_raw_loop_with_io};
 
 /// Serializes every test that touches the process-wide busy flag
