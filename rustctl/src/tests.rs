@@ -13,19 +13,8 @@ use crate::http_api::{
 use crate::net::{Address, rank_addresses};
 use crate::shell::{run_position_loop_with_io, run_raw_loop_with_io};
 
-/// Serializes every test that touches the process-wide busy flag
-/// (`crate::control`). The flag is deliberately real global state (the
-/// controller drives one physical arm), so tests that acquire or observe it
-/// must not run concurrently with each other, even though `cargo test` runs
-/// different tests in parallel by default. Tests that never reach the busy
-/// gate (e.g. a rejected or malformed request) do not need this lock.
 static BUSY_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-/// Acquires BUSY_TEST_LOCK, recovering from poisoning. If an earlier test
-/// panicked while holding the lock, a plain `.lock().unwrap()` here would
-/// make every later busy-gate test fail with an unrelated `PoisonError`,
-/// hiding the real failure behind a wall of noise. The data behind this
-/// lock is just `()` - there is nothing to recover incorrectly.
 fn busy_test_lock() -> std::sync::MutexGuard<'static, ()> {
     BUSY_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -890,10 +879,6 @@ fn http_rejects_unsupported_version_and_invalid_content_length() {
     );
 }
 
-// ---------------------------------------------------------------------
-// CLI: --site / --api rename
-// ---------------------------------------------------------------------
-
 #[test]
 fn cli_help_text_describes_site_mode_not_api() {
     let text = crate::pretty::help("rustctl");
@@ -907,10 +892,6 @@ fn cli_rejects_removed_api_flag_with_helpful_message() {
     let error = get_mode(&["rustctl".to_owned(), "--api".to_owned()]).unwrap_err();
     assert!(error.to_string().contains("renamed to '--site'"), "{error}");
 }
-
-// ---------------------------------------------------------------------
-// control: the process-wide motion gate
-// ---------------------------------------------------------------------
 
 #[test]
 fn control_second_acquire_fails_until_released() {
@@ -944,10 +925,6 @@ fn control_guard_releases_the_flag_even_after_a_panic() {
         "the guard must release the flag during unwind, not just on a normal return"
     );
 }
-
-// ---------------------------------------------------------------------
-// http_api: Origin/Host cross-origin check (unit level)
-// ---------------------------------------------------------------------
 
 #[test]
 fn origin_absent_is_always_trusted() {
@@ -985,20 +962,13 @@ fn origin_mismatched_host_is_rejected() {
 
 #[test]
 fn origin_without_scheme_or_without_host_header_is_rejected() {
-    // No "http(s)://" prefix at all - refuse rather than guess.
     assert!(!origin_is_trusted(
         Some("localhost:5000"),
         Some("localhost:5000")
     ));
-    // Origin present but no Host header to compare against - can't verify, so refuse.
     assert!(!origin_is_trusted(Some("http://localhost:5000"), None));
-    // The literal string browsers send for opaque/sandboxed origins.
     assert!(!origin_is_trusted(Some("null"), Some("localhost:5000")));
 }
-
-// ---------------------------------------------------------------------
-// http_api: request parsing timeouts (fixes finding F-1)
-// ---------------------------------------------------------------------
 
 #[test]
 fn req_oversized_headers_are_rejected() {
@@ -1012,8 +982,6 @@ fn req_oversized_headers_are_rejected() {
         read_http_request(&mut stream)
     });
     let mut client = TcpStream::connect(address).unwrap();
-    // A request line plus 17 KiB of header bytes with no terminating
-    // "\r\n\r\n" - well past the 16 KiB header limit.
     client
         .write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n")
         .unwrap();
@@ -1042,12 +1010,6 @@ fn req_content_length_over_one_mib_is_rejected_before_reading_the_body() {
 
 #[test]
 fn req_body_delivered_across_multiple_reads_is_reassembled() {
-    // A body that is small enough to fit in a single 1024-byte read (as
-    // every other test's body does) never exercises the body-assembly
-    // loop's own stream.read() call - only the fast path where the whole
-    // body already arrived alongside the headers. Splitting the write
-    // into two parts, with a short pause between them, forces the server
-    // to make a second read() call to finish assembling the body.
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
@@ -1117,7 +1079,6 @@ fn req_body_read_can_time_out_independently_of_the_header_read() {
             b"POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n{\"partial",
         )
         .unwrap();
-    // Never send the rest - the body read loop must time out on its own.
     let result = server.join().unwrap();
     assert_eq!(result.unwrap_err(), RequestError::Timeout);
     drop(client);
@@ -1134,8 +1095,6 @@ fn req_read_http_request_times_out_without_data() {
             .unwrap();
         read_http_request(&mut stream)
     });
-    // Connect but never send a byte - this is exactly what triggered F-1
-    // against the original --api (a hung server, no response ever sent).
     let _client = TcpStream::connect(address).unwrap();
     let result = server.join().unwrap();
     assert_eq!(result.unwrap_err(), RequestError::Timeout);
@@ -1170,13 +1129,6 @@ fn req_handle_request_maps_timeout_to_408() {
     assert!(response.contains("request timed out"));
 }
 
-// ---------------------------------------------------------------------
-// con_*: whole-connection / accept-loop behaviour (fixes F-1 and F-2)
-// ---------------------------------------------------------------------
-
-/// Mirrors run_site()'s accept loop (bind + thread-per-connection) without
-/// its env var / banner / infinite-loop concerns, so tests can exercise the
-/// real concurrency behaviour against an ephemeral port.
 fn spawn_accept_loop() -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
@@ -1201,9 +1153,6 @@ fn read_full_response(stream: &mut TcpStream) -> String {
 #[test]
 fn con_second_connection_served_while_first_is_idle() {
     let address = spawn_accept_loop();
-    // Client A connects but never sends anything - a browser's speculative
-    // pre-connect looks exactly like this. Under the old sequential --api
-    // loop this alone was enough to block every other client (finding F-1).
     let _idle = TcpStream::connect(address).unwrap();
 
     let mut b = TcpStream::connect(address).unwrap();
@@ -1224,10 +1173,6 @@ fn con_accept_loop_survives_abrupt_client_disconnect() {
         let mut a = TcpStream::connect(address).unwrap();
         a.write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n")
             .unwrap();
-        // Abandon the connection without ever reading the response - this
-        // reproduces finding F-2, where the old sequential --api's accept
-        // loop propagated a write/connection error with `?` and the whole
-        // process exited.
         a.shutdown(Shutdown::Both).ok();
     }
     thread::sleep(Duration::from_millis(150));
@@ -1300,7 +1245,6 @@ fn con_busy_arm_rejects_concurrent_motion_request_with_409() {
     assert!(response.contains("\"busy\":true"));
     drop(guard);
 
-    // Once released, the identical request succeeds.
     let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
     assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
 }
@@ -1322,10 +1266,6 @@ fn con_status_reports_busy_field() {
     assert!(busy.contains("\"busy\":true"), "{busy}");
     drop(guard);
 }
-
-// ---------------------------------------------------------------------
-// page: the barebones control page served at / and /index.html
-// ---------------------------------------------------------------------
 
 #[test]
 fn page_html_constant_has_no_style_or_external_resources() {
@@ -1417,20 +1357,12 @@ fn page_other_unknown_paths_still_404() {
 
 #[test]
 fn page_post_to_root_is_not_treated_as_the_page_route() {
-    // Only GET / serves the page; this just documents that POST / falls
-    // through to the ordinary API routing (existing "method not allowed"
-    // catch-all), unchanged by adding the page route.
     let response = String::from_utf8(http_exchange(
         b"POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n",
     ))
     .unwrap();
     assert!(!response.starts_with("HTTP/1.1 200 OK\r\n"));
 }
-
-// ---------------------------------------------------------------------
-// net: interface discovery and ranking (pure logic only - discover_addresses
-// and read_hostname do real I/O and are exercised via the e2e/banner tests)
-// ---------------------------------------------------------------------
 
 fn addr(interface: &str, ip: [u8; 4]) -> Address {
     Address {
