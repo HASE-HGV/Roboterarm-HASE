@@ -1,16 +1,3 @@
-//! Subprocess tests against the real, compiled `rustctl` binary.
-//!
-//! These exist because `Some("--site") => run_site()` in `cli.rs`, and
-//! `main()` itself, cannot be exercised by the in-process unit tests in
-//! `src/tests.rs`: calling `run_site()` for real starts an accept loop that
-//! never returns. Everything `run_site()` is built from - bind address
-//! resolution, the startup banner, request parsing, routing, the page, the
-//! busy gate, Origin checking - is unit-tested directly instead; this file
-//! covers only the wiring that connects them to `--site` and `main()`.
-//!
-//! `CARGO_BIN_EXE_rustctl` is only set by Cargo for files under `tests/`,
-//! which is why this lives here rather than in `src/tests.rs`.
-
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::process::{Child, Command, Stdio};
@@ -24,8 +11,6 @@ fn rustctl_command() -> Command {
 
 struct RunningSite {
     child: Child,
-    /// stdout and stderr, merged in arrival order (the deprecation warning
-    /// is printed to stderr; everything else in the banner goes to stdout).
     lines: Vec<String>,
 }
 
@@ -67,16 +52,6 @@ fn pump_lines(stream: impl std::io::Read + Send + 'static, tx: mpsc::Sender<Stri
     });
 }
 
-/// Spawns `rustctl --site` (or another address/environment supplied by
-/// `configure`), waits (up to 5s) for its startup banner's machine-readable
-/// line plus a short grace period for the lines printed immediately after
-/// it (on either stream), and returns the still-running child together with
-/// everything captured so far. The caller is responsible for calling
-/// `.kill()` when done with it.
-///
-/// The grace period exists because the banner is several consecutive
-/// `println!`/`eprintln!` calls with no delay between them - waiting only
-/// for the first marker line would miss the warnings that follow it.
 fn run_site_and_capture(configure: impl FnOnce(&mut Command) -> &mut Command) -> RunningSite {
     let mut command = rustctl_command();
     command
@@ -107,8 +82,6 @@ fn run_site_and_capture(configure: impl FnOnce(&mut Command) -> &mut Command) ->
                 lines.push(line);
                 if is_banner_line {
                     saw_banner = true;
-                    // Give both streams a moment to deliver whatever was
-                    // printed right after the marker line too.
                     grace_deadline = Some(Instant::now() + Duration::from_millis(400));
                 }
             }
@@ -138,14 +111,8 @@ fn e2e_site_mode_starts_prints_its_banner_and_actually_serves_requests() {
         joined.contains("routes=/,/status,/help,/test,/args,/raw,/api"),
         "{joined}"
     );
-    // A simulation build (no --features hardware) always warns about it.
     assert!(joined.contains("Simulation build"), "{joined}");
 
-    // The banner is not just printed - the server it describes must really
-    // be listening. This is the one thing the in-process concurrency tests
-    // (which reimplement run_site()'s accept loop by hand) cannot prove:
-    // that the *actual* compiled run_site() wires bind -> banner -> accept
-    // loop -> handle_connection together correctly.
     let port = site
         .listening_port()
         .unwrap_or_else(|| panic!("could not find a listening port in banner: {joined}"));

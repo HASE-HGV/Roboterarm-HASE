@@ -355,11 +355,6 @@ pub(crate) fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let listener = TcpListener::bind(&address)?;
     startup_banner(listener.local_addr()?);
     io::stdout().flush()?;
-    // Each connection gets its own thread so one slow or misbehaving client
-    // (finding F-1) or one that resets its connection (finding F-2) cannot
-    // block or kill every other client - the old --api's single sequential
-    // loop did both. A connection's error is logged here, never propagated:
-    // nothing a client sends can stop this loop.
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {

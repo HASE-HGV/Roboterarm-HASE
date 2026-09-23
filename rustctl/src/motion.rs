@@ -140,13 +140,6 @@ impl StepperMotor {
     }
 }
 
-// A signal handler can only ever be installed once per process. On real
-// hardware, calling ctrlc::set_handler on every move made every move after
-// the first fail with `MultipleHandlers`, since --shell and the old --api
-// both called run_hardware repeatedly in the same process. TERMINATE is
-// therefore a single process-wide flag rather than a fresh Arc per call,
-// and the handler is installed exactly once via Once, no matter how many
-// moves run.
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 static TERMINATE: AtomicBool = AtomicBool::new(false);
 #[cfg(all(feature = "hardware", target_os = "linux"))]
@@ -181,10 +174,15 @@ fn run_hardware(
             config.ccw_positive,
         ));
     }
-    // A stale Ctrl+C from a *previous* move must not abort this one.
     TERMINATE.store(false, Ordering::SeqCst);
     ensure_ctrlc_handler_installed()?;
-    let stepped = run_motion(&mut motors, steps, config.pulse_t_us, overhead_us, &TERMINATE);
+    let stepped = run_motion(
+        &mut motors,
+        steps,
+        config.pulse_t_us,
+        overhead_us,
+        &TERMINATE,
+    );
     for motor in &mut motors {
         motor.reset();
     }
