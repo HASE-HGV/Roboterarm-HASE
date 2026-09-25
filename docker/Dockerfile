@@ -15,4 +15,8 @@ RUN usermod -aG wheel mainuser
 COPY ./docker/include /include
 COPY ./rustctl /src/rustctl
 
+RUN cd /src/rustctl
+RUN cargo build --release --bin export-rustctl
+RUN cp /src/rustctl/target/release/export-rustctl /export/rustctl
+
 ENTRYPOINT ["/include/entrypoint.root.sh"]
