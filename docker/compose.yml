@@ -1,0 +1,13 @@
+services:
+  builder:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+    container_name: builder
+    hostname: builder
+    volumes:
+      - ./export:/export
+      - ./fs-overlay:/fs-overlay
+    environment:
+      - ARCHLINUXARM_ARCH=aarch64
+      - SSH_PUBKEY_FILE=/include/sshkeys/global.pub
