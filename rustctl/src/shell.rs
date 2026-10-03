@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, Write};
 
 use crate::api::{api_command_response, parse_api_request};
-use crate::config::{config_from_line, raw_command};
+use crate::config::{POSITION_FORMAT, RAW_FORMAT, config_from_line, raw_command};
 use crate::motion::{execute_position, execute_solution};
 use crate::pretty;
 
@@ -33,8 +33,13 @@ pub(crate) fn run_position_loop_with_io<R: BufRead, W: Write>(
         writeln!(
             writer,
             "{}",
+            pretty::info(&format!("Format: {POSITION_FORMAT}"))
+        )?;
+        writeln!(
+            writer,
+            "{}",
             pretty::info(
-                "Format: radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive"
+                "The last three fields are optional; omit them for an absolute (homed) move."
             )
         )?;
     }
@@ -81,10 +86,11 @@ pub(crate) fn run_raw_loop_with_io<R: BufRead, W: Write>(
     mut writer: W,
 ) -> Result<(), Box<dyn std::error::Error>> {
     writeln!(writer, "{}", pretty::title("Raw mode"))?;
+    writeln!(writer, "{}", pretty::info(&format!("Enter: {RAW_FORMAT}")))?;
     writeln!(
         writer,
         "{}",
-        pretty::info("Enter: base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive")
+        pretty::info("The last three fields are optional; omit them for an absolute (homed) move.")
     )?;
     loop {
         write!(writer, "raw> ")?;

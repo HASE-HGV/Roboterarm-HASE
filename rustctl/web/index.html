@@ -1,50 +1,198 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="win95">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Roboterarm HASE</title>
 <link rel="icon" href="data:,">
+<style>
+html[data-theme="win95"] {
+  --face: #c0c0c0;
+  --face-light: #dfdfdf;
+  --face-dark: #808080;
+  --shadow: #000000;
+  --ink: #000000;
+  --ink-muted: #3a3a3a;
+  --title-a1: #000080;
+  --title-a2: #1084d0;
+  --field: #ffffff;
+  --accent: #000080;
+  font-family: "MS Sans Serif", Tahoma, Verdana, Geneva, sans-serif;
+  font-size: 12px;
+}
+html[data-theme="win95"] body {
+  background: var(--face);
+  color: var(--ink);
+  margin: 0;
+  padding: 6px;
+}
+html[data-theme="win95"] h1 {
+  background: linear-gradient(90deg, var(--title-a1), var(--title-a2));
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0 0 6px;
+  padding: 4px 6px;
+}
+html[data-theme="win95"] .window {
+  background: var(--face);
+  border: 2px solid;
+  border-color: var(--face-light) var(--shadow) var(--shadow) var(--face-light);
+  margin-bottom: 8px;
+  padding: 6px;
+}
+html[data-theme="win95"] .window > h2 {
+  background: linear-gradient(90deg, var(--title-a1), var(--title-a2));
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  margin: -6px -6px 6px -6px;
+  padding: 3px 6px;
+}
+html[data-theme="win95"] fieldset {
+  border: 2px groove var(--face-light);
+  margin: 0 0 8px;
+  padding: 6px;
+}
+html[data-theme="win95"] legend {
+  background: var(--face);
+  color: var(--ink-muted);
+  font-weight: bold;
+  padding: 0 4px;
+}
+html[data-theme="win95"] p {
+  margin: 0 0 6px;
+}
+html[data-theme="win95"] label {
+  display: block;
+}
+html[data-theme="win95"] input[type="number"] {
+  background: var(--field);
+  border: 2px inset var(--face-light);
+  padding: 2px 3px;
+  width: 9em;
+}
+html[data-theme="win95"] input[type="checkbox"] {
+  vertical-align: middle;
+}
+html[data-theme="win95"] button {
+  background: var(--face);
+  border: 2px solid;
+  border-color: var(--face-light) var(--shadow) var(--shadow) var(--face-light);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 7em;
+  padding: 3px 10px;
+}
+html[data-theme="win95"] button:hover:not(:disabled) {
+  background: var(--face-light);
+}
+html[data-theme="win95"] button:active:not(:disabled) {
+  border-color: var(--shadow) var(--face-light) var(--face-light) var(--shadow);
+}
+html[data-theme="win95"] button:disabled {
+  color: var(--face-dark);
+  text-shadow: 1px 1px 0 var(--face-light);
+}
+html[data-theme="win95"] .toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html[data-theme="win95"] .status {
+  font-weight: bold;
+}
+html[data-theme="win95"] pre {
+  background: var(--field);
+  border: 2px inset var(--face-light);
+  margin: 0;
+  max-height: 22em;
+  overflow: auto;
+  padding: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+html[data-theme="win95"] .hint {
+  color: var(--ink-muted);
+}
+</style>
 </head>
 <body>
 
-<p>Status: <output id="status">unknown</output></p>
-<p><button type="button" id="refresh">Refresh status</button> <button type="button" id="selftest">Run self-test</button></p>
+<h1>Roboterarm HASE</h1>
 
-<form id="args" data-path="/args">
+<div class="window">
+<h2>Status</h2>
+<p class="toolbar">
+<output id="status" class="status">unknown</output>
+<button type="button" id="refresh">Refresh status</button>
+<button type="button" id="selftest">Run self-test</button>
+<button type="button" id="theme">Theme: Win95</button>
+</p>
+</div>
+
+<form id="args" data-path="/args" class="window">
+<h2>Move to position (inverse kinematics)</h2>
 <fieldset>
-<legend>Move to position (inverse kinematics)</legend>
+<legend>Target</legend>
 <p><label>Radius X (mm) <input name="radius_mm" type="number" step="any" min="0" value="100" required></label></p>
 <p><label>Base angle Y (degrees) <input name="base_angle_deg" type="number" step="any" value="0" required></label></p>
 <p><label>Height Z (mm) <input name="height_mm" type="number" step="any" value="50" required></label></p>
 <p><label>Arm 1 length (mm) <input name="l1_mm" type="number" step="any" min="0" value="500" required></label></p>
 <p><label>Arm 2 length (mm) <input name="l2_mm" type="number" step="any" min="0" value="525" required></label></p>
+</fieldset>
+<fieldset>
+<legend>Start position (current joint angles, in degrees)</legend>
+<p class="hint">Leave all three at 0 when the axes are homed. Set them to where the arm is right now to command a relative move.</p>
+<p><label>Start base (degrees) <input name="start_base_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 1 (degrees) <input name="start_axis1_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 2 (degrees) <input name="start_axis2_deg" type="number" step="any" value="0"></label></p>
+</fieldset>
+<fieldset>
+<legend>Motor</legend>
 <p><label>Motor steps per revolution <input name="steps_per_rev" type="number" step="1" min="1" value="200" required></label></p>
 <p><label>Driver microstep resolution <input name="microstep" type="number" step="1" min="1" value="1" required></label></p>
 <p><label><input name="ccw_positive" type="checkbox" checked> Positive steps turn counter-clockwise</label></p>
-<p><button type="submit">Move</button></p>
 </fieldset>
+<p><button type="submit">Move</button></p>
 </form>
 
-<form id="raw" data-path="/raw">
+<form id="raw" data-path="/raw" class="window">
+<h2>Raw joint angles (no inverse kinematics)</h2>
 <fieldset>
-<legend>Raw joint angles (no inverse kinematics)</legend>
+<legend>Target</legend>
 <p><label>Base (degrees) <input name="base_deg" type="number" step="any" value="0" required></label></p>
 <p><label>Axis 1 (degrees) <input name="axis1_deg" type="number" step="any" value="25" required></label></p>
 <p><label>Axis 2 (degrees) <input name="axis2_deg" type="number" step="any" value="30" required></label></p>
+</fieldset>
+<fieldset>
+<legend>Start position (current joint angles, in degrees)</legend>
+<p><label>Start base (degrees) <input name="start_base_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 1 (degrees) <input name="start_axis1_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 2 (degrees) <input name="start_axis2_deg" type="number" step="any" value="0"></label></p>
+</fieldset>
+<fieldset>
+<legend>Motor</legend>
 <p><label>Motor steps per revolution <input name="steps_per_rev" type="number" step="1" min="1" value="200" required></label></p>
 <p><label>Driver microstep resolution <input name="microstep" type="number" step="1" min="1" value="16" required></label></p>
 <p><label><input name="ccw_positive" type="checkbox" checked> Positive steps turn counter-clockwise</label></p>
-<p><button type="submit">Move</button></p>
 </fieldset>
+<p><button type="submit">Move</button></p>
 </form>
 
+<div class="window">
 <h2>Logs</h2>
 <pre id="out"></pre>
+</div>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
+const THEME_KEY = "rustctl-theme";
+const THEMES = ["win95", "plain"];
 let locked = 0;
 
 function log(title, text) {
@@ -54,6 +202,21 @@ function log(title, text) {
 function lock(on) {
   locked += on ? 1 : -1;
   for (const b of document.querySelectorAll("form button")) b.disabled = locked > 0;
+}
+
+function store(key, value) {
+  try { window.localStorage.setItem(key, value); } catch (_) { /* storage may be blocked */ }
+}
+
+function recall(key) {
+  try { return window.localStorage.getItem(key); } catch (_) { return null; }
+}
+
+function applyTheme(name) {
+  const theme = THEMES.includes(name) ? name : "win95";
+  document.documentElement.setAttribute("data-theme", theme);
+  $("theme").textContent = "Theme: " + (theme === "win95" ? "Win95" : "CSS-less");
+  store(THEME_KEY, theme);
 }
 
 async function call(method, path, body, motion) {
@@ -75,10 +238,14 @@ async function call(method, path, body, motion) {
   }
 }
 
+// The start angles are all-zero unless the operator filled them in, in which
+// case the full triple is sent and the controller moves relative to it.
 function formBody(form) {
   const body = {};
   for (const el of form.elements) {
-    if (el.name) body[el.name] = el.type === "checkbox" ? el.checked : Number(el.value);
+    if (!el.name) continue;
+    if (el.name.startsWith("start_") && Number(el.value) === 0) continue;
+    body[el.name] = el.type === "checkbox" ? el.checked : Number(el.value);
   }
   return body;
 }
@@ -99,6 +266,10 @@ for (const form of document.querySelectorAll("form[data-path]")) {
 }
 $("refresh").addEventListener("click", refresh);
 $("selftest").addEventListener("click", () => call("GET", "/test"));
+$("theme").addEventListener("click", () => {
+  applyTheme(document.documentElement.getAttribute("data-theme") === "win95" ? "plain" : "win95");
+});
+applyTheme(recall(THEME_KEY) || "win95");
 refresh();
 </script>
 </body>

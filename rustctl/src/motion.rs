@@ -1,8 +1,25 @@
 use std::error::Error;
 
-use crate::config::{GEAR_RATIO, MotionConfig, NUM_AXES};
+use crate::config::{GEAR_RATIO, MotionConfig, NUM_AXES, StartPosition};
 use crate::kinematics::{ArmSolution, deg_to_steps, ik_angles_3d_deg, overhead_sleep_us};
 use crate::pretty;
+
+pub(crate) fn joint_deltas(start: StartPosition, solution: ArmSolution) -> [f64; NUM_AXES] {
+    [
+        solution.theta1_deg - start.axis1_deg,
+        solution.theta2_deg - start.axis2_deg,
+        solution.theta_base_deg - start.base_deg,
+    ]
+}
+
+pub(crate) fn step_plan(config: &MotionConfig, solution: ArmSolution) -> [i64; NUM_AXES] {
+    let deltas = joint_deltas(config.start, solution);
+    let mut steps = [0i64; NUM_AXES];
+    for (step, delta) in steps.iter_mut().zip(deltas) {
+        *step = deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO);
+    }
+    steps
+}
 
 pub(crate) fn execute_position(config: MotionConfig) -> Result<(), Box<dyn Error>> {
     let solution = ik_angles_3d_deg(
@@ -21,30 +38,10 @@ pub(crate) fn execute_solution(
     solution: ArmSolution,
 ) -> Result<(), Box<dyn Error>> {
     let overhead_us = overhead_sleep_us(config.total_time_us, config.pulse_t_us)?;
-    let steps = [
-        deg_to_steps(
-            solution.theta1_deg,
-            config.steps_per_rev,
-            config.microstep,
-            GEAR_RATIO,
-        ),
-        deg_to_steps(
-            solution.theta2_deg,
-            config.steps_per_rev,
-            config.microstep,
-            GEAR_RATIO,
-        ),
-        deg_to_steps(
-            solution.theta_base_deg,
-            config.steps_per_rev,
-            config.microstep,
-            GEAR_RATIO,
-        ),
-    ];
-    print_plan(&solution, &steps);
+    print_plan(config, &solution);
 
     #[cfg(all(feature = "hardware", target_os = "linux"))]
-    run_hardware(config, steps, overhead_us)?;
+    run_hardware(config, step_plan(config, solution), overhead_us)?;
 
     #[cfg(not(all(feature = "hardware", target_os = "linux")))]
     {
@@ -65,19 +62,35 @@ pub(crate) fn execute_solution(
     Ok(())
 }
 
-fn print_plan(solution: &ArmSolution, steps: &[i64; NUM_AXES]) {
-    println!("{}", pretty::title("Kinematics"));
-    println!(
-        "Base angle: {:.3}°, Axis 1: {:.3}°, Axis 2: {:.3}°, effective Z: {:.3} mm",
-        solution.theta_base_deg, solution.theta1_deg, solution.theta2_deg, solution.z_eff_mm
-    );
-    println!(
-        "{}",
-        pretty::info(&format!(
-            "Target steps (16:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
-            steps[2], steps[0], steps[1]
-        ))
-    );
+pub(crate) fn plan_report(config: &MotionConfig, solution: &ArmSolution) -> String {
+    let steps = step_plan(config, *solution);
+    let mut lines = vec![
+        pretty::title("Kinematics"),
+        format!(
+            "Base angle: {:.3}°, Axis 1: {:.3}°, Axis 2: {:.3}°, effective Z: {:.3} mm",
+            solution.theta_base_deg, solution.theta1_deg, solution.theta2_deg, solution.z_eff_mm
+        ),
+    ];
+    if !config.start.is_homed() {
+        let deltas = joint_deltas(config.start, *solution);
+        lines.push(pretty::info(&format!(
+            "Start position: base {:.3}°, axis 1 {:.3}°, axis 2 {:.3}°",
+            config.start.base_deg, config.start.axis1_deg, config.start.axis2_deg
+        )));
+        lines.push(pretty::info(&format!(
+            "Relative travel: base {:.3}°, axis 1 {:.3}°, axis 2 {:.3}°",
+            deltas[2], deltas[0], deltas[1]
+        )));
+    }
+    lines.push(pretty::info(&format!(
+        "Target steps (16:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
+        steps[2], steps[0], steps[1]
+    )));
+    lines.join("\n")
+}
+
+fn print_plan(config: &MotionConfig, solution: &ArmSolution) {
+    println!("{}", plan_report(config, solution));
 }
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]

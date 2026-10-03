@@ -161,14 +161,17 @@ fn api_reports_compiled_hardware_capability() {
 #[test]
 fn runtime_tests_report_named_failures() {
     let report = runtime_test_report();
-    assert_eq!(report.failed, 0);
-    assert_eq!(report.passed, 4);
+    assert_eq!(report.failed, 0, "failures: {:?}", report.failures);
+    assert_eq!(report.passed, 5);
     assert!(report.failures.is_empty());
 }
 
 fn approx(a: f64, b: f64) -> bool {
     (a - b).abs() <= 1e-6
 }
+
+use crate::config::StartPosition;
+use crate::motion::{joint_deltas, plan_report, step_plan};
 
 #[test]
 fn deg_to_steps_full_revolution() {
@@ -338,6 +341,271 @@ fn planner_distributes_evenly() {
         max_gap <= 1,
         "pulses should be evenly spaced, gap={max_gap}"
     );
+}
+
+#[test]
+fn start_position_defaults_to_homed() {
+    let config = config_from_position(&["100", "0", "50", "200", "200", "200", "16", "1"]).unwrap();
+    assert_eq!(config.start, StartPosition::default());
+    assert!(config.start.is_homed());
+}
+
+#[test]
+fn position_command_accepts_an_explicit_start_position() {
+    let values = [
+        "100", "0", "50", "200", "200", "200", "16", "1", "10", "20", "30",
+    ];
+    let config = config_from_position(&values).unwrap();
+    assert_eq!(
+        config.start,
+        StartPosition {
+            base_deg: 10.0,
+            axis1_deg: 20.0,
+            axis2_deg: 30.0
+        }
+    );
+    assert!(!config.start.is_homed());
+}
+
+#[test]
+fn position_command_rejects_a_partial_start_position() {
+    let values = [
+        "100", "0", "50", "200", "200", "200", "16", "1", "10", "20",
+    ];
+    let error = config_from_position(&values).unwrap_err().to_string();
+    assert!(error.contains("8 or 11"), "{error}");
+    assert!(!config_from_line("100 0 50 200 200 200 16 1 10 20").is_ok());
+}
+
+#[test]
+fn position_argument_count_errors_name_the_expected_counts() {
+    let error = config_from_position(&["1", "2", "3"]).unwrap_err().to_string();
+    assert!(error.contains("8 or 11"), "{error}");
+    assert!(error.contains("got 3"), "{error}");
+}
+
+#[test]
+fn start_position_angles_must_be_numbers() {
+    for values in [
+        vec!["100", "0", "50", "200", "200", "200", "16", "1", "x", "20", "30"],
+        vec!["100", "0", "50", "200", "200", "200", "16", "1", "10", "x", "30"],
+        vec!["100", "0", "50", "200", "200", "200", "16", "1", "10", "20", "x"],
+    ] {
+        assert!(config_from_position(&values).is_err(), "values={values:?}");
+    }
+}
+
+#[test]
+fn raw_command_accepts_an_explicit_start_position() {
+    let (config, solution) = raw_command("0 25 30 200 16 1 10 20 30").unwrap();
+    assert_eq!(
+        config.start,
+        StartPosition {
+            base_deg: 10.0,
+            axis1_deg: 20.0,
+            axis2_deg: 30.0
+        }
+    );
+    assert_eq!(solution.theta1_deg, 25.0);
+}
+
+#[test]
+fn raw_command_without_start_position_is_homed() {
+    let (config, _) = raw_command("0 25 30 200 16 1").unwrap();
+    assert!(config.start.is_homed());
+}
+
+#[test]
+fn raw_command_start_position_must_be_complete_and_numeric() {
+    let error = raw_command("0 25 30 200 16 1 10 20").unwrap_err().to_string();
+    assert!(error.contains("6 or 9"), "{error}");
+    assert!(raw_command("0 25 30 200 16 1 x 20 30").is_err());
+}
+
+
+
+fn position_line(target: [f64; 3], start: Option<[f64; 3]>) -> String {
+    let mut fields = vec![
+        target[0].to_string(),
+        target[1].to_string(),
+        target[2].to_string(),
+        "200".to_owned(),
+        "200".to_owned(),
+        "200".to_owned(),
+        "1".to_owned(),
+        "1".to_owned(),
+    ];
+    if let Some(start) = start {
+        fields.extend(start.map(|value| value.to_string()));
+    }
+    fields.join(" ")
+}
+
+#[test]
+fn relative_move_pulses_only_the_joint_travel() {
+    let solution = ArmSolution {
+        theta_base_deg: 0.0,
+        theta1_deg: 90.0,
+        theta2_deg: 90.0,
+        z_eff_mm: 0.0,
+    };
+    let config = config_from_line(&position_line([0.0, 0.0, 0.0], Some([0.0, 45.0, 45.0]))).unwrap();
+    let expected = deg_to_steps(45.0, 200, 1, GEAR_RATIO);
+    assert_eq!(step_plan(&config, solution), [expected, expected, 0]);
+}
+
+#[test]
+fn homed_move_pulses_the_full_target_angle() {
+    let solution = ArmSolution {
+        theta_base_deg: 0.0,
+        theta1_deg: 90.0,
+        theta2_deg: 90.0,
+        z_eff_mm: 0.0,
+    };
+    let config = config_from_line(&position_line([0.0, 0.0, 0.0], None)).unwrap();
+    assert!(config.start.is_homed());
+    assert_eq!(step_plan(&config, solution), [800, 800, 0]);
+}
+
+#[test]
+fn start_position_equal_to_target_commands_no_steps() {
+    let solution = ArmSolution {
+        theta_base_deg: 40.0,
+        theta1_deg: 90.0,
+        theta2_deg: 90.0,
+        z_eff_mm: 0.0,
+    };
+    let config = config_from_line(&position_line([0.0, 0.0, 0.0], Some([40.0, 90.0, 90.0]))).unwrap();
+    assert_eq!(step_plan(&config, solution), [0, 0, 0]);
+}
+
+#[test]
+fn negative_travel_from_start_pulses_in_the_opposite_direction() {
+    let solution = ArmSolution {
+        theta_base_deg: 0.0,
+        theta1_deg: 0.0,
+        theta2_deg: 0.0,
+        z_eff_mm: 0.0,
+    };
+    let config = config_from_line(&position_line([0.0, 0.0, 0.0], Some([90.0, 90.0, 90.0]))).unwrap();
+    assert_eq!(step_plan(&config, solution), [-800, -800, -800]);
+}
+
+#[test]
+fn joint_deltas_follow_the_axis1_axis2_base_order() {
+    let solution = ArmSolution {
+        theta_base_deg: 30.0,
+        theta1_deg: 40.0,
+        theta2_deg: 50.0,
+        z_eff_mm: 0.0,
+    };
+    let start = StartPosition {
+        base_deg: 10.0,
+        axis1_deg: 20.0,
+        axis2_deg: 35.0,
+    };
+    assert_eq!(joint_deltas(start, solution), [20.0, 15.0, 20.0]);
+    assert_eq!(joint_deltas(StartPosition::default(), solution), [40.0, 50.0, 30.0]);
+}
+
+#[test]
+fn step_plan_scales_with_microstepping() {
+    let solution = ArmSolution {
+        theta_base_deg: 0.0,
+        theta1_deg: 90.0,
+        theta2_deg: 0.0,
+        z_eff_mm: 0.0,
+    };
+    let mut coarse = config_from_line(&position_line([0.0, 0.0, 0.0], Some([0.0, 45.0, 0.0]))).unwrap();
+    let mut fine = coarse;
+    coarse.microstep = 1;
+    fine.microstep = 16;
+    assert_eq!(step_plan(&fine, solution)[0], step_plan(&coarse, solution)[0] * 16);
+    assert_eq!(step_plan(&coarse, solution), [400, 0, 0]);
+    assert_eq!(step_plan(&fine, solution), [6400, 0, 0]);
+}
+
+#[test]
+fn api_accepts_a_start_position_on_args() {
+    let command = parse_api_request(
+        r#"{"command":"args","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5,"start_axis1_deg":10,"start_axis2_deg":15}"#,
+        None,
+    )
+    .unwrap();
+    match command {
+        ApiCommand::Args(config) => assert_eq!(
+            config.start,
+            StartPosition {
+                base_deg: 5.0,
+                axis1_deg: 10.0,
+                axis2_deg: 15.0
+            }
+        ),
+        other => panic!("expected args command, got {other:?}"),
+    }
+}
+
+#[test]
+fn api_accepts_a_start_position_on_raw() {
+    let command = parse_api_request(
+        r#"{"command":"raw","base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5,"start_axis1_deg":10,"start_axis2_deg":15}"#,
+        None,
+    )
+    .unwrap();
+    match command {
+        ApiCommand::Raw(config, _) => assert_eq!(
+            config.start,
+            StartPosition {
+                base_deg: 5.0,
+                axis1_deg: 10.0,
+                axis2_deg: 15.0
+            }
+        ),
+        other => panic!("expected raw command, got {other:?}"),
+    }
+}
+
+#[test]
+fn api_without_start_position_stays_homed() {
+    let command = parse_api_request(
+        r#"{"command":"args","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+        None,
+    )
+    .unwrap();
+    match command {
+        ApiCommand::Args(config) => assert!(config.start.is_homed()),
+        other => panic!("expected args command, got {other:?}"),
+    }
+}
+
+#[test]
+fn api_rejects_a_partial_start_position_on_both_modes() {
+    let args = r#"{"command":"args","radius_mm":1,"base_angle_deg":2,"height_mm":3,"l1_mm":4,"l2_mm":5,"steps_per_rev":6,"microstep":7,"ccw_positive":true,"start_base_deg":1}"#;
+    let raw = r#"{"command":"raw","base_deg":1,"axis1_deg":2,"axis2_deg":3,"steps_per_rev":4,"microstep":5,"ccw_positive":true,"start_axis1_deg":1,"start_axis2_deg":2}"#;
+    for body in [args, raw] {
+        let error = parse_api_request(body, None).unwrap_err();
+        assert!(error.contains("all of start_base_deg"), "{error}");
+    }
+}
+
+#[test]
+fn api_start_position_must_be_numeric() {
+    assert!(
+        parse_api_request(
+            r#"{"command":"raw","base_deg":0,"axis1_deg":0,"axis2_deg":0,"steps_per_rev":4,"microstep":5,"ccw_positive":true,"start_base_deg":"x","start_axis1_deg":1,"start_axis2_deg":2}"#,
+            None
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn api_help_documents_the_start_position() {
+    let help = api_help();
+    assert!(help.contains("start_base_deg"), "{help}");
+    assert!(help.contains("start_axis1_deg"), "{help}");
+    assert!(help.contains("start_axis2_deg"), "{help}");
+    assert!(help.contains("relative"), "{help}");
 }
 
 #[test]
@@ -535,7 +803,7 @@ fn api_test_response_contains_runtime_report() {
     assert_eq!(response["ok"], true);
     assert_eq!(response["status"], "tests_completed");
     assert_eq!(response["tests"]["failed"], 0);
-    assert_eq!(response["tests"]["passed"], 4);
+    assert_eq!(response["tests"]["passed"], 5);
     assert_eq!(response["tests"]["failures"].as_array().unwrap().len(), 0);
 }
 
@@ -713,6 +981,142 @@ fn cli_prompt_parses_injected_input() {
 }
 
 #[test]
+fn cli_prompt_collects_a_start_position_when_given() {
+    let input = b"100\n20\n50\n200\n150\n400\n8\n1\n10\n20\n30\n";
+    let mut output = Vec::new();
+    let config = prompt_position_with_io(Cursor::new(input), &mut output).unwrap();
+    assert_eq!(
+        config.start,
+        StartPosition {
+            base_deg: 10.0,
+            axis1_deg: 20.0,
+            axis2_deg: 30.0
+        }
+    );
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Start base angle"), "{output}");
+    assert!(output.contains("Start axis 2 angle"), "{output}");
+}
+
+#[test]
+fn cli_prompt_treats_blank_start_answers_as_homed() {
+    let input = b"100\n20\n50\n200\n150\n400\n8\n1\n\n\n\n";
+    let mut output = Vec::new();
+    let config = prompt_position_with_io(Cursor::new(input), &mut output).unwrap();
+    assert!(config.start.is_homed());
+    assert_eq!(config.x_mm, 100.0);
+}
+
+#[test]
+fn cli_prompt_rejects_a_partial_start_position() {
+    let input = b"100\n20\n50\n200\n150\n400\n8\n1\n10\n20\n";
+    let error = prompt_position_with_io(Cursor::new(input), Vec::new()).unwrap_err();
+    assert!(error.to_string().contains("expected 3 angles"), "{error}");
+}
+
+#[test]
+fn cli_prompt_rejects_a_non_numeric_start_position() {
+    let input = b"100\n20\n50\n200\n150\n400\n8\n1\nx\n20\n30\n";
+    assert!(prompt_position_with_io(Cursor::new(input), Vec::new()).is_err());
+}
+
+#[test]
+fn cli_help_text_documents_the_start_position_and_the_site_mode() {
+    let text = crate::pretty::help("rustctl");
+    assert!(text.contains("--site"), "{text}");
+    assert!(text.contains("RUSTCTL_SITE_ADDR"), "{text}");
+    assert!(text.contains("start_base_deg"), "{text}");
+    assert!(text.contains("start_axis1_deg"), "{text}");
+    assert!(text.contains("start_axis2_deg"), "{text}");
+    assert!(text.contains("relative"), "{text}");
+    assert!(!text.contains("--api"), "{text}");
+}
+
+#[test]
+fn shell_modes_document_the_optional_start_position() {
+    let mut position_output = Vec::new();
+    run_position_loop_with_io(Cursor::new(b""), &mut position_output, false).unwrap();
+    let position_output = String::from_utf8(position_output).unwrap();
+    assert!(position_output.contains("start_base_deg"), "{position_output}");
+    assert!(position_output.contains("optional"), "{position_output}");
+
+    let mut raw_output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b""), &mut raw_output).unwrap();
+    let raw_output = String::from_utf8(raw_output).unwrap();
+    assert!(raw_output.contains("start_base_deg"), "{raw_output}");
+    assert!(raw_output.contains("optional"), "{raw_output}");
+}
+
+#[test]
+fn shell_position_loop_executes_a_relative_command() {
+    let line = format!(
+        "{}\n",
+        position_line([100.0, 0.0, 50.0], Some([10.0, 20.0, 30.0]))
+    );
+    let mut output = Vec::new();
+    run_position_loop_with_io(Cursor::new(line.into_bytes()), &mut output, false).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+}
+
+#[test]
+fn shell_raw_loop_executes_a_relative_command() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1 10 20 30\n"), &mut output).unwrap();
+    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
+}
+
+#[test]
+fn plan_report_shows_the_start_position_only_for_relative_moves() {
+    let solution = ArmSolution {
+        theta_base_deg: 0.0,
+        theta1_deg: 90.0,
+        theta2_deg: 0.0,
+        z_eff_mm: 0.0,
+    };
+    let homed = plan_report(
+        &config_from_line(&position_line([0.0, 0.0, 0.0], None)).unwrap(),
+        &solution,
+    );
+    assert!(!homed.contains("Start position"), "{homed}");
+    assert!(!homed.contains("Relative travel"), "{homed}");
+    assert!(homed.contains("Axis 1: 90.000"), "{homed}");
+    assert!(homed.contains("Axis 1: 800"), "{homed}");
+
+    let relative = plan_report(
+        &config_from_line(&position_line([0.0, 0.0, 0.0], Some([5.0, 45.0, 0.0]))).unwrap(),
+        &solution,
+    );
+    assert!(
+        relative.contains("Start position: base 5.000°, axis 1 45.000°, axis 2 0.000°"),
+        "{relative}"
+    );
+    assert!(
+        relative.contains("Relative travel: base -5.000°, axis 1 45.000°, axis 2 0.000°"),
+        "{relative}"
+    );
+    assert!(relative.contains("Axis 1: 400"), "{relative}");
+}
+
+#[test]
+fn shell_position_loop_rejects_an_incomplete_start_position() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(Cursor::new(b"100 0 50 200 200 200 16 1 10 20\n"), &mut output, false)
+        .unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Command failed"), "{output}");
+    assert!(output.contains("8 or 11"), "{output}");
+}
+
+#[test]
+fn shell_raw_loop_rejects_an_incomplete_start_position() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1 10 20\n"), &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Command failed"), "{output}");
+    assert!(output.contains("6 or 9"), "{output}");
+}
+
+#[test]
 fn cli_prompt_reports_incomplete_input() {
     let error = prompt_position_with_io(Cursor::new(b"100\n"), Vec::new()).unwrap_err();
     assert!(
@@ -804,6 +1208,14 @@ fn shell_raw_loop_executes_valid_simulation_command() {
     );
 }
 
+fn http_post(path: &str, body: &str) -> String {
+    let request = format!(
+        "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    String::from_utf8(http_exchange(request.as_bytes())).unwrap()
+}
+
 #[test]
 fn http_status_request_returns_json_success() {
     let response = http_exchange(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -825,6 +1237,51 @@ fn http_post_args_returns_success() {
     let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
     assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
     assert!(response.contains("\"mode\":\"args\""));
+}
+
+#[test]
+fn http_post_args_with_a_start_position_succeeds() {
+    let _serial = busy_test_lock();
+    let response = http_post(
+        "/args",
+        r#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5,"start_axis1_deg":10,"start_axis2_deg":15}"#,
+    );
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    assert!(response.contains("\"mode\":\"args\""), "{response}");
+}
+
+#[test]
+fn http_post_raw_with_a_start_position_succeeds() {
+    let _serial = busy_test_lock();
+    let response = http_post(
+        "/raw",
+        r#"{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5,"start_axis1_deg":10,"start_axis2_deg":15}"#,
+    );
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    assert!(response.contains("\"mode\":\"raw\""), "{response}");
+}
+
+#[test]
+fn http_post_args_with_a_partial_start_position_is_rejected() {
+    let response = http_post(
+        "/args",
+        r#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5}"#,
+    );
+    assert!(
+        response.starts_with("HTTP/1.1 400 Bad Request\r\n"),
+        "{response}"
+    );
+    assert!(response.contains("all of start_base_deg"), "{response}");
+}
+
+#[test]
+fn http_get_help_documents_the_start_position() {
+    let response =
+        String::from_utf8(http_exchange(b"GET /help HTTP/1.1\r\nHost: localhost\r\n\r\n")).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    for field in ["start_base_deg", "start_axis1_deg", "start_axis2_deg"] {
+        assert!(response.contains(field), "help must mention {field}: {response}");
+    }
 }
 
 #[test]
@@ -1268,19 +1725,11 @@ fn con_status_reports_busy_field() {
 }
 
 #[test]
-fn page_html_constant_has_no_style_or_external_resources() {
+fn page_html_constant_is_self_contained_with_no_external_resources() {
     let lower = PAGE_HTML.to_ascii_lowercase();
     assert!(
-        !lower.contains("<style"),
-        "page must not define a <style> block"
-    );
-    assert!(
-        !lower.contains("style="),
-        "page must not use inline style attributes"
-    );
-    assert!(
         !lower.contains("stylesheet"),
-        "page must not link a stylesheet"
+        "page must not link an external stylesheet"
     );
     assert!(
         !lower.contains(".css"),
@@ -1293,6 +1742,65 @@ fn page_html_constant_has_no_style_or_external_resources() {
     assert!(!lower.contains("innerhtml"), "page must not use innerHTML");
     assert!(!lower.contains("eval("), "page must not use eval()");
     assert!(!lower.contains("document.write"));
+    for element in PAGE_HTML.lines() {
+        assert!(
+            !element.trim_start().starts_with("style="),
+            "page must not use inline style attributes: {element}"
+        );
+    }
+}
+
+
+fn page_style_block() -> &'static str {
+    let start = PAGE_HTML.find("<style>").expect("page must ship its own CSS");
+    let body = &PAGE_HTML[start + "<style>".len()..];
+    let end = body.find("</style>").expect("the style block must be closed");
+    &body[..end]
+}
+
+#[test]
+fn page_styles_are_scoped_to_the_win95_theme() {
+    let css = page_style_block();
+    let selectors: Vec<&str> = css
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.ends_with('{') && line.contains('{') && !line.starts_with('@'))
+        .collect();
+    assert!(
+        selectors.len() > 10,
+        "expected a full set of theme rules, got {selectors:?}"
+    );
+    for selector in &selectors {
+        assert!(
+            selector.starts_with("html[data-theme=\"win95\"]"),
+            "every rule must be scoped to the win95 theme so the plain theme stays CSS-less: {selector}"
+        );
+    }
+    for selector in &selectors {
+        assert!(
+            !selector.contains("\"plain\""),
+            "the plain theme must not be styled at all: {selector}"
+        );
+    }
+}
+
+#[test]
+fn page_offers_a_theme_toggle_for_both_themes() {
+    assert!(
+        PAGE_HTML.contains(r#"data-theme="win95""#),
+        "the page must declare the win95 theme as its default"
+    );
+    assert!(
+        PAGE_HTML.contains(r#"id="theme""#),
+        "page must have a theme toggle control"
+    );
+    for token in ["THEME_KEY", "applyTheme", "localStorage", "rustctl-theme"] {
+        assert!(PAGE_HTML.contains(token), "theme persistence is missing {token}");
+    }
+    assert!(
+        PAGE_HTML.contains("\"CSS-less\""),
+        "the toggle must offer the CSS-less theme by name"
+    );
 }
 
 #[test]
@@ -1309,12 +1817,44 @@ fn page_form_fields_match_the_json_api_field_names() {
         "base_deg",
         "axis1_deg",
         "axis2_deg",
+        "start_base_deg",
+        "start_axis1_deg",
+        "start_axis2_deg",
     ] {
         assert!(
             PAGE_HTML.contains(&format!("name=\"{field}\"")),
             "page is missing a field for {field}"
         );
     }
+}
+
+#[test]
+fn page_offers_a_start_position_in_both_motion_forms() {
+    for (id, path) in [("args", "/args"), ("raw", "/raw")] {
+        let start = PAGE_HTML
+            .find(&format!("id=\"{id}\""))
+            .unwrap_or_else(|| panic!("page must contain the {id} form"));
+        let end = PAGE_HTML[start..]
+            .find("</form>")
+            .map(|offset| start + offset)
+            .expect("form must be closed");
+        let form = &PAGE_HTML[start..end];
+        assert!(form.contains(&format!("data-path=\"{path}\"")), "{id}");
+        for field in ["start_base_deg", "start_axis1_deg", "start_axis2_deg"] {
+            assert!(
+                form.contains(&format!("name=\"{field}\"")),
+                "the {id} form is missing {field}"
+            );
+        }
+    }
+}
+
+#[test]
+fn page_omits_an_all_zero_start_position_from_the_request() {
+    assert!(
+        PAGE_HTML.contains(r#"el.name.startsWith("start_")"#),
+        "the page must drop all-zero start angles so the controller stays homed"
+    );
 }
 
 #[test]

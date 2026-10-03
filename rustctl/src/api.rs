@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::bresenham::MultiAxisPlanner;
-use crate::config::{GEAR_RATIO, MotionConfig, PULSE_T_US, TOTAL_TIME_US};
+use crate::config::{GEAR_RATIO, MotionConfig, POSITION_FORMAT, RAW_FORMAT, StartPosition};
 use crate::kinematics::{
     ArmSolution, deg_to_steps, forward_r_z_mm, ik_angles_3d_deg, overhead_sleep_us,
 };
-use crate::motion::{execute_position, execute_solution};
+use crate::motion::{execute_position, execute_solution, step_plan};
 
 #[derive(Debug, Deserialize)]
 struct ApiRequest {
@@ -23,6 +23,9 @@ struct ApiRequest {
     base_deg: Option<f64>,
     axis1_deg: Option<f64>,
     axis2_deg: Option<f64>,
+    start_base_deg: Option<f64>,
+    start_axis1_deg: Option<f64>,
+    start_axis2_deg: Option<f64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,6 +48,8 @@ pub(crate) struct RuntimeTestFailure {
 pub(crate) struct RuntimeTestReport {
     pub(crate) passed: usize,
     pub(crate) failed: usize,
+
+    pub(crate) checks: Vec<&'static str>,
     pub(crate) failures: Vec<RuntimeTestFailure>,
 }
 
@@ -52,8 +57,32 @@ pub(crate) fn hardware_enabled() -> bool {
     cfg!(all(feature = "hardware", target_os = "linux"))
 }
 
-pub(crate) fn api_help() -> &'static str {
-    "JSON commands: {\"command\":\"args\",\"radius_mm\":100,\"base_angle_deg\":0,\"height_mm\":50,\"l1_mm\":200,\"l2_mm\":200,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true} | {\"command\":\"raw\",\"base_deg\":0,\"axis1_deg\":25,\"axis2_deg\":30,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true} | {\"command\":\"status\"} | {\"command\":\"test\"} | {\"command\":\"help\"} | {\"command\":\"quit\"}"
+pub(crate) fn api_help() -> String {
+    format!(
+        "JSON commands: {{\"command\":\"args\",\"radius_mm\":100,\"base_angle_deg\":0,\"height_mm\":50,\"l1_mm\":200,\"l2_mm\":200,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true}} | {{\"command\":\"raw\",\"base_deg\":0,\"axis1_deg\":25,\"axis2_deg\":30,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true}} | {{\"command\":\"status\"}} | {{\"command\":\"test\"}} | {{\"command\":\"help\"}} | {{\"command\":\"quit\"}} | optional start position on either motion command: {{\"start_base_deg\":0,\"start_axis1_deg\":10,\"start_axis2_deg\":20}} makes the move relative to those joint angles. Text formats: {POSITION_FORMAT} and {RAW_FORMAT}"
+    )
+}
+
+fn start_position(request: &ApiRequest) -> Result<StartPosition, String> {
+    let present = [
+        request.start_base_deg,
+        request.start_axis1_deg,
+        request.start_axis2_deg,
+    ];
+    if present.iter().all(Option::is_none) {
+        return Ok(StartPosition::default());
+    }
+    if present.iter().any(Option::is_none) {
+        return Err(
+            "start position needs all of start_base_deg, start_axis1_deg and start_axis2_deg"
+                .to_owned(),
+        );
+    }
+    Ok(StartPosition {
+        base_deg: request.start_base_deg.expect("checked above"),
+        axis1_deg: request.start_axis1_deg.expect("checked above"),
+        axis2_deg: request.start_axis2_deg.expect("checked above"),
+    })
 }
 
 pub(crate) fn parse_api_request(
@@ -71,18 +100,17 @@ pub(crate) fn parse_api_request(
 
     match command.as_str() {
         "args" | "position" => {
-            let config = MotionConfig {
-                total_time_us: TOTAL_TIME_US,
-                pulse_t_us: PULSE_T_US,
-                x_mm: request.radius_mm.ok_or("missing radius_mm")?,
-                y_mm: request.base_angle_deg.ok_or("missing base_angle_deg")?,
-                z_mm: request.height_mm.ok_or("missing height_mm")?,
-                l1_mm: request.l1_mm.ok_or("missing l1_mm")?,
-                l2_mm: request.l2_mm.ok_or("missing l2_mm")?,
-                steps_per_rev: request.steps_per_rev.ok_or("missing steps_per_rev")?,
-                microstep: request.microstep.ok_or("missing microstep")?,
-                ccw_positive: request.ccw_positive.ok_or("missing ccw_positive")?,
-            };
+            let mut config = MotionConfig::new(
+                request.radius_mm.ok_or("missing radius_mm")?,
+                request.base_angle_deg.ok_or("missing base_angle_deg")?,
+                request.height_mm.ok_or("missing height_mm")?,
+                request.l1_mm.ok_or("missing l1_mm")?,
+                request.l2_mm.ok_or("missing l2_mm")?,
+                request.steps_per_rev.ok_or("missing steps_per_rev")?,
+                request.microstep.ok_or("missing microstep")?,
+                request.ccw_positive.ok_or("missing ccw_positive")?,
+            );
+            config.start = start_position(&request)?;
             Ok(ApiCommand::Args(config))
         }
         "raw" => {
@@ -92,18 +120,17 @@ pub(crate) fn parse_api_request(
                 theta2_deg: request.axis2_deg.ok_or("missing axis2_deg")?,
                 z_eff_mm: 0.0,
             };
-            let config = MotionConfig {
-                total_time_us: TOTAL_TIME_US,
-                pulse_t_us: PULSE_T_US,
-                x_mm: 0.0,
-                y_mm: 0.0,
-                z_mm: 0.0,
-                l1_mm: 1.0,
-                l2_mm: 1.0,
-                steps_per_rev: request.steps_per_rev.ok_or("missing steps_per_rev")?,
-                microstep: request.microstep.ok_or("missing microstep")?,
-                ccw_positive: request.ccw_positive.ok_or("missing ccw_positive")?,
-            };
+            let mut config = MotionConfig::new(
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                request.steps_per_rev.ok_or("missing steps_per_rev")?,
+                request.microstep.ok_or("missing microstep")?,
+                request.ccw_positive.ok_or("missing ccw_positive")?,
+            );
+            config.start = start_position(&request)?;
             Ok(ApiCommand::Raw(config, solution))
         }
         "status" => Ok(ApiCommand::Status),
@@ -115,7 +142,7 @@ pub(crate) fn parse_api_request(
 }
 
 pub(crate) fn runtime_test_report() -> RuntimeTestReport {
-    let tests: [(&str, fn() -> Result<(), String>); 4] = [
+    let tests: [(&str, fn() -> Result<(), String>); 5] = [
         ("runtime_test_ik_roundtrip", || {
             let solution =
                 ik_angles_3d_deg(150.0, 30.0, 40.0, 120.0, 90.0).map_err(str::to_owned)?;
@@ -158,6 +185,41 @@ pub(crate) fn runtime_test_report() -> RuntimeTestReport {
                 Ok(())
             }
         }),
+        ("runtime_test_start_position_is_relative", || {
+            let solution = ArmSolution {
+                theta_base_deg: 30.0,
+                theta1_deg: 40.0,
+                theta2_deg: 50.0,
+                z_eff_mm: 0.0,
+            };
+            let mut config = MotionConfig::new(0.0, 0.0, 0.0, 1.0, 1.0, 200, 1, true);
+            let absolute = step_plan(&config, solution);
+            config.start = StartPosition {
+                base_deg: 10.0,
+                axis1_deg: 20.0,
+                axis2_deg: 35.0,
+            };
+            let relative = step_plan(&config, solution);
+            let deltas = crate::motion::joint_deltas(config.start, solution);
+            if deltas != [20.0, 15.0, 20.0] {
+                return Err(format!("joint deltas were {deltas:?}"));
+            }
+            if absolute.iter().zip(relative).any(|(a, r)| a - r == 0) {
+                return Err(format!(
+                    "relative steps {relative:?} did not differ from absolute steps {absolute:?}"
+                ));
+            }
+            if relative
+                .iter()
+                .zip(absolute)
+                .any(|(r, a)| r.abs() >= a.abs())
+            {
+                return Err(format!(
+                    "relative steps {relative:?} were not shorter than absolute steps {absolute:?}"
+                ));
+            }
+            Ok(())
+        }),
     ];
     let mut failures = Vec::new();
     for (function, test) in tests {
@@ -168,6 +230,7 @@ pub(crate) fn runtime_test_report() -> RuntimeTestReport {
     RuntimeTestReport {
         passed: tests.len() - failures.len(),
         failed: failures.len(),
+        checks: tests.iter().map(|(function, _)| *function).collect(),
         failures,
     }
 }

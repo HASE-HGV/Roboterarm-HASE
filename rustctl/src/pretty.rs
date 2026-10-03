@@ -1,3 +1,5 @@
+use crate::config::{POSITION_FORMAT, RAW_FORMAT};
+
 pub(crate) fn header(text: &str) -> String {
     format!("== {text} ==")
 }
@@ -24,15 +26,16 @@ pub(crate) fn prompt(label: &str, example: &str) -> String {
 
 pub(crate) fn help(program: &str) -> String {
     format!(
-        "{}\n{}\n\n{}\n  --cli   Prompt for one XYZ position and execute it.\n  --shell Repeatedly read position commands from an interactive input loop.\n  --raw   Repeatedly read raw angles from an interactive input loop.\n  --api   Run the HTTP API server.\n  --help  Show this guide.\n\n{}\n  radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive\n{}\n\n{}\n  cargo run -- --cli\n  cargo run -- --shell\n  cargo test\n\n{}\n  cargo build --release --features hardware\n  sudo ./target/release/rustctl --shell",
+        "{}\n{}\n\n{}\n  --cli    Prompt for one XYZ position and execute it.\n  --shell  Repeatedly read position commands from an interactive input loop.\n  --raw    Repeatedly read raw angles from an interactive input loop.\n  --site   Serve the control page and JSON API on the local network.\n  --help   Show this guide.\n\n{}\n  {POSITION_FORMAT}\n\n{}\n  {RAW_FORMAT}\n\n{}\n  The trailing start angles are optional. Leave them at 0 when the axes are\n  homed; set them to the angles the arm is already at to command a relative move.\n\n{}\n  cargo run -- --cli\n  cargo run -- --shell\n  cargo test\n\n{}\n  RUSTCTL_SITE_ADDR=0.0.0.0:8080 cargo build --release --features hardware\n  sudo ./target/release/rustctl --site",
         header("Roboterarm controller"),
         info(&format!(
-            "Usage: {program} --cli | --shell | --raw | --api | --help"
+            "Usage: {program} --cli | --shell | --raw | --site | --help"
         )),
         header("Modes"),
         header("Position command format"),
-        info("Timing is fixed: total period = 1083 us, pulse width = 500 us."),
+        header("Raw angle command format"),
+        header("Start position"),
         header("PC testing"),
-        header("Raspberry Pi hardware")
+        header("Raspberry Pi hardware"),
     )
 }

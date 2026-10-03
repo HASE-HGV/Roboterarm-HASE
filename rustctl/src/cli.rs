@@ -22,7 +22,8 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
         "{}",
         pretty::info("Timing is fixed at 1083 us / 500 us.")
     )?;
-    let mut values: Vec<String> = Vec::with_capacity(8);
+    let mut values: Vec<String> = Vec::with_capacity(11);
+    let mut start: Vec<String> = Vec::with_capacity(3);
     for (label, example) in [
         ("Target radius X (mm)", "100"),
         ("Base angle Y (degrees)", "0"),
@@ -39,6 +40,34 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
         reader.read_line(&mut input)?;
         values.push(input.trim().to_owned());
     }
+
+    for label in [
+        "Start base angle (degrees, 0 = homed)",
+        "Start axis 1 angle (degrees)",
+        "Start axis 2 angle (degrees)",
+    ] {
+        write!(writer, "{}", pretty::prompt(label, "0"))?;
+        writer.flush()?;
+        let mut input: String = String::new();
+        if reader.read_line(&mut input)? == 0 {
+            break;
+        }
+        let answer = input.trim();
+
+        start.push(if answer.is_empty() { "0" } else { answer }.to_owned());
+    }
+    if start.len() == 3 {
+        if start.iter().any(|value| value != "0") {
+            values.extend(start.iter().cloned());
+        }
+    } else if !start.is_empty() {
+        return Err(format!(
+            "Incomplete start position: expected 3 angles, got {}",
+            start.len()
+        )
+        .into());
+    }
+
     let refs: Vec<&str> = values.iter().map(String::as_str).collect();
     config_from_position(&refs)
 }
@@ -53,6 +82,7 @@ pub(crate) fn get_mode(args: &[String]) -> Result<(), Box<dyn std::error::Error>
         Some("--shell") => run_position_loop(false),
         Some("--site") => run_api(),
         Some("--raw") => run_raw_loop(),
+        Some("--api") => Err("The --api mode was renamed to '--site'. Try: rustctl --site".into()),
         Some("--help") | None => {
             print_help(args.first().map(String::as_str).unwrap_or("rustctl"));
             Ok(())
