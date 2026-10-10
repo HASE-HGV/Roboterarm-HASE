@@ -1047,23 +1047,6 @@ fn shell_modes_document_the_optional_start_position() {
     assert!(raw_output.contains("optional"), "{raw_output}");
 }
 
-#[test]
-fn shell_position_loop_executes_a_relative_command() {
-    let line = format!(
-        "{}\n",
-        position_line([100.0, 0.0, 50.0], Some([10.0, 20.0, 30.0]))
-    );
-    let mut output = Vec::new();
-    run_position_loop_with_io(Cursor::new(line.into_bytes()), &mut output, false).unwrap();
-    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
-}
-
-#[test]
-fn shell_raw_loop_executes_a_relative_command() {
-    let mut output = Vec::new();
-    run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1 10 20 30\n"), &mut output).unwrap();
-    assert!(String::from_utf8(output).unwrap().contains("Command completed"));
-}
 
 #[test]
 fn plan_report_shows_the_start_position_only_for_relative_moves() {

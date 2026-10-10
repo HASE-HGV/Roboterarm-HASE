@@ -110,8 +110,6 @@ use crate::bresenham::MultiAxisPlanner;
 use rppal::gpio::{Gpio, OutputPin};
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
-const HARDWARE_OVERHEAD_US: u64 = 83;
-#[cfg(all(feature = "hardware", target_os = "linux"))]
 const PIN_AXIS1: (u8, u8) = (17, 27);
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 const PIN_AXIS2: (u8, u8) = (22, 23);
