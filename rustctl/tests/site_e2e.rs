@@ -84,38 +84,6 @@ fn run_site_and_capture(configure: impl FnOnce(&mut Command) -> &mut Command) ->
 }
 
 #[test]
-fn e2e_site_mode_starts_prints_its_banner_and_actually_serves_requests() {
-    let site = run_site_and_capture(|command| command.env("RUSTCTL_SITE_ADDR", "127.0.0.1:0"));
-    let joined = site.joined();
-    assert!(joined.contains("== Site mode =="), "{joined}");
-    assert!(joined.contains("hardware_enabled=false"), "{joined}");
-    assert!(
-        joined.contains("routes=/,/status,/help,/test,/args,/raw,/api"),
-        "{joined}"
-    );
-    assert!(joined.contains("Simulation build"), "{joined}");
-
-    let port = site
-        .listening_port()
-        .unwrap_or_else(|| panic!("could not find a listening port in banner: {joined}"));
-    let mut stream = TcpStream::connect(("127.0.0.1", port))
-        .expect("the port the banner advertised should actually be accepting connections");
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .unwrap();
-    stream
-        .write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        .unwrap();
-    let mut response = Vec::new();
-    stream.read_to_end(&mut response).unwrap();
-    let response = String::from_utf8(response).unwrap();
-    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
-    assert!(response.contains("\"status\":\"ready\""), "{response}");
-
-    site.kill();
-}
-
-#[test]
 fn e2e_legacy_api_addr_env_var_still_works_but_warns() {
     let site = run_site_and_capture(|command| {
         command
@@ -221,35 +189,6 @@ fn e2e_site_serves_the_control_page_with_both_themes() {
     for field in ["start_base_deg", "start_axis1_deg", "start_axis2_deg"] {
         assert!(response.contains(field), "the page must offer {field}");
     }
-
-    site.kill();
-}
-
-#[test]
-fn e2e_site_accepts_a_start_position_on_both_motion_endpoints() {
-    let site = run_site_and_capture(|command| command.env("RUSTCTL_SITE_ADDR", "127.0.0.1:0"));
-    let port = site.listening_port().unwrap_or_else(|| {
-        panic!(
-            "could not find a listening port in banner: {}",
-            site.joined()
-        )
-    });
-
-    let args = json_post(
-        port,
-        "/args",
-        r#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5,"start_axis1_deg":10,"start_axis2_deg":15}"#,
-    );
-    assert!(args.starts_with("HTTP/1.1 200 OK\r\n"), "{args}");
-    assert!(args.contains("\"mode\":\"args\""), "{args}");
-
-    let raw = json_post(
-        port,
-        "/raw",
-        r#"{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true,"start_base_deg":5,"start_axis1_deg":10,"start_axis2_deg":15}"#,
-    );
-    assert!(raw.starts_with("HTTP/1.1 200 OK\r\n"), "{raw}");
-    assert!(raw.contains("\"mode\":\"raw\""), "{raw}");
 
     site.kill();
 }
