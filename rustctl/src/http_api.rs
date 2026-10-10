@@ -328,11 +328,6 @@ pub(crate) fn banner_lines(
             "Simulation build: no GPIO signals will be sent. Rebuild with --features hardware on the Pi.",
         ));
     }
-    if !is_loopback {
-        lines.push(pretty::warning(
-            "No login: anyone who can reach this address can move the arm.",
-        ));
-    }
     lines
 }
 
