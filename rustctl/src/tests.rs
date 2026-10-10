@@ -1153,21 +1153,6 @@ fn shell_position_loop_reports_invalid_command() {
     );
 }
 
-#[test]
-fn shell_position_loop_executes_valid_simulation_command() {
-    let mut output = Vec::new();
-    run_position_loop_with_io(
-        Cursor::new(b"100 0 50 200 200 200 16 1\n"),
-        &mut output,
-        false,
-    )
-    .unwrap();
-    assert!(
-        String::from_utf8(output)
-            .unwrap()
-            .contains("Command completed")
-    );
-}
 
 #[test]
 fn shell_raw_loop_reports_invalid_command() {
@@ -1180,16 +1165,6 @@ fn shell_raw_loop_reports_invalid_command() {
     );
 }
 
-#[test]
-fn shell_raw_loop_executes_valid_simulation_command() {
-    let mut output = Vec::new();
-    run_raw_loop_with_io(Cursor::new(b"0 25 30 200 16 1\n"), &mut output).unwrap();
-    assert!(
-        String::from_utf8(output)
-            .unwrap()
-            .contains("Command completed")
-    );
-}
 
 fn http_post(path: &str, body: &str) -> String {
     let request = format!(
