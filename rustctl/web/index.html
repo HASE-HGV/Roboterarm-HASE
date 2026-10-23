@@ -773,6 +773,7 @@ Your browser does not support the canvas element.
 <div class="preview-meta">
 <output id="arm-readout" class="hint" aria-live="polite">Calculating pose…</output>
 <button type="button" id="reset-view">Reset view</button>
+<p id="keyboard-help" class="hint">Keyboard jog · press once for 1°: <kbd>s</kbd>/<kbd>d</kbd> base, <kbd>f</kbd>/<kbd>g</kbd> shoulder, <kbd>h</kbd>/<kbd>j</kbd> elbow. <kbd>k</kbd>/<kbd>l</kbd> end effector (reserved).</p>
 <ul class="joint-legend" aria-label="Arm parts">
 <li><span class="legend-dot legend-base" aria-hidden="true"></span>Base</li>
 <li><span class="legend-dot legend-shoulder" aria-hidden="true"></span>Shoulder</li>
@@ -1052,6 +1053,49 @@ async function refresh() {
     ? "ready, GPIO " + (s.hardware_enabled ? "ON" : "OFF (simulation)") + (s.busy ? ", MOVING" : "")
     : "unreachable";
 }
+
+const keyboardJogs = {
+  s: ["base_deg", -1], d: ["base_deg", 1],
+  f: ["axis1_deg", -1], g: ["axis1_deg", 1],
+  h: ["axis2_deg", -1], j: ["axis2_deg", 1],
+};
+
+async function keyboardJog(field, delta) {
+  if (locked > 0) return;
+  const form = $("raw");
+  const axes = ["base_deg", "axis1_deg", "axis2_deg"];
+  const starts = ["start_base_deg", "start_axis1_deg", "start_axis2_deg"];
+  const pose = {};
+  for (let i = 0; i < axes.length; i++) {
+    const value = form.elements.namedItem(starts[i]).value;
+    pose[axes[i]] = value === "" ? 0 : Number(value);
+  }
+  pose[field] += delta;
+  for (const axis of axes) form.elements.namedItem(axis).value = pose[axis];
+  previewForm(form);
+  const result = await call("POST", form.dataset.path, formBody(form), true);
+  if (result && result.ok) {
+    for (let i = 0; i < axes.length; i++) {
+      form.elements.namedItem(starts[i]).value = pose[axes[i]];
+    }
+  }
+  await refresh();
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+  if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+  const key = event.key.toLowerCase();
+  if (key === "k" || key === "l") {
+    event.preventDefault();
+    $("keyboard-help").textContent = "End-effector keyboard control is reserved until that joint is implemented.";
+    return;
+  }
+  const jog = keyboardJogs[key];
+  if (!jog) return;
+  event.preventDefault();
+  keyboardJog(...jog);
+});
 
 for (const form of document.querySelectorAll("form[data-path]")) {
   form.addEventListener("input", () => previewForm(form));
