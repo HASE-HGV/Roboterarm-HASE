@@ -1,5 +1,6 @@
-# Safe starter: update the image, install rustctl, and keep existing packages.
+# Starter: update the image, install rustctl, and keep existing packages.
 architecture: auto
+hostname: robo
 
 image:
   max_size_gb: 16
@@ -14,7 +15,8 @@ packages:
     - bash
     - sudo
     - openssh-server
-  extra: []
+  extra:
+    - avahi-daemon
 
 rustctl:
   enabled: true
@@ -36,6 +38,8 @@ systemd:
     - source: ./examples/systemd/rustctl.service
       destination: /etc/systemd/system/rustctl.service
       enabled: true
+    - name: avahi-daemon.service
+      enabled: true
 
 hooks:
   mode: container
@@ -47,10 +51,11 @@ test:
 
 guacamole:
   enabled: true
+  # Accessible from the network; replace root/root before using on a shared LAN.
   username: root
   password: root
   ssh_host: host.docker.internal
   ssh_port: 22
   web_port: 2000
   bind_address: 127.0.0.1
-  target_bind_address: 127.0.0.1
+  target_bind_address: 0.0.0.0 # Open on the Pi's Ethernet/Wi-Fi interfaces.

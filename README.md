@@ -949,7 +949,8 @@ docker compose -f image-builder/compose.yaml run --rm --build builder \
 
 The output is written to `image-builder/output/raspios-custom.img`. The basic
 configuration updates Raspberry Pi OS, installs `rustctl`, configures Netplan
-with NetworkManager, and preserves the existing package set. The separate
+with NetworkManager, sets the hostname to `robo`, and preserves the existing
+package set. The separate
 [`minimal-config.yaml`](image-builder/minimal-config.yaml) enables APT pruning;
 review its `packages.keep` list carefully before using it. Add `--test` to enter
 the target image's chroot shell before finalizing; type `exit` to continue.
@@ -984,9 +985,12 @@ natively. Configuration paths are relative to the YAML file. Netplan files,
 systemd units, and extra files are declared in that YAML. Bash hooks run on the
 builder host outside the target chroot and receive `ROOTFS` (the mounted image
 root) and `BUILD_STAGE` (`after_packages` or `before_finalize`).
-The shared Netplan example configures Ethernet and the `Hothschpoth` WPA2
-network; `basic-config.yaml` selects NetworkManager and installs that profile
-with restrictive file permissions.
+The shared Netplan example configures a static `192.168.50.2/24` Ethernet
+address for a direct Mac-to-Pi cable plus the `Hothschpoth` WPA2 network.
+Configure the Mac's USB Ethernet service as `192.168.50.1/24`; its Wi-Fi can
+remain connected for Internet access. `basic-config.yaml` selects
+NetworkManager and installs the Wi-Fi profile with restrictive file
+permissions.
 
 #### Guacamole at boot
 
@@ -997,29 +1001,30 @@ imports those local archives and starts both containers. It removes the archive
 copies after a successful import to avoid storing duplicate image data. The Pi
 does not need Internet access to download Guacamole when it boots.
 
-The web interface uses port `2000`. By default it binds to the Pi's loopback
-interface. To open it from a computer, create an SSH tunnel and then browse to
-`http://127.0.0.1:2000/`:
+The basic config exposes the web interface on port `2000` on the Pi's network
+interfaces. Once the Pi has an IP address, open `http://<pi-ip>:2000/` directly
+in a browser; no terminal or SSH tunnel is needed. With the direct Ethernet
+example, use `http://192.168.50.2:2000/`.
+The basic image also enables Avahi mDNS, so on a network that allows local
+multicast discovery you can use `http://robo.local:2000/` instead of looking up
+the Pi's IP address.
 
-```sh
-ssh -L 2000:127.0.0.1:2000 <pi-user>@<pi-ip>
-```
-
-For direct LAN access, set `guacamole.target_bind_address` to `0.0.0.0` in the
-YAML configuration and use a non-default Guacamole password. The starter config
-uses `root`/`root`; change these values before exposing the service.
+The starter config uses `root`/`root`; change the Guacamole username and
+password before connecting the Pi to a shared or untrusted network. Custom
+configs can keep Guacamole loopback-only with `target_bind_address: 127.0.0.1`
+or expose it on all interfaces with `target_bind_address: 0.0.0.0`.
 
 Guacamole forwards its web-login credentials to the SSH connection as
 `${GUAC_USERNAME}` and `${GUAC_PASSWORD}`. This removes the second credential
-prompt when the Raspberry Pi accepts the same username and password for SSH.
-Guacamole does not create a Linux account or bypass the Pi's SSH authentication
-policy, so configure the web-login credentials to match an existing SSH account.
-See the [Apache Guacamole credential-token documentation](https://guacamole.apache.org/doc/gug/configuring-guacamole.html#parameter-tokens).
+prompt. When the configured Guacamole username is `root`, the builder sets the
+root password to the configured password and enables password-based root SSH,
+so the default `root`/`root` setup works. For a different username, that Linux
+account must already exist and accept the same password. See the [Apache
+Guacamole credential-token documentation](https://guacamole.apache.org/doc/gug/configuring-guacamole.html#parameter-tokens).
 
-The builder's file-based login is intended for a small, trusted setup. The
-default `root`/`root` values are examples; set them to credentials accepted by
-the Pi's SSH account. Root SSH login is commonly disabled, so a normal Pi user
-is usually the appropriate choice.
+The builder's file-based login and root SSH access are intended for a small,
+trusted setup. Change the default `root`/`root` credentials before exposing the
+Pi to a shared or untrusted network.
 
 When enabled, the builder also creates an optional
 `image-builder/output/raspios-custom-guacamole/` Compose bundle for local

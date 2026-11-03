@@ -3,7 +3,9 @@ network:
   renderer: NetworkManager
   ethernets:
     eth0:
-      dhcp4: true
+      dhcp4: false
+      addresses:
+        - 192.168.50.2/24
   wifis:
     wlan0:
       dhcp4: true

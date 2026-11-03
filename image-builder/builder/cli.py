@@ -456,6 +456,42 @@ def copy_declared(config_file: Path, rootfs: Path, entries: list[dict[str, Any]]
         print(f"[{label}] {source} -> /{destination.relative_to(rootfs)}", flush=True)
 
 
+def apply_hostname(rootfs: Path, cfg: dict[str, Any]) -> None:
+    hostname = cfg.get("hostname")
+    if hostname is None:
+        return
+    if not isinstance(hostname, str) or not re.fullmatch(
+        r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", hostname
+    ):
+        raise BuildError("hostname must be a valid DNS hostname label of 1 to 63 characters")
+
+    hostname_path = target_path(rootfs, "/etc/hostname")
+    hostname_path.parent.mkdir(parents=True, exist_ok=True)
+    hostname_path.write_text(f"{hostname}\n")
+
+    hosts_path = target_path(rootfs, "/etc/hosts")
+    lines = hosts_path.read_text(errors="replace").splitlines() if hosts_path.is_file() else []
+    updated_lines: list[str] = []
+    found_hostname_address = False
+    for line in lines:
+        host_fields, has_comment, comment = line.partition("#")
+        fields = host_fields.split()
+        if fields and fields[0] == "127.0.1.1":
+            if not found_hostname_address:
+                replacement = f"127.0.1.1\t{hostname}"
+                if has_comment:
+                    replacement += f"  #{comment}"
+                updated_lines.append(replacement)
+                found_hostname_address = True
+            continue
+        updated_lines.append(line)
+    if not found_hostname_address:
+        updated_lines.append(f"127.0.1.1\t{hostname}")
+    hosts_path.parent.mkdir(parents=True, exist_ok=True)
+    hosts_path.write_text("\n".join(updated_lines).rstrip("\n") + "\n")
+    print(f"[hostname] Set target hostname to {hostname}", flush=True)
+
+
 def apply_netplan(config_file: Path, rootfs: Path, cfg: dict[str, Any]) -> None:
     netplan = cfg.get("netplan", {}) or {}
     if not netplan.get("enabled"):
@@ -582,6 +618,23 @@ def configure_guacamole_target(rootfs: Path, cfg: dict[str, Any], archives: list
         raise BuildError("Guacamole image archives were not prepared")
     settings = guacamole_settings(cfg)
     version = settings["version"]
+
+    # The default connection forwards Guacamole credentials to the Pi over
+    # SSH. Raspberry Pi OS locks root by default, so provision the configured
+    # password and explicitly allow password-based root SSH when root is used.
+    if settings["username"] == "root":
+        run(
+            ["chroot", str(rootfs), "/usr/sbin/chpasswd"],
+            input=f"root:{settings['password']}\n",
+            text=True,
+        )
+        sshd_config = target_path(rootfs, "/etc/ssh/sshd_config")
+        current_config = sshd_config.read_text(errors="replace") if sshd_config.exists() else ""
+        sshd_config.parent.mkdir(parents=True, exist_ok=True)
+        sshd_config.write_text(
+            "PermitRootLogin yes\nPasswordAuthentication yes\n" + current_config
+        )
+
     image_root = target_path(rootfs, "/opt/guacamole/images")
     image_root.mkdir(parents=True, exist_ok=True)
     for archive in archives:
@@ -609,7 +662,10 @@ def configure_guacamole_target(rootfs: Path, cfg: dict[str, Any], archives: list
     mapping_path = target_path(rootfs, "/etc/guacamole/user-mapping.xml")
     mapping_path.parent.mkdir(parents=True, exist_ok=True)
     ET.ElementTree(mapping).write(mapping_path, encoding="utf-8", xml_declaration=True)
-    mapping_path.chmod(0o600)
+    # The official Guacamole web container runs as UID/GID 1001, not root.
+    # Keep the bind-mounted file readable by that unprivileged process; 0600
+    # leaves it unreadable when this file is root-owned in the Pi image.
+    mapping_path.chmod(0o644)
 
     guacd_image = f"guacamole/guacd:{version}"
     guac_image = f"guacamole/guacamole:{version}"
@@ -712,7 +768,9 @@ def generate_guacamole_bundle(output: Path, cfg: dict[str, Any]) -> Path | None:
     ET.indent(mapping, space="  ")
     mapping_path = bundle / "user-mapping.xml"
     ET.ElementTree(mapping).write(mapping_path, encoding="utf-8", xml_declaration=True)
-    mapping_path.chmod(0o600)
+    # Guacamole runs as an unprivileged user in the official container, so
+    # the bind-mounted mapping must be readable inside the container.
+    mapping_path.chmod(0o644)
 
     guac_image = f"guacamole/guacamole:{version}"
     guacd_image = f"guacamole/guacd:{version}"
@@ -845,6 +903,7 @@ def build(args: argparse.Namespace) -> None:
         package_stage(rootfs, cfg)
         copy_declared(config_file, rootfs, cfg.get("files", []), label="file")
         copy_declared(config_file, rootfs, cfg.get("tools", []), label="tool")
+        apply_hostname(rootfs, cfg)
         apply_netplan(config_file, rootfs, cfg)
         install_rustctl(rootfs, cfg, architecture)
         apply_systemd(config_file, rootfs, cfg)

@@ -1,0 +1,59 @@
+architecture: auto
+hostname: robo
+
+image:
+  max_size_gb: 16
+  reserve_gb: 2
+
+packages:
+  update: true
+  prune: true
+  keep:
+    - systemd
+    - coreutils
+    - bash
+    - sudo
+    - openssh-server 
+    - linux 
+  extra:
+    - cargo
+    - git
+
+rustctl:
+  enabled: true
+  install_path: /rustctl/rustctl
+
+files: []
+tools: []
+
+netplan:
+  enabled: true
+  renderer: NetworkManager
+  configs:
+    - source: ./examples/netplan/10-robot.yaml
+      destination: /etc/netplan/10-robot.yaml
+      mode: "0600"
+
+systemd:
+  units:
+    - source: ./examples/systemd/rustctl.service
+      destination: /etc/systemd/system/rustctl.service
+      enabled: true
+
+hooks:
+  mode: container
+  after_packages: []
+  before_finalize: []
+
+test:
+  shell: false
+
+guacamole:
+  enabled: true
+  username: robo
+  password: guacamole
+  ssh_host: host.docker.internal
+  ssh_port: 22
+  web_port: 2000
+  bind_address: 127.0.0.1
+  target_bind_address: 127.0.0.1

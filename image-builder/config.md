@@ -62,6 +62,19 @@ Zielarchitektur des Raspberry-Pi-OS-Images. Zulässige Werte sind `auto`,
 Images. Das mitgelieferte `rustctl`-Binary wird derzeit nur für `arm64`
 bereitgestellt. Für `armhf` muss `rustctl.enabled` auf `false` gesetzt werden.
 
+## `hostname`
+
+```yaml
+hostname: robo
+```
+
+Optionaler Zielhostname; die mitgelieferten Starterkonfigurationen verwenden
+`robo`. Der Builder schreibt den Namen nach `/etc/hostname` und aktualisiert
+den Hosteintrag `127.0.1.1` in `/etc/hosts`. Zulässig ist ein DNS-Hostname mit
+1 bis 63 Buchstaben, Ziffern oder Bindestrichen, ohne Bindestrich am Anfang
+oder Ende. Wird `hostname` weggelassen, bleibt der Hostname aus dem Basisimage
+unverändert.
+
 ## `packages`
 
 ```yaml
@@ -161,6 +174,13 @@ Netplan-Datei, gilt Netplans Standard `networkd`. Für NetworkManager muss daher
 die Netplan-Datei `renderer: NetworkManager` angeben. Netplan-Einstellungen wie
 Ethernet, WLAN und deren Verbindungen werden in den Quelldateien definiert.
 
+Die enthaltene Netplan-Beispieldatei reserviert Ethernet-Adresse
+`192.168.50.2/24` für ein direktes Mac-zu-Pi-Kabel; WLAN bleibt auf DHCP.
+Stelle den USB-Ethernet-Dienst des Mac auf `192.168.50.1` mit der Netzmaske
+`255.255.255.0` ein. Für diese direkte Verbindung bleiben Router und DNS leer.
+Die WLAN-Verbindung des Pi stellt weiterhin den normalen Netzwerk- und
+Internetzugang bereit.
+
 Für ein WPA2-Personal-Netz verwendet Netplan `key-management: psk` und das
 WLAN-Passwort unter `auth.password`. Zugangsdaten stehen damit im Quell-YAML
 im Klartext; der Builder kopiert die Beispiel-WLAN-Datei mit Modus `0600` ins
@@ -247,6 +267,10 @@ guacamole:
 - `target_bind_address` (Standard `127.0.0.1`): IPv4-Adresse, an die Docker im
   Pi-Image den Web-Port bindet. Für direkten Zugriff aus dem LAN kann sie auf
   `0.0.0.0` gesetzt werden; verwende dann unbedingt eigene Guacamole-Login-Daten.
+- Die mitgelieferte `basic-config.yaml` setzt `target_bind_address: 0.0.0.0`,
+  damit die Oberfläche direkt unter `http://<ip-adresse-des-pi>:2000/` erreichbar
+  ist. Sie verwendet zunächst `root`/`root`; ändere diese Zugangsdaten vor dem
+  Betrieb in einem gemeinsam genutzten oder nicht vertrauenswürdigen Netz.
 - `version` (Standard `1.6.0`): gemeinsamer Tag der offiziellen
   `guacamole/guacamole`- und `guacamole/guacd`-Images.
 
@@ -273,9 +297,11 @@ dem Internet.
 `username`/`password` gelten für den Guacamole-Weblogin und werden zugleich mit
 `${GUAC_USERNAME}` und `${GUAC_PASSWORD}` als SSH-Benutzername und Passwort
 weitergereicht. Dadurch fragt die Verbindung nicht noch einmal nach Zugangsdaten.
-Der Pi muss dieselben Zugangsdaten für einen vorhandenen SSH-Account akzeptieren;
-Guacamole erstellt keinen Linux-Benutzer und ändert keine SSH-Policy. Diese
-Credential-Tokens werden von [Apache Guacamole](https://guacamole.apache.org/doc/gug/configuring-guacamole.html#parameter-tokens)
+Wenn `username: root` gesetzt ist, legt der Builder das konfigurierte Passwort
+für das vorhandene Root-Konto fest und aktiviert Passwort-SSH-Login für root,
+damit die Standardkonfiguration funktioniert. Bei einem anderen Benutzernamen
+muss dieser Linux-Account bereits existieren und dasselbe Passwort akzeptieren.
+Diese Credential-Tokens werden von [Apache Guacamole](https://guacamole.apache.org/doc/gug/configuring-guacamole.html#parameter-tokens)
 unterstützt. Die Weblogin-Passwortdatei wird im XML mit MD5-Encoding abgelegt.
 Apache beschreibt die Datei-Authentifizierung als einfache Lösung für kleine
 Setups und rät davon ab, `user-mapping.xml` für öffentlich erreichbare
@@ -286,6 +312,7 @@ aus dem LAN erreichbar ist.
 
 ```yaml
 architecture: auto
+hostname: robo
 
 packages:
   update: true

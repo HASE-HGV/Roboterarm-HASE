@@ -1,6 +1,7 @@
 # Aggressive package cleanup. Review `packages.keep` for the exact image and
 # add every extra command/service/driver you need before building.
 architecture: auto
+hostname: robo
 
 image:
   max_size_gb: 16
@@ -51,7 +52,7 @@ test:
   shell: false
 
 guacamole:
-  enabled: false
+  enabled: true
   username: root
   password: root
   ssh_host: host.docker.internal
