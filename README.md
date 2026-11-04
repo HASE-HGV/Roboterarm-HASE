@@ -54,7 +54,7 @@
 | **Patrick** | Software development, cable management, PCB design | Retired |
 | **Luca** | Organisation, Rust development, Web server, 3D design & printing, oscilloscope analysis | Active |
 | **Johannes** | build suite, Docker Development, Linux setup & guide | Active |
-| **Florian** | General support across tasks | Active |
+| **Florian** | Soldering, General support across tasks | Active |
 | **Julian** | Soldering, calculations & design review | Active |
 
 ---
