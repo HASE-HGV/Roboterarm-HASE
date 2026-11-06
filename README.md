@@ -7,7 +7,7 @@
 ![Axes](https://img.shields.io/badge/Axes-3%20DOF-blue)
 
 > **Open-source robot arm and control software** developed by students of the  
-> [Humboldt Academy for Science and Engineering](https://www.hgv.de) at HGV Vaterstetten.
+> [Humboldt Academy for Science and Engineering](https://www.humboldt-gym.de) at HGV Vaterstetten.
 
 ---
 
