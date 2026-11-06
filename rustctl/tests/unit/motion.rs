@@ -1,4 +1,5 @@
 use super::*;
+use crate::motion::{checked_step_plan, execute_solution};
 
 #[test]
 fn a_domain_label() {
@@ -313,5 +314,46 @@ fn plan_report_shows_current_pose_and_relative_travel() {
                 .contains("Relative travel: base -5.000°, axis 1 45.000°, axis 2 0.000°")
             && relative.contains("Axis 1: 400"),
         "{relative}"
+    );
+}
+
+#[test]
+fn checked_deg_to_steps_matches_deg_to_steps_for_normal_angles() {
+    assert_eq!(checked_deg_to_steps(360.0, 200, 1, GEAR_RATIO), Ok(3200));
+    assert_eq!(checked_deg_to_steps(90.0, 200, 1, GEAR_RATIO), Ok(800));
+    assert_eq!(
+        checked_deg_to_steps(-45.0, 200, 16, GEAR_RATIO),
+        Ok(deg_to_steps(-45.0, 200, 16, GEAR_RATIO))
+    );
+}
+
+#[test]
+fn checked_deg_to_steps_refuses_huge_angle() {
+    assert!(checked_deg_to_steps(1e300, 200, 16, GEAR_RATIO).is_err());
+}
+
+#[test]
+fn checked_step_plan_matches_step_plan_for_finite_values() {
+    let solution = ArmSolution {
+        theta_base_deg: 40.0,
+        theta1_deg: 90.0,
+        theta2_deg: -45.0,
+        z_eff_mm: 0.0,
+    };
+    let config = config_from_line(&position_line([0.0, 0.0, 0.0], Some([5.0, 10.0, 0.0]))).unwrap();
+    assert_eq!(
+        checked_step_plan(&config, solution),
+        Ok(step_plan(&config, solution))
+    );
+}
+
+#[test]
+fn execute_solution_refuses_huge_joint_angle() {
+    let (config, solution) = raw_command("1e300 0 0 200 16 1").unwrap();
+    let err = execute_solution(&config, solution).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("cannot be converted to motor steps"),
+        "{err}"
     );
 }

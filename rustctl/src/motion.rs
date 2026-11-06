@@ -1,7 +1,9 @@
 use std::error::Error;
 
 use crate::config::{GEAR_RATIO, MotionConfig, NUM_AXES, StartPosition};
-use crate::kinematics::{ArmSolution, deg_to_steps, ik_angles_3d_deg, overhead_sleep_us};
+use crate::kinematics::{
+    ArmSolution, checked_deg_to_steps, deg_to_steps, ik_angles_3d_deg, overhead_sleep_us,
+};
 use crate::pretty;
 
 pub(crate) fn joint_deltas(start: StartPosition, solution: ArmSolution) -> [f64; NUM_AXES] {
@@ -21,6 +23,18 @@ pub(crate) fn step_plan(config: &MotionConfig, solution: ArmSolution) -> [i64; N
     steps
 }
 
+pub(crate) fn checked_step_plan(
+    config: &MotionConfig,
+    solution: ArmSolution,
+) -> Result<[i64; NUM_AXES], String> {
+    let deltas = joint_deltas(config.start, solution);
+    let mut steps = [0i64; NUM_AXES];
+    for (step, delta) in steps.iter_mut().zip(deltas) {
+        *step = checked_deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO)?;
+    }
+    Ok(steps)
+}
+
 pub(crate) fn execute_position(config: MotionConfig) -> Result<(), Box<dyn Error>> {
     let solution = ik_angles_3d_deg(
         config.x_mm,
@@ -38,14 +52,15 @@ pub(crate) fn execute_solution(
     solution: ArmSolution,
 ) -> Result<(), Box<dyn Error>> {
     let overhead_us = overhead_sleep_us(config.total_time_us, config.pulse_t_us)?;
+    let steps = checked_step_plan(config, solution)?;
     print_plan(config, &solution);
 
     #[cfg(all(feature = "hardware", target_os = "linux"))]
-    run_hardware(config, step_plan(config, solution), overhead_us)?;
+    run_hardware(config, steps, overhead_us)?;
 
     #[cfg(not(all(feature = "hardware", target_os = "linux")))]
     {
-        let _ = overhead_us;
+        let _ = (overhead_us, steps);
         println!(
             "{}",
             pretty::warning(
