@@ -1,0 +1,638 @@
+
+running 264 tests
+test coverage_tests::api_tests::a_domain_label ... 
+API and runtime checks
+ok
+test coverage_tests::api_tests::api_accepts_a_start_position_on_args ... ok
+test coverage_tests::api_tests::api_accepts_a_start_position_on_raw ... ok
+test coverage_tests::api_tests::api_args_response_maps_inverse_kinematics_failure ... ok
+test coverage_tests::api_tests::api_args_response_reports_successful_execution ... ok
+test coverage_tests::api_tests::api_command_names_are_case_insensitive_and_aliases_work ... ok
+test coverage_tests::api_tests::api_help_documents_all_start_position_fields ... ok
+test coverage_tests::api_tests::api_help_response_contains_command_documentation ... ok
+test coverage_tests::api_tests::api_parses_args_mode ... ok
+test coverage_tests::api_tests::api_parses_help_command ... ok
+test coverage_tests::api_tests::api_parses_position_alias_case_insensitively ... ok
+test coverage_tests::api_tests::api_parses_quit_command ... ok
+test coverage_tests::api_tests::api_parses_raw_mode ... ok
+test coverage_tests::api_tests::api_parses_status_command ... ok
+test coverage_tests::api_tests::api_parses_test_command ... ok
+test coverage_tests::api_tests::api_position_accepts_each_a4988_microstep_value ... ok
+test coverage_tests::api_tests::api_position_rejects_a_partial_start_position ... ok
+test coverage_tests::api_tests::api_position_rejects_unsupported_microstep ... ok
+test coverage_tests::api_tests::api_position_rejects_zero_steps_per_revolution ... ok
+test coverage_tests::api_tests::api_quit_response_reports_client_bye ... ok
+test coverage_tests::api_tests::api_raw_accepts_each_a4988_microstep_value ... ok
+test coverage_tests::api_tests::api_raw_rejects_a_partial_start_position ... ok
+test coverage_tests::api_tests::api_raw_rejects_unsupported_microstep ... ok
+test coverage_tests::api_tests::api_raw_rejects_zero_steps_per_revolution ... ok
+test coverage_tests::api_tests::api_raw_response_maps_timing_failure ... ok
+test coverage_tests::api_tests::api_raw_response_reports_successful_execution ... ok
+test coverage_tests::api_tests::api_rejects_empty_request_body ... ok
+test coverage_tests::api_tests::api_rejects_incomplete_args_command ... ok
+test coverage_tests::api_tests::api_rejects_incomplete_raw_command ... ok
+test coverage_tests::api_tests::api_rejects_invalid_http_routes_and_methods ... ok
+test coverage_tests::api_tests::api_rejects_invalid_json ... ok
+test coverage_tests::api_tests::api_rejects_missing_command_field ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_base_angle ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_direction_flag ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_first_link_length ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_height ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_microstep ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_radius ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_second_link_length ... ok
+test coverage_tests::api_tests::api_rejects_missing_position_steps_per_revolution ... ok
+test coverage_tests::api_tests::api_rejects_missing_raw_base_angle ... ok
+test coverage_tests::api_tests::api_rejects_missing_raw_direction_flag ... ok
+test coverage_tests::api_tests::api_rejects_missing_raw_elbow_angle ... ok
+test coverage_tests::api_tests::api_rejects_missing_raw_microstep ... ok
+test coverage_tests::api_tests::api_rejects_missing_raw_shoulder_angle ... ok
+test coverage_tests::api_tests::api_rejects_missing_raw_steps_per_revolution ... ok
+test coverage_tests::api_tests::api_rejects_non_string_command_field ... ok
+test coverage_tests::api_tests::api_rejects_null_command_field ... ok
+test coverage_tests::api_tests::api_rejects_unknown_command ... ok
+test coverage_tests::api_tests::api_rejects_unrecognized_command_name ... ok
+test coverage_tests::api_tests::api_reports_compiled_hardware_capability ... ok
+test coverage_tests::api_tests::api_route_method_errors_are_distinct ... ok
+test coverage_tests::api_tests::api_route_query_strings_do_not_change_routes ... ok
+test coverage_tests::api_tests::api_routes_http_motion_modes ... ok
+test coverage_tests::api_tests::api_routes_http_status_and_help ... ok
+test coverage_tests::api_tests::api_start_position_must_be_numeric ... ok
+test coverage_tests::api_tests::api_status_response_includes_ready_status_and_commands ... ok
+test coverage_tests::api_tests::api_test_response_reports_successful_runtime_checks ... ok
+test coverage_tests::api_tests::api_without_start_position_stays_homed ... ok
+test coverage_tests::api_tests::runtime_check_report_collects_failure_details ... ok
+test coverage_tests::api_tests::runtime_ik_roundtrip_validator_accepts_expected_target ... ok
+test coverage_tests::api_tests::runtime_ik_roundtrip_validator_reports_wrong_radius ... ok
+test coverage_tests::api_tests::runtime_ik_solution_accepts_positive_link_lengths ... ok
+test coverage_tests::api_tests::runtime_ik_solution_rejects_zero_link_length ... ok
+test coverage_tests::api_tests::runtime_planner_validator_accepts_expected_totals ... ok
+test coverage_tests::api_tests::runtime_planner_validator_reports_wrong_totals ... ok
+test coverage_tests::api_tests::runtime_relative_plan_validator_accepts_shorter_relative_motion ... ok
+test coverage_tests::api_tests::runtime_relative_plan_validator_rejects_longer_relative_steps ... ok
+test coverage_tests::api_tests::runtime_relative_plan_validator_rejects_unchanged_step_counts ... ok
+test coverage_tests::api_tests::runtime_relative_plan_validator_rejects_wrong_joint_deltas ... ok
+test coverage_tests::api_tests::runtime_step_conversion_validator_accepts_expected_step_count ... ok
+test coverage_tests::api_tests::runtime_step_conversion_validator_reports_wrong_step_count ... ok
+test coverage_tests::api_tests::runtime_tests_report_named_failures ... ok
+test coverage_tests::api_tests::runtime_timing_validator_accepts_rejected_timing ... ok
+test coverage_tests::api_tests::runtime_timing_validator_rejects_accepted_invalid_timing ... ok
+test coverage_tests::cli_shell_tests::a_domain_label ... 
+CLI and shell
+ok
+test coverage_tests::cli_shell_tests::cli_and_shell_propagate_input_and_output_errors ... ok
+test coverage_tests::cli_shell_tests::cli_help_and_dispatch_cover_help_branches ... ok
+test coverage_tests::cli_shell_tests::cli_help_text_describes_site_mode_not_api ... ok
+test coverage_tests::cli_shell_tests::cli_help_text_documents_the_start_position_and_the_site_mode ... ok
+test coverage_tests::cli_shell_tests::cli_prompt_collects_a_start_position_when_given ... ok
+test coverage_tests::cli_shell_tests::cli_prompt_parses_injected_input ... ok
+test coverage_tests::cli_shell_tests::cli_prompt_rejects_a_non_numeric_start_position ... ok
+test coverage_tests::cli_shell_tests::cli_prompt_rejects_a_partial_start_position ... ok
+test coverage_tests::cli_shell_tests::cli_prompt_reports_incomplete_input ... ok
+test coverage_tests::cli_shell_tests::cli_prompt_treats_blank_start_answers_as_homed ... ok
+test coverage_tests::cli_shell_tests::cli_rejects_removed_api_flag_with_helpful_message ... ok
+test coverage_tests::cli_shell_tests::shell_api_loop_handles_status_empty_line_and_invalid_json ... ok
+test coverage_tests::cli_shell_tests::shell_loops_exit_cleanly_at_eof ... ok
+test coverage_tests::cli_shell_tests::shell_modes_document_the_optional_start_position ... ok
+test coverage_tests::cli_shell_tests::shell_position_loop_rejects_an_incomplete_start_position ... ok
+test coverage_tests::cli_shell_tests::shell_position_loop_reports_invalid_command ... ok
+test coverage_tests::cli_shell_tests::shell_raw_loop_rejects_an_incomplete_start_position ... ok
+test coverage_tests::cli_shell_tests::shell_raw_loop_reports_invalid_command ... ok
+test coverage_tests::config_tests::a_domain_label ... 
+Configuration parsing
+ok
+test coverage_tests::config_tests::config_accepts_zero_and_one_direction_flags ... ok
+test coverage_tests::config_tests::config_parses_position_values_and_default_timing ... ok
+test coverage_tests::config_tests::config_rejects_invalid_position_numbers ... ok
+test coverage_tests::config_tests::config_rejects_non_boolean_direction_flags ... ok
+test coverage_tests::config_tests::config_rejects_wrong_position_argument_counts ... ok
+test coverage_tests::config_tests::motor_settings_accept_all_a4988_microstep_values ... ok
+test coverage_tests::config_tests::motor_settings_reject_microstep_above_a4988_maximum ... ok
+test coverage_tests::config_tests::motor_settings_reject_non_power_of_two_microstep ... ok
+test coverage_tests::config_tests::motor_settings_reject_zero_microstep ... ok
+test coverage_tests::config_tests::motor_settings_reject_zero_steps_per_revolution ... ok
+test coverage_tests::config_tests::position_argument_count_errors_name_the_expected_counts ... ok
+test coverage_tests::config_tests::position_command_accepts_an_explicit_start_position ... ok
+test coverage_tests::config_tests::position_command_rejects_a_partial_start_position ... ok
+test coverage_tests::config_tests::position_line_rejects_a_partial_start_position ... ok
+test coverage_tests::config_tests::position_text_rejects_unsupported_microstep ... ok
+test coverage_tests::config_tests::position_text_rejects_zero_steps_per_revolution ... ok
+test coverage_tests::config_tests::raw_command_accepts_an_explicit_start_position ... ok
+test coverage_tests::config_tests::raw_command_parses_angles_and_motor_settings ... ok
+test coverage_tests::config_tests::raw_command_rejects_a_non_numeric_start_angle ... ok
+test coverage_tests::config_tests::raw_command_rejects_a_partial_start_position ... ok
+test coverage_tests::config_tests::raw_command_rejects_invalid_argument_counts ... ok
+test coverage_tests::config_tests::raw_command_rejects_non_numeric_values ... ok
+test coverage_tests::config_tests::raw_command_without_start_position_is_homed ... ok
+test coverage_tests::config_tests::raw_text_rejects_unsupported_microstep ... ok
+test coverage_tests::config_tests::raw_text_rejects_zero_steps_per_revolution ... ok
+test coverage_tests::config_tests::start_position_angles_must_be_numbers ... ok
+test coverage_tests::config_tests::start_position_defaults_to_homed ... ok
+test coverage_tests::control_tests::a_domain_label ... 
+Motion control locking
+ok
+test coverage_tests::control_tests::control_guard_releases_the_flag_even_after_a_panic ... ok
+test coverage_tests::control_tests::control_second_acquire_fails_until_released ... ok
+test coverage_tests::http_tests::a_domain_label ... 
+HTTP protocol and page
+ok
+test coverage_tests::http_tests::con_accept_loop_survives_abrupt_client_disconnect ... ok
+test coverage_tests::http_tests::con_busy_arm_rejects_concurrent_motion_request_with_409 ... ok
+test coverage_tests::http_tests::con_cross_origin_post_is_rejected ... ok
+test coverage_tests::http_tests::con_get_ignores_origin_header ... ok
+test coverage_tests::http_tests::con_same_origin_post_is_allowed ... ok
+test coverage_tests::http_tests::con_second_connection_served_while_first_is_idle ... ok
+test coverage_tests::http_tests::con_status_reports_busy_field ... ok
+test coverage_tests::http_tests::http_api_rejects_invalid_json_with_structured_error ... ok
+test coverage_tests::http_tests::http_get_help_documents_the_start_position ... ok
+test coverage_tests::http_tests::http_malformed_requests_return_bad_request ... ok
+test coverage_tests::http_tests::http_position_rejects_unsupported_microstep_with_structured_error ... ok
+test coverage_tests::http_tests::http_post_args_returns_success ... ok
+test coverage_tests::http_tests::http_post_args_with_a_partial_start_position_is_rejected ... ok
+test coverage_tests::http_tests::http_post_args_with_a_start_position_succeeds ... ok
+test coverage_tests::http_tests::http_post_raw_with_a_start_position_succeeds ... ok
+test coverage_tests::http_tests::http_quit_route_checks_method_and_empty_body ... ok
+test coverage_tests::http_tests::http_rejects_unsupported_version_and_invalid_content_length ... ok
+test coverage_tests::http_tests::http_request_reader_accepts_a_body_at_the_one_mib_limit ... ok
+test coverage_tests::http_tests::http_request_reader_rejects_non_utf8_headers_and_bodies ... ok
+test coverage_tests::http_tests::http_request_reader_reports_body_io_errors_and_short_request_lines ... ok
+test coverage_tests::http_tests::http_request_reader_reports_non_timeout_io_errors_as_malformed ... ok
+test coverage_tests::http_tests::http_response_writer_propagates_write_and_flush_errors ... ok
+test coverage_tests::http_tests::http_routes_return_expected_error_statuses ... ok
+test coverage_tests::http_tests::http_status_request_returns_json_success ... ok
+test coverage_tests::http_tests::origin_absent_is_always_trusted ... ok
+test coverage_tests::http_tests::origin_matching_host_is_trusted_regardless_of_scheme_or_case ... ok
+test coverage_tests::http_tests::origin_mismatched_host_is_rejected ... ok
+test coverage_tests::http_tests::origin_without_scheme_or_without_host_header_is_rejected ... ok
+test coverage_tests::http_tests::page_form_fields_match_the_json_api_field_names ... ok
+test coverage_tests::http_tests::page_html_constant_is_self_contained_with_no_external_resources ... ok
+test coverage_tests::http_tests::page_index_html_alias_serves_identical_content ... ok
+test coverage_tests::http_tests::page_offers_a_start_position_in_both_motion_forms ... ok
+test coverage_tests::http_tests::page_offers_a_theme_selector_for_all_themes ... ok
+test coverage_tests::http_tests::page_omits_an_all_zero_start_position_from_the_request ... ok
+test coverage_tests::http_tests::page_other_unknown_paths_still_404 ... ok
+test coverage_tests::http_tests::page_post_to_root_is_not_treated_as_the_page_route ... ok
+test coverage_tests::http_tests::page_query_string_is_ignored ... ok
+test coverage_tests::http_tests::page_root_serves_html_with_expected_headers ... ok
+test coverage_tests::http_tests::page_styles_are_scoped_to_the_styled_themes ... ok
+test coverage_tests::http_tests::req_body_closing_early_is_reported_as_malformed ... ok
+test coverage_tests::http_tests::req_body_delivered_across_multiple_reads_is_reassembled ... ok
+test coverage_tests::http_tests::req_body_read_can_time_out_independently_of_the_header_read ... ok
+test coverage_tests::http_tests::req_content_length_over_one_mib_is_rejected_before_reading_the_body ... ok
+test coverage_tests::http_tests::req_handle_request_maps_timeout_to_408 ... ok
+test coverage_tests::http_tests::req_oversized_headers_are_rejected ... ok
+test coverage_tests::http_tests::req_read_http_request_times_out_without_data ... ok
+test coverage_tests::kinematics_tests::a_domain_label ... 
+Kinematics
+ok
+test coverage_tests::kinematics_tests::forward_kinematics_ninety_degree_elbow_rotates_second_link ... ok
+test coverage_tests::kinematics_tests::forward_kinematics_ninety_degree_shoulder_extends_vertically ... ok
+test coverage_tests::kinematics_tests::forward_kinematics_zero_angles_extends_along_radius ... ok
+test coverage_tests::kinematics_tests::ik_accepts_negative_height_and_preserves_it ... ok
+test coverage_tests::kinematics_tests::ik_accepts_outer_workspace_boundary ... ok
+test coverage_tests::kinematics_tests::ik_accepts_the_exact_inner_workspace_boundary_for_unequal_links ... ok
+test coverage_tests::kinematics_tests::ik_accepts_the_exact_outer_workspace_boundary_for_unequal_links ... ok
+test coverage_tests::kinematics_tests::ik_accepts_the_folded_equal_link_origin ... ok
+test coverage_tests::kinematics_tests::ik_base_rotation_90 ... ok
+test coverage_tests::kinematics_tests::ik_does_not_claim_an_elbow_above_the_shoulder_when_neither_branch_can ... ok
+test coverage_tests::kinematics_tests::ik_forward_roundtrip ... ok
+test coverage_tests::kinematics_tests::ik_fully_extended_along_x ... ok
+test coverage_tests::kinematics_tests::ik_negative_radius_rejected ... ok
+test coverage_tests::kinematics_tests::ik_out_of_workspace ... ok
+test coverage_tests::kinematics_tests::ik_rejects_a_negative_first_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_a_negative_second_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_a_target_just_beyond_the_outer_workspace_boundary ... ok
+test coverage_tests::kinematics_tests::ik_rejects_a_target_just_inside_the_inner_workspace_boundary ... ok
+test coverage_tests::kinematics_tests::ik_rejects_a_zero_first_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_a_zero_second_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_infinite_base_angle ... ok
+test coverage_tests::kinematics_tests::ik_rejects_infinite_first_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_infinite_second_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_inner_workspace_boundary ... ok
+test coverage_tests::kinematics_tests::ik_rejects_nan_height ... ok
+test coverage_tests::kinematics_tests::ik_rejects_nan_second_link_length ... ok
+test coverage_tests::kinematics_tests::ik_rejects_non_finite_radius ... ok
+test coverage_tests::kinematics_tests::ik_right_angle_reach ... ok
+test coverage_tests::kinematics_tests::ik_round_trips_targets_across_a_reachable_grid ... ok
+test coverage_tests::kinematics_tests::ik_selects_an_elbow_above_the_shoulder_when_a_branch_allows_it ... ok
+test coverage_tests::kinematics_tests::ik_selects_the_branch_with_the_highest_elbow_across_reachable_targets ... ok
+test coverage_tests::motion_tests::a_domain_label ... 
+Motion planning and steps
+ok
+test coverage_tests::motion_tests::deg_to_steps_full_revolution ... ok
+test coverage_tests::motion_tests::deg_to_steps_is_antisymmetric_for_many_angles ... ok
+test coverage_tests::motion_tests::deg_to_steps_preserves_negative_sign ... ok
+test coverage_tests::motion_tests::deg_to_steps_quarter_and_microstep ... ok
+test coverage_tests::motion_tests::deg_to_steps_rounds_to_nearest ... ok
+test coverage_tests::motion_tests::deg_to_steps_scales_with_microstepping ... ok
+test coverage_tests::motion_tests::deg_to_steps_with_zero_gear_ratio_is_zero ... ok
+test coverage_tests::motion_tests::deg_to_steps_with_zero_microstep_is_zero ... ok
+test coverage_tests::motion_tests::deg_to_steps_with_zero_steps_per_revolution_is_zero ... ok
+test coverage_tests::motion_tests::deg_to_steps_zero_angle_produces_zero_steps ... ok
+test coverage_tests::motion_tests::direction_logic_zero_is_not_positive ... ok
+test coverage_tests::motion_tests::direction_negative_steps_are_ccw_when_configured_negative ... ok
+test coverage_tests::motion_tests::direction_negative_steps_are_not_ccw_when_configured_positive ... ok
+test coverage_tests::motion_tests::direction_positive_steps_are_ccw_when_configured_positive ... ok
+test coverage_tests::motion_tests::direction_positive_steps_are_not_ccw_when_configured_negative ... ok
+test coverage_tests::motion_tests::homed_move_pulses_the_full_target_angle ... ok
+test coverage_tests::motion_tests::joint_deltas_follow_the_axis1_axis2_base_order ... ok
+test coverage_tests::motion_tests::negative_travel_from_start_pulses_in_the_opposite_direction ... ok
+test coverage_tests::motion_tests::overhead_below_minimum_errors ... ok
+test coverage_tests::motion_tests::overhead_exact_minimum_is_zero ... ok
+test coverage_tests::motion_tests::overhead_normal ... ok
+test coverage_tests::motion_tests::plan_report_omits_start_position_for_homed_moves ... ok
+test coverage_tests::motion_tests::plan_report_shows_current_pose_and_relative_travel ... ok
+test coverage_tests::motion_tests::planner_counts_are_exact_for_many_vectors ... ok
+test coverage_tests::motion_tests::planner_distributes_evenly ... ok
+test coverage_tests::motion_tests::planner_dominant_axis_pulses_every_tick ... ok
+test coverage_tests::motion_tests::planner_emits_exact_counts ... ok
+test coverage_tests::motion_tests::planner_no_motion_yields_nothing ... ok
+test coverage_tests::motion_tests::planner_uses_step_magnitude ... ok
+test coverage_tests::motion_tests::relative_move_pulses_only_the_joint_travel ... ok
+test coverage_tests::motion_tests::start_position_equal_to_target_commands_no_steps ... ok
+test coverage_tests::motion_tests::step_plan_scales_with_microstepping ... ok
+test coverage_tests::motion_tests::timing_validation_handles_multiple_pulse_widths ... ok
+test coverage_tests::network_tests::a_domain_label ... 
+Network discovery and site binding
+ok
+test coverage_tests::network_tests::net_dedups_duplicate_ip_addresses ... ok
+test coverage_tests::network_tests::net_discovered_addresses_exclude_loopback ... ok
+test coverage_tests::network_tests::net_empty_input_yields_empty_output ... ok
+test coverage_tests::network_tests::net_filters_loopback_and_virtual_interfaces ... ok
+test coverage_tests::network_tests::net_hostname_file_is_trimmed_and_empty_content_is_ignored ... ok
+test coverage_tests::network_tests::net_hostname_url_adds_local_domain_to_short_name ... ok
+test coverage_tests::network_tests::net_hostname_url_preserves_fully_qualified_hostname ... ok
+test coverage_tests::network_tests::net_hostname_url_rejects_empty_hostname ... ok
+test coverage_tests::network_tests::net_ip_discovery_keeps_ipv4_and_skips_ipv6 ... ok
+test coverage_tests::network_tests::net_orders_addresses_on_the_same_interface_by_ip ... ok
+test coverage_tests::network_tests::net_ranks_wired_before_wireless_before_usb_before_other ... ok
+test coverage_tests::network_tests::site_banner_displays_explicit_non_wildcard_bind_address ... ok
+test coverage_tests::network_tests::site_banner_lists_network_and_hostname_urls_for_wildcard_bind ... ok
+test coverage_tests::network_tests::site_banner_shows_loopback_warning_without_network_addresses ... ok
+test coverage_tests::network_tests::site_banner_uses_loopback_when_hostname_is_absent ... ok
+test coverage_tests::network_tests::site_bind_address_defaults_to_wildcard_and_default_port ... ok
+test coverage_tests::network_tests::site_bind_address_defaults_when_both_configured_values_are_blank ... ok
+test coverage_tests::network_tests::site_bind_address_prefers_nonempty_site_setting ... ok
+test coverage_tests::network_tests::site_bind_address_uses_legacy_setting_when_new_setting_is_blank ... ok
+test coverage_tests::server_tests::server_tests::a_domain_label ... 
+HTTP server lifecycle
+ok
+test coverage_tests::server_tests::server_tests::real_server_handles_requests_and_shuts_down_after_quit ... ok
+test coverage_tests::server_tests::server_tests::run_api_uses_the_legacy_address_and_reports_bind_errors ... ok
+test coverage_tests::server_tests::server_tests::server_loop_stops_for_a_queued_shutdown ... ok
+test coverage_tests::server_tests::server_tests::server_loop_survives_a_listener_error_and_logs_worker_errors ... ok
+test coverage_tests::server_tests::server_tests::shutdown_poll_accepts_messages_and_disconnected_senders ... ok
+
+test result: ok. 264 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+
+
+running 75 tests
+test tests::api_tests::a_domain_label ... 
+API and runtime checks
+ok
+test tests::api_tests::api_accepts_a_start_position_on_args ... ok
+test tests::api_tests::api_accepts_a_start_position_on_raw ... ok
+test tests::api_tests::api_args_response_maps_inverse_kinematics_failure ... ok
+test tests::api_tests::api_args_response_reports_successful_execution ... ok
+test tests::api_tests::api_command_names_are_case_insensitive_and_aliases_work ... ok
+test tests::api_tests::api_help_documents_all_start_position_fields ... ok
+test tests::api_tests::api_help_response_contains_command_documentation ... ok
+test tests::api_tests::api_parses_args_mode ... ok
+test tests::api_tests::api_parses_help_command ... ok
+test tests::api_tests::api_parses_position_alias_case_insensitively ... ok
+test tests::api_tests::api_parses_quit_command ... ok
+test tests::api_tests::api_parses_raw_mode ... ok
+test tests::api_tests::api_parses_status_command ... ok
+test tests::api_tests::api_parses_test_command ... ok
+test tests::api_tests::api_position_accepts_each_a4988_microstep_value ... ok
+test tests::api_tests::api_position_rejects_a_partial_start_position ... ok
+test tests::api_tests::api_position_rejects_unsupported_microstep ... ok
+test tests::api_tests::api_position_rejects_zero_steps_per_revolution ... ok
+test tests::api_tests::api_quit_response_reports_client_bye ... ok
+test tests::api_tests::api_raw_accepts_each_a4988_microstep_value ... ok
+test tests::api_tests::api_raw_rejects_a_partial_start_position ... ok
+test tests::api_tests::api_raw_rejects_unsupported_microstep ... ok
+test tests::api_tests::api_raw_rejects_zero_steps_per_revolution ... ok
+test tests::api_tests::api_raw_response_maps_timing_failure ... ok
+test tests::api_tests::api_raw_response_reports_successful_execution ... ok
+test tests::api_tests::api_rejects_empty_request_body ... ok
+test tests::api_tests::api_rejects_incomplete_args_command ... ok
+test tests::api_tests::api_rejects_incomplete_raw_command ... ok
+test tests::api_tests::api_rejects_invalid_http_routes_and_methods ... ok
+test tests::api_tests::api_rejects_invalid_json ... ok
+test tests::api_tests::api_rejects_missing_command_field ... ok
+test tests::api_tests::api_rejects_missing_position_base_angle ... ok
+test tests::api_tests::api_rejects_missing_position_direction_flag ... ok
+test tests::api_tests::api_rejects_missing_position_first_link_length ... ok
+test tests::api_tests::api_rejects_missing_position_height ... ok
+test tests::api_tests::api_rejects_missing_position_microstep ... ok
+test tests::api_tests::api_rejects_missing_position_radius ... ok
+test tests::api_tests::api_rejects_missing_position_second_link_length ... ok
+test tests::api_tests::api_rejects_missing_position_steps_per_revolution ... ok
+test tests::api_tests::api_rejects_missing_raw_base_angle ... ok
+test tests::api_tests::api_rejects_missing_raw_direction_flag ... ok
+test tests::api_tests::api_rejects_missing_raw_elbow_angle ... ok
+test tests::api_tests::api_rejects_missing_raw_microstep ... ok
+test tests::api_tests::api_rejects_missing_raw_shoulder_angle ... ok
+test tests::api_tests::api_rejects_missing_raw_steps_per_revolution ... ok
+test tests::api_tests::api_rejects_non_string_command_field ... ok
+test tests::api_tests::api_rejects_null_command_field ... ok
+test tests::api_tests::api_rejects_unknown_command ... ok
+test tests::api_tests::api_rejects_unrecognized_command_name ... ok
+test tests::api_tests::api_reports_compiled_hardware_capability ... ok
+test tests::api_tests::api_route_method_errors_are_distinct ... ok
+test tests::api_tests::api_route_query_strings_do_not_change_routes ... ok
+test tests::api_tests::api_routes_http_motion_modes ... ok
+test tests::api_tests::api_routes_http_status_and_help ... ok
+test tests::api_tests::api_start_position_must_be_numeric ... ok
+test tests::api_tests::api_status_response_includes_ready_status_and_commands ... ok
+test tests::api_tests::api_test_response_reports_successful_runtime_checks ... ok
+test tests::api_tests::api_without_start_position_stays_homed ... ok
+test tests::api_tests::runtime_check_report_collects_failure_details ... ok
+test tests::api_tests::runtime_ik_roundtrip_validator_accepts_expected_target ... ok
+test tests::api_tests::runtime_ik_roundtrip_validator_reports_wrong_radius ... ok
+test tests::api_tests::runtime_ik_solution_accepts_positive_link_lengths ... ok
+test tests::api_tests::runtime_ik_solution_rejects_zero_link_length ... ok
+test tests::api_tests::runtime_planner_validator_accepts_expected_totals ... ok
+test tests::api_tests::runtime_planner_validator_reports_wrong_totals ... ok
+test tests::api_tests::runtime_relative_plan_validator_accepts_shorter_relative_motion ... ok
+test tests::api_tests::runtime_relative_plan_validator_rejects_longer_relative_steps ... ok
+test tests::api_tests::runtime_relative_plan_validator_rejects_unchanged_step_counts ... ok
+test tests::api_tests::runtime_relative_plan_validator_rejects_wrong_joint_deltas ... ok
+test tests::api_tests::runtime_step_conversion_validator_accepts_expected_step_count ... ok
+test tests::api_tests::runtime_step_conversion_validator_reports_wrong_step_count ... ok
+test tests::api_tests::runtime_tests_report_named_failures ... ok
+test tests::api_tests::runtime_timing_validator_accepts_rejected_timing ... ok
+test tests::api_tests::runtime_timing_validator_rejects_accepted_invalid_timing ... ok
+
+test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 19 tests
+test tests::cli_shell_tests::a_domain_label ... 
+CLI and shell
+ok
+test tests::cli_shell_tests::cli_and_shell_propagate_input_and_output_errors ... ok
+test tests::cli_shell_tests::cli_help_and_dispatch_cover_help_branches ... ok
+test tests::cli_shell_tests::cli_help_text_describes_site_mode_not_api ... ok
+test tests::cli_shell_tests::cli_help_text_documents_the_start_position_and_the_site_mode ... ok
+test tests::cli_shell_tests::cli_prompt_collects_a_start_position_when_given ... ok
+test tests::cli_shell_tests::cli_prompt_parses_injected_input ... ok
+test tests::cli_shell_tests::cli_prompt_rejects_a_non_numeric_start_position ... ok
+test tests::cli_shell_tests::cli_prompt_rejects_a_partial_start_position ... ok
+test tests::cli_shell_tests::cli_prompt_reports_incomplete_input ... ok
+test tests::cli_shell_tests::cli_prompt_treats_blank_start_answers_as_homed ... ok
+test tests::cli_shell_tests::cli_rejects_removed_api_flag_with_helpful_message ... ok
+test tests::cli_shell_tests::shell_api_loop_handles_status_empty_line_and_invalid_json ... ok
+test tests::cli_shell_tests::shell_loops_exit_cleanly_at_eof ... ok
+test tests::cli_shell_tests::shell_modes_document_the_optional_start_position ... ok
+test tests::cli_shell_tests::shell_position_loop_rejects_an_incomplete_start_position ... ok
+test tests::cli_shell_tests::shell_position_loop_reports_invalid_command ... ok
+test tests::cli_shell_tests::shell_raw_loop_rejects_an_incomplete_start_position ... ok
+test tests::cli_shell_tests::shell_raw_loop_reports_invalid_command ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 28 tests
+test tests::config_tests::a_domain_label ... 
+Configuration parsing
+ok
+test tests::config_tests::config_accepts_zero_and_one_direction_flags ... ok
+test tests::config_tests::config_parses_position_values_and_default_timing ... ok
+test tests::config_tests::config_rejects_invalid_position_numbers ... ok
+test tests::config_tests::config_rejects_non_boolean_direction_flags ... ok
+test tests::config_tests::config_rejects_wrong_position_argument_counts ... ok
+test tests::config_tests::motor_settings_accept_all_a4988_microstep_values ... ok
+test tests::config_tests::motor_settings_reject_microstep_above_a4988_maximum ... ok
+test tests::config_tests::motor_settings_reject_non_power_of_two_microstep ... ok
+test tests::config_tests::motor_settings_reject_zero_microstep ... ok
+test tests::config_tests::motor_settings_reject_zero_steps_per_revolution ... ok
+test tests::config_tests::position_argument_count_errors_name_the_expected_counts ... ok
+test tests::config_tests::position_command_accepts_an_explicit_start_position ... ok
+test tests::config_tests::position_command_rejects_a_partial_start_position ... ok
+test tests::config_tests::position_line_rejects_a_partial_start_position ... ok
+test tests::config_tests::position_text_rejects_unsupported_microstep ... ok
+test tests::config_tests::position_text_rejects_zero_steps_per_revolution ... ok
+test tests::config_tests::raw_command_accepts_an_explicit_start_position ... ok
+test tests::config_tests::raw_command_parses_angles_and_motor_settings ... ok
+test tests::config_tests::raw_command_rejects_a_non_numeric_start_angle ... ok
+test tests::config_tests::raw_command_rejects_a_partial_start_position ... ok
+test tests::config_tests::raw_command_rejects_invalid_argument_counts ... ok
+test tests::config_tests::raw_command_rejects_non_numeric_values ... ok
+test tests::config_tests::raw_command_without_start_position_is_homed ... ok
+test tests::config_tests::raw_text_rejects_unsupported_microstep ... ok
+test tests::config_tests::raw_text_rejects_zero_steps_per_revolution ... ok
+test tests::config_tests::start_position_angles_must_be_numbers ... ok
+test tests::config_tests::start_position_defaults_to_homed ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test tests::control_tests::a_domain_label ... 
+Motion control locking
+ok
+test tests::control_tests::control_guard_releases_the_flag_even_after_a_panic ... ok
+test tests::control_tests::control_second_acquire_fails_until_released ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 47 tests
+test tests::http_tests::a_domain_label ... 
+HTTP protocol and page
+ok
+test tests::http_tests::con_accept_loop_survives_abrupt_client_disconnect ... ok
+test tests::http_tests::con_busy_arm_rejects_concurrent_motion_request_with_409 ... ok
+test tests::http_tests::con_cross_origin_post_is_rejected ... ok
+test tests::http_tests::con_get_ignores_origin_header ... ok
+test tests::http_tests::con_same_origin_post_is_allowed ... ok
+test tests::http_tests::con_second_connection_served_while_first_is_idle ... ok
+test tests::http_tests::con_status_reports_busy_field ... ok
+test tests::http_tests::http_api_rejects_invalid_json_with_structured_error ... ok
+test tests::http_tests::http_get_help_documents_the_start_position ... ok
+test tests::http_tests::http_malformed_requests_return_bad_request ... ok
+test tests::http_tests::http_position_rejects_unsupported_microstep_with_structured_error ... ok
+test tests::http_tests::http_post_args_returns_success ... ok
+test tests::http_tests::http_post_args_with_a_partial_start_position_is_rejected ... ok
+test tests::http_tests::http_post_args_with_a_start_position_succeeds ... ok
+test tests::http_tests::http_post_raw_with_a_start_position_succeeds ... ok
+test tests::http_tests::http_quit_route_checks_method_and_empty_body ... ok
+test tests::http_tests::http_rejects_unsupported_version_and_invalid_content_length ... ok
+test tests::http_tests::http_request_reader_accepts_a_body_at_the_one_mib_limit ... ok
+test tests::http_tests::http_request_reader_rejects_non_utf8_headers_and_bodies ... ok
+test tests::http_tests::http_request_reader_reports_body_io_errors_and_short_request_lines ... ok
+test tests::http_tests::http_request_reader_reports_non_timeout_io_errors_as_malformed ... ok
+test tests::http_tests::http_response_writer_propagates_write_and_flush_errors ... ok
+test tests::http_tests::http_routes_return_expected_error_statuses ... ok
+test tests::http_tests::http_status_request_returns_json_success ... ok
+test tests::http_tests::origin_absent_is_always_trusted ... ok
+test tests::http_tests::origin_matching_host_is_trusted_regardless_of_scheme_or_case ... ok
+test tests::http_tests::origin_mismatched_host_is_rejected ... ok
+test tests::http_tests::origin_without_scheme_or_without_host_header_is_rejected ... ok
+test tests::http_tests::page_form_fields_match_the_json_api_field_names ... ok
+test tests::http_tests::page_html_constant_is_self_contained_with_no_external_resources ... ok
+test tests::http_tests::page_index_html_alias_serves_identical_content ... ok
+test tests::http_tests::page_offers_a_start_position_in_both_motion_forms ... ok
+test tests::http_tests::page_offers_a_theme_selector_for_all_themes ... ok
+test tests::http_tests::page_omits_an_all_zero_start_position_from_the_request ... ok
+test tests::http_tests::page_other_unknown_paths_still_404 ... ok
+test tests::http_tests::page_post_to_root_is_not_treated_as_the_page_route ... ok
+test tests::http_tests::page_query_string_is_ignored ... ok
+test tests::http_tests::page_root_serves_html_with_expected_headers ... ok
+test tests::http_tests::page_styles_are_scoped_to_the_styled_themes ... ok
+test tests::http_tests::req_body_closing_early_is_reported_as_malformed ... ok
+test tests::http_tests::req_body_delivered_across_multiple_reads_is_reassembled ... ok
+test tests::http_tests::req_body_read_can_time_out_independently_of_the_header_read ... ok
+test tests::http_tests::req_content_length_over_one_mib_is_rejected_before_reading_the_body ... ok
+test tests::http_tests::req_handle_request_maps_timeout_to_408 ... ok
+test tests::http_tests::req_oversized_headers_are_rejected ... ok
+test tests::http_tests::req_read_http_request_times_out_without_data ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+
+running 6 tests
+test tests::server_tests::a_domain_label ... 
+HTTP server lifecycle
+ok
+test tests::server_tests::real_server_handles_requests_and_shuts_down_after_quit ... ok
+test tests::server_tests::run_api_uses_the_legacy_address_and_reports_bind_errors ... ok
+test tests::server_tests::server_loop_stops_for_a_queued_shutdown ... ok
+test tests::server_tests::server_loop_survives_a_listener_error_and_logs_worker_errors ... ok
+test tests::server_tests::shutdown_poll_accepts_messages_and_disconnected_senders ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+
+running 32 tests
+test tests::kinematics_tests::a_domain_label ... 
+Kinematics
+ok
+test tests::kinematics_tests::forward_kinematics_ninety_degree_elbow_rotates_second_link ... ok
+test tests::kinematics_tests::forward_kinematics_ninety_degree_shoulder_extends_vertically ... ok
+test tests::kinematics_tests::forward_kinematics_zero_angles_extends_along_radius ... ok
+test tests::kinematics_tests::ik_accepts_negative_height_and_preserves_it ... ok
+test tests::kinematics_tests::ik_accepts_outer_workspace_boundary ... ok
+test tests::kinematics_tests::ik_accepts_the_exact_inner_workspace_boundary_for_unequal_links ... ok
+test tests::kinematics_tests::ik_accepts_the_exact_outer_workspace_boundary_for_unequal_links ... ok
+test tests::kinematics_tests::ik_accepts_the_folded_equal_link_origin ... ok
+test tests::kinematics_tests::ik_base_rotation_90 ... ok
+test tests::kinematics_tests::ik_does_not_claim_an_elbow_above_the_shoulder_when_neither_branch_can ... ok
+test tests::kinematics_tests::ik_forward_roundtrip ... ok
+test tests::kinematics_tests::ik_fully_extended_along_x ... ok
+test tests::kinematics_tests::ik_negative_radius_rejected ... ok
+test tests::kinematics_tests::ik_out_of_workspace ... ok
+test tests::kinematics_tests::ik_rejects_a_negative_first_link_length ... ok
+test tests::kinematics_tests::ik_rejects_a_negative_second_link_length ... ok
+test tests::kinematics_tests::ik_rejects_a_target_just_beyond_the_outer_workspace_boundary ... ok
+test tests::kinematics_tests::ik_rejects_a_target_just_inside_the_inner_workspace_boundary ... ok
+test tests::kinematics_tests::ik_rejects_a_zero_first_link_length ... ok
+test tests::kinematics_tests::ik_rejects_a_zero_second_link_length ... ok
+test tests::kinematics_tests::ik_rejects_infinite_base_angle ... ok
+test tests::kinematics_tests::ik_rejects_infinite_first_link_length ... ok
+test tests::kinematics_tests::ik_rejects_infinite_second_link_length ... ok
+test tests::kinematics_tests::ik_rejects_inner_workspace_boundary ... ok
+test tests::kinematics_tests::ik_rejects_nan_height ... ok
+test tests::kinematics_tests::ik_rejects_nan_second_link_length ... ok
+test tests::kinematics_tests::ik_rejects_non_finite_radius ... ok
+test tests::kinematics_tests::ik_right_angle_reach ... ok
+test tests::kinematics_tests::ik_round_trips_targets_across_a_reachable_grid ... ok
+test tests::kinematics_tests::ik_selects_an_elbow_above_the_shoulder_when_a_branch_allows_it ... ok
+test tests::kinematics_tests::ik_selects_the_branch_with_the_highest_elbow_across_reachable_targets ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 34 tests
+test tests::motion_tests::a_domain_label ... 
+Motion planning and steps
+ok
+test tests::motion_tests::deg_to_steps_full_revolution ... ok
+test tests::motion_tests::deg_to_steps_is_antisymmetric_for_many_angles ... ok
+test tests::motion_tests::deg_to_steps_preserves_negative_sign ... ok
+test tests::motion_tests::deg_to_steps_quarter_and_microstep ... ok
+test tests::motion_tests::deg_to_steps_rounds_to_nearest ... ok
+test tests::motion_tests::deg_to_steps_scales_with_microstepping ... ok
+test tests::motion_tests::deg_to_steps_with_zero_gear_ratio_is_zero ... ok
+test tests::motion_tests::deg_to_steps_with_zero_microstep_is_zero ... ok
+test tests::motion_tests::deg_to_steps_with_zero_steps_per_revolution_is_zero ... ok
+test tests::motion_tests::deg_to_steps_zero_angle_produces_zero_steps ... ok
+test tests::motion_tests::direction_logic_zero_is_not_positive ... ok
+test tests::motion_tests::direction_negative_steps_are_ccw_when_configured_negative ... ok
+test tests::motion_tests::direction_negative_steps_are_not_ccw_when_configured_positive ... ok
+test tests::motion_tests::direction_positive_steps_are_ccw_when_configured_positive ... ok
+test tests::motion_tests::direction_positive_steps_are_not_ccw_when_configured_negative ... ok
+test tests::motion_tests::homed_move_pulses_the_full_target_angle ... ok
+test tests::motion_tests::joint_deltas_follow_the_axis1_axis2_base_order ... ok
+test tests::motion_tests::negative_travel_from_start_pulses_in_the_opposite_direction ... ok
+test tests::motion_tests::overhead_below_minimum_errors ... ok
+test tests::motion_tests::overhead_exact_minimum_is_zero ... ok
+test tests::motion_tests::overhead_normal ... ok
+test tests::motion_tests::plan_report_omits_start_position_for_homed_moves ... ok
+test tests::motion_tests::plan_report_shows_current_pose_and_relative_travel ... ok
+test tests::motion_tests::planner_counts_are_exact_for_many_vectors ... ok
+test tests::motion_tests::planner_distributes_evenly ... ok
+test tests::motion_tests::planner_dominant_axis_pulses_every_tick ... ok
+test tests::motion_tests::planner_emits_exact_counts ... ok
+test tests::motion_tests::planner_no_motion_yields_nothing ... ok
+test tests::motion_tests::planner_uses_step_magnitude ... ok
+test tests::motion_tests::relative_move_pulses_only_the_joint_travel ... ok
+test tests::motion_tests::start_position_equal_to_target_commands_no_steps ... ok
+test tests::motion_tests::step_plan_scales_with_microstepping ... ok
+test tests::motion_tests::timing_validation_handles_multiple_pulse_widths ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 20 tests
+test tests::network_tests::a_domain_label ... 
+Network discovery and site binding
+ok
+test tests::network_tests::net_dedups_duplicate_ip_addresses ... ok
+test tests::network_tests::net_discovered_addresses_exclude_loopback ... ok
+test tests::network_tests::net_empty_input_yields_empty_output ... ok
+test tests::network_tests::net_filters_loopback_and_virtual_interfaces ... ok
+test tests::network_tests::net_hostname_file_is_trimmed_and_empty_content_is_ignored ... ok
+test tests::network_tests::net_hostname_url_adds_local_domain_to_short_name ... ok
+test tests::network_tests::net_hostname_url_preserves_fully_qualified_hostname ... ok
+test tests::network_tests::net_hostname_url_rejects_empty_hostname ... ok
+test tests::network_tests::net_ip_discovery_keeps_ipv4_and_skips_ipv6 ... ok
+test tests::network_tests::net_orders_addresses_on_the_same_interface_by_ip ... ok
+test tests::network_tests::net_ranks_wired_before_wireless_before_usb_before_other ... ok
+test tests::network_tests::site_banner_displays_explicit_non_wildcard_bind_address ... ok
+test tests::network_tests::site_banner_lists_network_and_hostname_urls_for_wildcard_bind ... ok
+test tests::network_tests::site_banner_shows_loopback_warning_without_network_addresses ... ok
+test tests::network_tests::site_banner_uses_loopback_when_hostname_is_absent ... ok
+test tests::network_tests::site_bind_address_defaults_to_wildcard_and_default_port ... ok
+test tests::network_tests::site_bind_address_defaults_when_both_configured_values_are_blank ... ok
+test tests::network_tests::site_bind_address_prefers_nonempty_site_setting ... ok
+test tests::network_tests::site_bind_address_uses_legacy_setting_when_new_setting_is_blank ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 16 tests
+test a_domain_label ... 
+Site end-to-end
+ok
+test e2e_api_flag_is_rejected_with_a_pointer_to_site ... ok
+test e2e_cli_mode_reads_position_from_stdin ... ok
+test e2e_help_flag_documents_site_not_api ... ok
+test e2e_help_flag_documents_the_start_position ... ok
+test e2e_legacy_api_addr_env_var_still_works_but_warns ... ok
+test e2e_quit_route_shuts_the_site_down_cleanly ... ok
+test e2e_raw_mode_executes_a_relative_command ... ok
+test e2e_self_test_endpoint_reports_every_runtime_check_passing ... ok
+test e2e_shell_mode_executes_a_relative_command ... ok
+test e2e_shell_mode_rejects_a_partial_start_position_and_keeps_reading ... ok
+test e2e_site_exercises_api_commands_and_error_paths ... ok
+test e2e_site_help_documents_the_start_position ... ok
+test e2e_site_rejects_a_partial_start_position ... ok
+test e2e_site_rejects_malformed_http_requests ... ok
+test e2e_site_serves_the_control_page_with_both_themes ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.63s
+
+Total combined tests: 280
