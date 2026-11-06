@@ -37,7 +37,9 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
         write!(writer, "{}", pretty::prompt(label, example))?;
         writer.flush()?;
         let mut input: String = String::new();
-        reader.read_line(&mut input)?;
+        if reader.read_line(&mut input)? == 0 {
+            return Err(format!("Input ended before '{label}' was entered").into());
+        }
         values.push(input.trim().to_owned());
     }
 
