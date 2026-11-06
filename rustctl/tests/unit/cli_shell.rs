@@ -226,3 +226,45 @@ fn cli_rejects_removed_api_flag_with_helpful_message() {
     assert!(error.to_string().contains("renamed to '--site'"), "{error}");
 }
 
+#[test]
+fn shell_position_loop_survives_non_utf8_input() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(
+        Cursor::new(b"\xff\n100 0 50 200 200 200 16 1\n"),
+        &mut output,
+        false,
+    )
+    .unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(
+        output.contains("Command failed: input is not valid UTF-8"),
+        "{output}"
+    );
+    assert!(output.contains("Command completed."), "{output}");
+}
+
+#[test]
+fn shell_raw_loop_survives_non_utf8_input() {
+    let mut output = Vec::new();
+    run_raw_loop_with_io(Cursor::new(b"\xff\n0 25 30 200 16 1\n"), &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(
+        output.contains("Command failed: input is not valid UTF-8"),
+        "{output}"
+    );
+    assert!(output.contains("Command completed."), "{output}");
+}
+
+#[test]
+fn shell_api_loop_reports_non_utf8_input_as_json_and_continues() {
+    let mut output = Vec::new();
+    run_position_loop_with_io(
+        Cursor::new(b"\xff\n{\"command\":\"status\"}\n"),
+        &mut output,
+        true,
+    )
+    .unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("input is not valid UTF-8"), "{output}");
+    assert!(output.contains("\"status\":\"ready\""), "{output}");
+}
