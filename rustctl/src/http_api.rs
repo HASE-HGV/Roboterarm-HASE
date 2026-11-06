@@ -4,7 +4,7 @@ use std::{
     net::{Shutdown, SocketAddr, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use serde_json::{Value, json};
@@ -18,6 +18,8 @@ pub(crate) const DEFAULT_PORT: u16 = 8080;
 const MAX_WORKER_THREADS: usize = 64;
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
+const ACCEPT_ERROR_LOG_INTERVAL: Duration = Duration::from_secs(1);
 
 pub(crate) const PAGE_HTML: &str = include_str!("../web/index.html");
 
@@ -434,6 +436,8 @@ pub(crate) fn serve_requests(
     shutdown_rx: Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let mut workers = Vec::new();
+    let mut last_accept_log: Option<Instant> = None;
+    let mut suppressed_accept_errors: u64 = 0;
     loop {
         if shutdown_requested(&shutdown_rx) {
             break;
@@ -463,10 +467,26 @@ pub(crate) fn serve_requests(
                     Err(RecvTimeoutError::Timeout) => {}
                 }
             }
-            Err(error) => eprintln!(
-                "{}",
-                pretty::warning(&format!("API connection failed: {error}"))
-            ),
+            Err(error) => {
+                let now = Instant::now();
+                if last_accept_log
+                    .is_none_or(|at| now.duration_since(at) >= ACCEPT_ERROR_LOG_INTERVAL)
+                {
+                    let suppressed = match suppressed_accept_errors {
+                        0 => String::new(),
+                        count => format!(" ({count} similar errors suppressed)"),
+                    };
+                    eprintln!(
+                        "{}",
+                        pretty::warning(&format!("API connection failed: {error}{suppressed}"))
+                    );
+                    last_accept_log = Some(now);
+                    suppressed_accept_errors = 0;
+                } else {
+                    suppressed_accept_errors += 1;
+                }
+                thread::sleep(ACCEPT_ERROR_BACKOFF);
+            }
         }
         reap_finished_workers(&mut workers);
     }
