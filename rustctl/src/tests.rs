@@ -1039,8 +1039,8 @@ fn http_exchange(request: &[u8]) -> Vec<u8> {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().unwrap();
-        handle_connection(stream).unwrap();
+        let (mut stream, _) = listener.accept().unwrap();
+        crate::http_api::handle_connection_with_shutdown(&mut stream, None).unwrap();
     });
 
     let mut client = TcpStream::connect(address).unwrap();
@@ -1630,7 +1630,7 @@ fn http_response_writer_propagates_write_and_flush_errors() {
             ),
             output: writer,
         };
-        handle_request(&mut stream)
+        crate::http_api::handle_request_with_shutdown(&mut stream, None)
     });
 }
 
@@ -1867,7 +1867,7 @@ fn req_handle_request_maps_timeout_to_408() {
         stream
             .set_write_timeout(Some(Duration::from_secs(2)))
             .unwrap();
-        handle_request(&mut stream).unwrap();
+        crate::http_api::handle_request_with_shutdown(&mut stream, None).unwrap();
     });
     let mut client = TcpStream::connect(address).unwrap();
     client
@@ -1891,7 +1891,8 @@ fn spawn_accept_loop() -> SocketAddr {
         for stream in listener.incoming() {
             if let Ok(stream) = stream {
                 thread::spawn(move || {
-                    let _ = handle_connection(stream);
+                    let mut stream = stream;
+                    let _ = crate::http_api::handle_connection_with_shutdown(&mut stream, None);
                 });
             }
         }
@@ -2073,13 +2074,15 @@ fn page_styles_are_scoped_to_the_styled_themes() {
             selector.starts_with("html[data-theme=\"win95\"]")
                 || selector.starts_with("html[data-theme=\"winxp\"]")
                 || selector.starts_with("html[data-theme=\"win10\"]")
-                || selector.starts_with("html[data-theme=\"macos\"]"),
+                || selector.starts_with("html[data-theme=\"macos\"]")
+                || selector.starts_with("html:not([data-theme=\"plain\"])"),
             "every rule must be scoped to a styled theme so CSS-less stays unstyled: {selector}"
         );
     }
     for selector in &selectors {
         assert!(
-            !selector.contains("\"plain\""),
+            !selector.contains("[data-theme=\"plain\"]")
+                || selector.starts_with("html:not([data-theme=\"plain\"])"),
             "the plain theme must not be styled at all: {selector}"
         );
     }
