@@ -7,7 +7,7 @@ build = "build.rs"
 [[bin]]
 name = "rustctl"
 path = "src/main.rs"
-test = false
+test = true
 bench = false
 
 [[test]]

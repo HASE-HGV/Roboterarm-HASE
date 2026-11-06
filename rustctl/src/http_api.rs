@@ -406,6 +406,13 @@ pub(crate) fn report_connection_result(result: Result<(), Box<dyn std::error::Er
 
 pub(crate) fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let (address, deprecated) = resolve_bind_address();
+    run_api_with_address(&address, deprecated)
+}
+
+pub(crate) fn run_api_with_address(
+    address: &str,
+    deprecated: bool,
+) -> Result<(), Box<dyn std::error::Error + 'static>> {
     if deprecated {
         eprintln!(
             "{}",

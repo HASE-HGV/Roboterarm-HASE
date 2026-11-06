@@ -332,6 +332,175 @@ fn e2e_self_test_endpoint_reports_every_runtime_check_passing() {
 }
 
 #[test]
+fn e2e_site_exercises_api_commands_and_error_paths() {
+    let site = run_site_and_capture(|command| command.env("RUSTCTL_SITE_ADDR", "127.0.0.1:0"));
+    let port = site.listening_port().unwrap_or_else(|| {
+        panic!(
+            "could not find a listening port in banner: {}",
+            site.joined()
+        )
+    });
+
+    for path in ["/status", "/help", "/test"] {
+        let response = request(
+            port,
+            format!("GET {path} HTTP/1.1\r\nHost: localhost\r\n\r\n").as_bytes(),
+        );
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    }
+
+    for command in ["status", "help", "tests", "quit", "exit"] {
+        let body = format!(r#"{{"command":"{command}"}}"#);
+        let response = json_post(port, "/api", &body);
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+    }
+
+    for (path, body, expected) in [
+        (
+            "/args",
+            r#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+            r#""mode":"args""#,
+        ),
+        (
+            "/raw",
+            r#"{"base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+            r#""mode":"raw""#,
+        ),
+        (
+            "/api",
+            r#"{"command":"position","radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+            r#""mode":"args""#,
+        ),
+    ] {
+        let response = json_post(port, path, body);
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"), "{response}");
+        assert!(response.contains(expected), "{response}");
+    }
+
+    for (path, body, expected_status, expected) in [
+        (
+            "/api",
+            "not-json",
+            "HTTP/1.1 400 Bad Request\r\n",
+            "invalid JSON",
+        ),
+        (
+            "/api",
+            "{}",
+            "HTTP/1.1 400 Bad Request\r\n",
+            "missing JSON field 'command'",
+        ),
+        (
+            "/api",
+            r#"{"command":"unknown"}"#,
+            "HTTP/1.1 400 Bad Request\r\n",
+            "unknown API command",
+        ),
+        (
+            "/args",
+            r#"{"radius_mm":-1,"base_angle_deg":0,"height_mm":0,"l1_mm":100,"l2_mm":100,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#,
+            "HTTP/1.1 200 OK\r\n",
+            "Radius X",
+        ),
+    ] {
+        let response = json_post(port, path, body);
+        assert!(response.starts_with(expected_status), "{response}");
+        assert!(response.contains(expected), "{response}");
+    }
+
+    for (method, path, expected) in [
+        ("GET", "/unknown", "404 Not Found"),
+        ("PUT", "/status", "405 Method Not Allowed"),
+    ] {
+        let response = request(
+            port,
+            format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\n\r\n").as_bytes(),
+        );
+        assert!(
+            response.starts_with(&format!("HTTP/1.1 {expected}\r\n")),
+            "{response}"
+        );
+    }
+
+    site.kill();
+}
+
+#[test]
+fn e2e_site_rejects_malformed_http_requests() {
+    let site = run_site_and_capture(|command| command.env("RUSTCTL_SITE_ADDR", "127.0.0.1:0"));
+    let port = site.listening_port().unwrap_or_else(|| {
+        panic!(
+            "could not find a listening port in banner: {}",
+            site.joined()
+        )
+    });
+
+    for (raw, expected) in [
+        (
+            &b"GET /status HTTP/2.0\r\nHost: localhost\r\n\r\n"[..],
+            "unsupported HTTP version",
+        ),
+        (
+            &b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: nope\r\n\r\n"[..],
+            "invalid Content-Length",
+        ),
+        (
+            &b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1048577\r\n\r\n"[..],
+            "request body is too large",
+        ),
+        (
+            &b"GET /status HTTP/1.1\r\nX-Name: \xff\r\n\r\n"[..],
+            "invalid HTTP headers",
+        ),
+        (
+            &b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1\r\n\r\n\xff"[..],
+            "request body is not UTF-8",
+        ),
+    ] {
+        let response = request(port, raw);
+        assert!(
+            response.starts_with("HTTP/1.1 400 Bad Request\r\n"),
+            "{response}"
+        );
+        assert!(response.contains(expected), "{response}");
+    }
+
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut large_headers = b"GET /status HTTP/1.1\r\nHost: localhost\r\n".to_vec();
+    large_headers.resize(16 * 1024, b'x');
+    stream.write_all(&large_headers).unwrap();
+    thread::sleep(Duration::from_millis(50));
+    stream.write_all(b"x").unwrap();
+    stream.shutdown(std::net::Shutdown::Write).unwrap();
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response).unwrap();
+    let response = String::from_utf8(response).unwrap();
+    assert!(
+        response.starts_with("HTTP/1.1 400 Bad Request\r\n"),
+        "{response}"
+    );
+    assert!(
+        response.contains("request headers are too large"),
+        "{response}"
+    );
+
+    let cross_origin = request(
+        port,
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nOrigin: http://evil.example\r\nContent-Length: 2\r\n\r\n{}",
+    );
+    assert!(
+        cross_origin.starts_with("HTTP/1.1 403 Forbidden\r\n")
+            && cross_origin.contains("cross-origin request refused"),
+        "{cross_origin}"
+    );
+
+    site.kill();
+}
+
+#[test]
 fn e2e_shell_mode_executes_a_relative_command() {
     let mut child = rustctl_command()
         .arg("--shell")

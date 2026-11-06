@@ -135,6 +135,15 @@ fn site_bind_address_uses_legacy_setting_when_new_setting_is_blank() {
 }
 
 #[test]
+fn site_bind_address_defaults_when_both_configured_values_are_blank() {
+    let address = resolve_bind_address_with(|name| match name {
+        "RUSTCTL_SITE_ADDR" | "RUSTCTL_API_ADDR" => Some("  ".to_owned()),
+        _ => None,
+    });
+    assert_eq!(address, ("0.0.0.0:8080".to_owned(), false));
+}
+
+#[test]
 fn site_bind_address_defaults_to_wildcard_and_default_port() {
     let address = resolve_bind_address_with(|_| None);
     assert_eq!(address, ("0.0.0.0:8080".to_owned(), false));
