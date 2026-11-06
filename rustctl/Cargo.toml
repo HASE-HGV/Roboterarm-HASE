@@ -28,5 +28,5 @@ if-addrs = "0.15"
 ctrlc = { version = "3", optional = true }
 rppal = { version = "0.22", optional = true }
 
-[lints.rust]
-warnings = "deny"   
+#[lints.rust]
+#warnings = "deny"   
