@@ -204,7 +204,10 @@ Roboterarm-HASE/
 ├── rustctl/                     ← Main Rust controller
 │   ├── src/                     ← CLI, shell, API, kinematics, motion, GPIO
 │   ├── web/index.html           ← Embedded control page and its themes
+│   ├── build.rs                 ← Counts #[test] attributes for the combined total
+│   ├── .cargo/config.toml       ← Sets RUST_TEST_THREADS=1 for cargo test
 │   ├── tests/site_e2e.rs        ← Tests that launch a real --site process
+│   ├── tests/summary.rs         ← Prints the combined test count
 │   └── Cargo.toml / Cargo.lock
 ├── gpioTest/                    ← Early GPIO pulse test utility
 ├── image-builder/               ← Raspberry Pi OS image customization tool
@@ -213,6 +216,8 @@ Roboterarm-HASE/
 │   ├── config.md                ← Full image-builder configuration reference
 │   ├── basic-config.yaml        ← Safe starter configuration
 │   ├── minimal-config.yaml      ← Package-pruning example
+│   ├── quickboot.yaml           ← Example config with package pruning and extra packages
+│   ├── compose.yaml             ← Docker Compose service (privileged builder container)
 │   └── examples/                ← Netplan, systemd, file, and hook examples
 ├── docker/                      ← Older ARM64 binary build files
 ├── VI21-Anlagen/                ← Drawings, gearbox notes, measurements, media
@@ -227,6 +232,9 @@ Roboterarm-HASE/
 ├── LICENSE
 └── CODE_OF_CONDUCT.md
 ```
+
+The `arduino-oscilloscope` and `pi-gpio-emulator` directories are empty after a
+plain clone. Populate them with `git submodule update --init`.
 
 The repository has no root Cargo workspace; run Rust commands from `rustctl/`
 or `gpioTest/`. The `compile.cmd` helper is a legacy Go build script and the
@@ -573,7 +581,9 @@ execution overhead.
 
 ```bash
 git clone https://github.com/HASE-HGV/Roboterarm-HASE.git
-cd Roboterarm-HASE/rustctl
+cd Roboterarm-HASE
+git submodule update --init
+cd rustctl
 cargo build --release --features hardware
 sudo ./target/release/rustctl --site
 ```
