@@ -105,6 +105,14 @@ pub(crate) fn read_http_request(stream: &mut impl Read) -> Result<HttpRequest, R
             .filter_map(|line| line.split_once(':'))
             .map(|(name, value)| (name, value.trim()))
             .collect();
+        if headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("transfer-encoding"))
+        {
+            return Err(RequestError::Malformed(
+                "chunked transfer encoding is not supported; send a Content-Length header".to_owned(),
+            ));
+        }
         let length = headers
             .iter()
             .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
