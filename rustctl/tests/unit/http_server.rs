@@ -2,7 +2,9 @@ mod server_tests {
     use crate::http_api::{self, HttpListener};
     use std::io::{self, Read, Write};
     use std::net::{SocketAddr, TcpListener, TcpStream};
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{self, Sender};
+    use std::sync::Arc;
     use std::thread;
     use std::time::{Duration, Instant};
 
@@ -110,6 +112,36 @@ mod server_tests {
             self.0.send(()).unwrap();
             Err(io::Error::other("synthetic accept failure"))
         }
+    }
+
+    struct CountingFailingListener(Arc<AtomicUsize>);
+
+    impl HttpListener for CountingFailingListener {
+        fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(io::Error::other("synthetic accept failure"))
+        }
+    }
+
+    #[test]
+    fn server_loop_backs_off_while_accept_keeps_failing() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+        let stopper = shutdown_tx.clone();
+        let stop = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(500));
+            stopper.send(()).unwrap();
+        });
+        http_api::serve_requests(
+            &CountingFailingListener(attempts.clone()),
+            shutdown_tx,
+            shutdown_rx,
+        )
+        .unwrap();
+        stop.join().unwrap();
+        // With a 50 ms backoff, 500 ms allows about 10 attempts; a spinning loop makes millions.
+        let attempts = attempts.load(Ordering::SeqCst);
+        assert!((1..=50).contains(&attempts), "accept attempts: {attempts}");
     }
 
     #[test]
