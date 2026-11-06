@@ -98,14 +98,38 @@ pub(crate) fn ik_angles_3d_deg(
     })
 }
 
+/// Largest step count magnitude accepted by `checked_deg_to_steps` (2^62), so the
+/// planner's accumulator cannot overflow.
+pub(crate) const MAX_MOTOR_STEPS_ABS: f64 = 4_611_686_018_427_387_904.0;
+
+fn scaled_steps(angle_deg: f64, steps_per_rev: u64, microstep: u64, gear_ratio: f64) -> f64 {
+    let steps_per_deg = (steps_per_rev * microstep) as f64 / 360.0;
+    angle_deg * steps_per_deg * gear_ratio
+}
+
 pub(crate) fn deg_to_steps(
     angle_deg: f64,
     steps_per_rev: u64,
     microstep: u64,
     gear_ratio: f64,
 ) -> i64 {
-    let steps_per_deg = (steps_per_rev * microstep) as f64 / 360.0;
-    (angle_deg * steps_per_deg * gear_ratio).round() as i64
+    scaled_steps(angle_deg, steps_per_rev, microstep, gear_ratio).round() as i64
+}
+
+pub(crate) fn checked_deg_to_steps(
+    angle_deg: f64,
+    steps_per_rev: u64,
+    microstep: u64,
+    gear_ratio: f64,
+) -> Result<i64, String> {
+    let scaled = scaled_steps(angle_deg, steps_per_rev, microstep, gear_ratio);
+    if !scaled.is_finite() || scaled.abs() >= MAX_MOTOR_STEPS_ABS {
+        return Err(format!(
+            "joint angle {angle_deg}° cannot be converted to motor steps \
+             (must be finite and below 2^62 steps)"
+        ));
+    }
+    Ok(scaled.round() as i64)
 }
 
 #[cfg(any(all(feature = "hardware", target_os = "linux"), test))]
