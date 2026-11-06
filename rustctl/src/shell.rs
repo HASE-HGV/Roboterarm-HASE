@@ -5,6 +5,23 @@ use crate::config::{POSITION_FORMAT, RAW_FORMAT, config_from_line, raw_command};
 use crate::motion::{execute_position, execute_solution};
 use crate::pretty;
 
+enum InputLine {
+    Eof,
+    Text(String),
+    NotUtf8,
+}
+
+fn read_input_line<R: BufRead>(reader: &mut R) -> io::Result<InputLine> {
+    let mut bytes = Vec::new();
+    if reader.read_until(b'\n', &mut bytes)? == 0 {
+        return Ok(InputLine::Eof);
+    }
+    Ok(match String::from_utf8(bytes) {
+        Ok(line) => InputLine::Text(line),
+        Err(_) => InputLine::NotUtf8,
+    })
+}
+
 pub(crate) fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Error>> {
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -48,10 +65,23 @@ pub(crate) fn run_position_loop_with_io<R: BufRead, W: Write>(
             write!(writer, "shell> ")?;
             writer.flush()?;
         }
-        let mut line = String::new();
-        if reader.read_line(&mut line)? == 0 {
-            break;
-        }
+        let line = match read_input_line(&mut reader)? {
+            InputLine::Eof => break,
+            InputLine::NotUtf8 => {
+                if api {
+                    let response = serde_json::json!({"ok": false, "error": {"message": "input is not valid UTF-8"}});
+                    writeln!(writer, "{response}")?;
+                } else {
+                    writeln!(
+                        writer,
+                        "{}",
+                        pretty::warning("Command failed: input is not valid UTF-8")
+                    )?;
+                }
+                continue;
+            }
+            InputLine::Text(line) => line,
+        };
         if line.trim().is_empty() {
             continue;
         }
@@ -95,10 +125,18 @@ pub(crate) fn run_raw_loop_with_io<R: BufRead, W: Write>(
     loop {
         write!(writer, "raw> ")?;
         writer.flush()?;
-        let mut line = String::new();
-        if reader.read_line(&mut line)? == 0 {
-            break;
-        }
+        let line = match read_input_line(&mut reader)? {
+            InputLine::Eof => break,
+            InputLine::NotUtf8 => {
+                writeln!(
+                    writer,
+                    "{}",
+                    pretty::warning("Command failed: input is not valid UTF-8")
+                )?;
+                continue;
+            }
+            InputLine::Text(line) => line,
+        };
         if line.trim().is_empty() {
             continue;
         }
