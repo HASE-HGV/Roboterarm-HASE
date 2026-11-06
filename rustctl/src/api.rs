@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::bresenham::MultiAxisPlanner;
-use crate::config::{GEAR_RATIO, MotionConfig, POSITION_FORMAT, RAW_FORMAT, StartPosition};
+use crate::config::{
+    GEAR_RATIO, MotionConfig, POSITION_FORMAT, RAW_FORMAT, StartPosition, validate_motor_settings,
+};
 use crate::kinematics::{
     ArmSolution, deg_to_steps, forward_r_z_mm, ik_angles_3d_deg, overhead_sleep_us,
 };
@@ -100,20 +102,26 @@ pub(crate) fn parse_api_request(
 
     match command.as_str() {
         "args" | "position" => {
+            let steps_per_rev = request.steps_per_rev.ok_or("missing steps_per_rev")?;
+            let microstep = request.microstep.ok_or("missing microstep")?;
+            validate_motor_settings(steps_per_rev, microstep)?;
             let mut config = MotionConfig::new(
                 request.radius_mm.ok_or("missing radius_mm")?,
                 request.base_angle_deg.ok_or("missing base_angle_deg")?,
                 request.height_mm.ok_or("missing height_mm")?,
                 request.l1_mm.ok_or("missing l1_mm")?,
                 request.l2_mm.ok_or("missing l2_mm")?,
-                request.steps_per_rev.ok_or("missing steps_per_rev")?,
-                request.microstep.ok_or("missing microstep")?,
+                steps_per_rev,
+                microstep,
                 request.ccw_positive.ok_or("missing ccw_positive")?,
             );
             config.start = start_position(&request)?;
             Ok(ApiCommand::Args(config))
         }
         "raw" => {
+            let steps_per_rev = request.steps_per_rev.ok_or("missing steps_per_rev")?;
+            let microstep = request.microstep.ok_or("missing microstep")?;
+            validate_motor_settings(steps_per_rev, microstep)?;
             let solution = ArmSolution {
                 theta_base_deg: request.base_deg.ok_or("missing base_deg")?,
                 theta1_deg: request.axis1_deg.ok_or("missing axis1_deg")?,
@@ -126,8 +134,8 @@ pub(crate) fn parse_api_request(
                 0.0,
                 1.0,
                 1.0,
-                request.steps_per_rev.ok_or("missing steps_per_rev")?,
-                request.microstep.ok_or("missing microstep")?,
+                steps_per_rev,
+                microstep,
                 request.ccw_positive.ok_or("missing ccw_positive")?,
             );
             config.start = start_position(&request)?;

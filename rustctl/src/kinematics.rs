@@ -66,9 +66,21 @@ pub(crate) fn ik_angles_3d_deg(
     let cos_theta2 = ((r_space * r_space - l1_mm * l1_mm - l2_mm * l2_mm) / (2.0 * l1_mm * l2_mm))
         .clamp(-1.0, 1.0);
     let theta2 = cos_theta2.acos();
-    let theta1 = alpha - (l2_mm * theta2.sin()).atan2(l1_mm + l2_mm * theta2.cos());
+    let shoulder_offset = (l2_mm * theta2.sin()).atan2(l1_mm + l2_mm * theta2.cos());
+    let mut theta1 = alpha - shoulder_offset;
+    let mut selected_theta2 = theta2;
+    let alternate_theta1 = alpha + shoulder_offset;
+    if alternate_theta1.sin() > theta1.sin() {
+        theta1 = alternate_theta1;
+        selected_theta2 = -theta2;
+    }
 
-    let (_r_eff, z_eff) = forward_r_z_mm(theta1.to_degrees(), theta2.to_degrees(), l1_mm, l2_mm);
+    let (_r_eff, z_eff) = forward_r_z_mm(
+        theta1.to_degrees(),
+        selected_theta2.to_degrees(),
+        l1_mm,
+        l2_mm,
+    );
 
     debug_invariant!(
         (_r_eff - r).abs() < 1e-6 && (z_eff - z_mm).abs() < 1e-6,
@@ -81,7 +93,7 @@ pub(crate) fn ik_angles_3d_deg(
     Ok(ArmSolution {
         theta_base_deg: theta_base.to_degrees(),
         theta1_deg: theta1.to_degrees(),
-        theta2_deg: theta2.to_degrees(),
+        theta2_deg: selected_theta2.to_degrees(),
         z_eff_mm: z_eff,
     })
 }

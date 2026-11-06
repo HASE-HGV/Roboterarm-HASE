@@ -466,17 +466,24 @@ flowchart TD
     S2["② Use radial plane\nr = X\nr_space = √(r² + Z²)"]
     S3{"③ Reachability\n|l1 − l2| ≤ r_space ≤ l1 + l2?"}
     ERR(["Error: Out of workspace"])
-    S4["④ Elbow angle (law of cosines)\ncos θ₂ = (r_space² − l1² − l2²) / (2·l1·l2)\nθ₂ = acos(cos θ₂)"]
-    S5["⑤ Shoulder angle\nα = atan2(Z, r)\nθ₁ = α − atan2(l2·sin θ₂, l1 + l2·cos θ₂)"]
-    S6["⑥ Effective Z (verification)\nz_eff = l1·sin θ₁ + l2·sin(θ₁ + θ₂)"]
+    S4["④ Elbow angle (law of cosines)\ncos θ₂ = (r_space² − l1² − l2²) / (2·l1·l2)\nθ₂ = ±acos(cos θ₂)"]
+    S5["⑤ Shoulder angle for both branches\nα = atan2(Z, r)\nθ₁ = α − atan2(l2·sin θ₂, l1 + l2·cos θ₂)"]
+    S6["⑥ Select the branch with the highest elbow\nElbow height = l1·sin θ₁"]
+    S7["⑦ Effective Z (verification)\nz_eff = l1·sin θ₁ + l2·sin(θ₁ + θ₂)"]
     OUT["Output: theta_base°, theta1°, theta2°, z_eff mm"]
 
     IN --> S1 --> S2 --> S3
     S3 -- No --> ERR
-    S3 -- Yes --> S4 --> S5 --> S6 --> OUT
+    S3 -- Yes --> S4 --> S5 --> S6 --> S7 --> OUT
 ```
 
 All angles are returned in **degrees**. The `clamp(-1.0, 1.0)` before `acos` prevents NaN from floating-point rounding errors near the workspace boundary.
+Both inverse-kinematics branches are evaluated; the returned pose maximizes
+the elbow joint's height (`l1 · sin(theta1)`). The elbow is above the shoulder
+when that height is positive. If neither branch can place it above the
+shoulder, the higher of the two reachable poses is selected. This is a target
+pose preference, not a collision check or a guarantee about the path between
+the current and target poses.
 
 ### 5.3 Step Conversion
 
@@ -730,6 +737,10 @@ negative. The modeled reach condition is
 | `microstep` | integer | Driver microstep subdivision (commonly `1`, `2`, `4`, `8`, or `16`). |
 | `ccw_positive` | boolean | `true` maps positive calculated steps to counterclockwise rotation. |
 
+`steps_per_rev` must be positive. Because the configured driver is an A4988,
+`microstep` must be one of `1`, `2`, `4`, `8`, or `16`; the CLI and API reject
+unsupported values before planning motion.
+
 ```bash
 curl -X POST http://127.0.0.1:8080/args \
   -H 'Content-Type: application/json' \
@@ -887,6 +898,11 @@ cargo run -- --shell
 [`tests/site_e2e.rs`](rustctl/tests/site_e2e.rs). They cover API parsing and
 responses, HTTP routing and validation, CLI and shell behavior, kinematics,
 timing, the multi-axis planner, simulation motion, and the `--site` process.
+Unit tests are organized by domain in `rustctl/tests/unit/` and run as separate
+test binaries, so `cargo test --quiet` prints each heading above its test dots
+without inserting progress counters between them. Tests run serially so the
+headings stay grouped and readable. The final output includes the combined
+test count across all Rust test targets.
 The hardware GPIO path still requires a Linux Raspberry Pi or suitable GPIO
 test hardware.
 

@@ -105,6 +105,13 @@ fn run_site_and_capture(configure: impl FnOnce(&mut Command) -> &mut Command) ->
 }
 
 #[test]
+fn a_domain_label() {
+    let mut stdout = std::io::stdout().lock();
+    writeln!(stdout, "\nSite end-to-end").expect("write test domain heading");
+    stdout.flush().expect("flush test domain heading");
+}
+
+#[test]
 fn e2e_legacy_api_addr_env_var_still_works_but_warns() {
     let site = run_site_and_capture(|command| {
         command
@@ -407,6 +414,7 @@ fn e2e_shell_mode_rejects_a_partial_start_position_and_keeps_reading() {
             .unwrap();
         stdin.write_all(b"100 0 50 200 200 200 16 1\n").unwrap();
     }
+
     let output = child.wait_with_output().expect("shell mode did not exit");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Command failed"), "{stdout}");

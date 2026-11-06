@@ -2,6 +2,18 @@
 name = "rustctl"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
+
+[[bin]]
+name = "rustctl"
+path = "src/main.rs"
+test = false
+bench = false
+
+[[test]]
+name = "zz_test_summary"
+path = "tests/summary.rs"
+harness = false
 
 [features]
 default = []

@@ -18,6 +18,16 @@ pub(crate) const RAW_FIELDS_WITH_START: usize = 9;
 pub(crate) const POSITION_FORMAT: &str = "radius_mm base_angle_deg height_mm l1_mm l2_mm steps_per_rev microstep ccw_positive [start_base_deg start_axis1_deg start_axis2_deg]";
 pub(crate) const RAW_FORMAT: &str = "base_deg axis1_deg axis2_deg steps_per_rev microstep ccw_positive [start_base_deg start_axis1_deg start_axis2_deg]";
 
+pub(crate) fn validate_motor_settings(steps_per_rev: u64, microstep: u64) -> Result<(), String> {
+    if steps_per_rev == 0 {
+        return Err("steps_per_rev must be positive".to_owned());
+    }
+    if !matches!(microstep, 1 | 2 | 4 | 8 | 16) {
+        return Err("microstep must be one of 1, 2, 4, 8, or 16".to_owned());
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub(crate) struct StartPosition {
     pub(crate) base_deg: f64,
@@ -95,14 +105,18 @@ pub(crate) fn config_from_position(values: &[&str]) -> Result<MotionConfig, Box<
     } else {
         StartPosition::default()
     };
+    let steps_per_rev = values[5].parse::<u64>()?;
+    let microstep = values[6].parse::<u64>()?;
+    validate_motor_settings(steps_per_rev, microstep)
+        .map_err(|error| -> Box<dyn Error> { error.into() })?;
     let mut config = MotionConfig::new(
         values[0].parse::<f64>()?,
         values[1].parse::<f64>()?,
         values[2].parse::<f64>()?,
         values[3].parse::<f64>()?,
         values[4].parse::<f64>()?,
-        values[5].parse::<u64>()?,
-        values[6].parse::<u64>()?,
+        steps_per_rev,
+        microstep,
         values[7].parse::<u8>()? != 0,
     );
     config.start = start;
@@ -133,14 +147,18 @@ pub(crate) fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box
         theta2_deg: values[2].parse::<f64>()?,
         z_eff_mm: 0.0,
     };
+    let steps_per_rev = values[3].parse::<u64>()?;
+    let microstep = values[4].parse::<u64>()?;
+    validate_motor_settings(steps_per_rev, microstep)
+        .map_err(|error| -> Box<dyn Error> { error.into() })?;
     let mut config = MotionConfig::new(
         0.0,
         0.0,
         0.0,
         1.0,
         1.0,
-        values[3].parse::<u64>()?,
-        values[4].parse::<u64>()?,
+        steps_per_rev,
+        microstep,
         values[5].parse::<u8>()? != 0,
     );
     config.start = start;
