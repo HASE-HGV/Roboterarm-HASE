@@ -386,6 +386,54 @@ fn api_command_names_are_case_insensitive_and_aliases_work() {
     ));
 }
 
+const ARGS_FIELDS: &str = r#""radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true"#;
+const RAW_FIELDS: &str = r#""base_deg":0,"axis1_deg":25,"axis2_deg":30,"steps_per_rev":200,"microstep":16,"ccw_positive":true"#;
+
+#[test]
+fn api_route_refuses_body_command_that_does_not_match_route() {
+    let body = format!(r#"{{"command":"raw",{RAW_FIELDS}}}"#);
+    assert_eq!(
+        parse_api_request(&body, Some("args")),
+        Err("command 'raw' does not match route /args".to_owned())
+    );
+}
+
+#[test]
+fn api_route_accepts_matching_body_command_case_insensitively() {
+    let body = format!(r#"{{"command":"ARGS",{ARGS_FIELDS}}}"#);
+    assert!(matches!(
+        parse_api_request(&body, Some("args")),
+        Ok(ApiCommand::Args(_))
+    ));
+}
+
+#[test]
+fn api_route_accepts_position_alias_on_args_route() {
+    let body = format!(r#"{{"command":"position",{ARGS_FIELDS}}}"#);
+    assert!(matches!(
+        parse_api_request(&body, Some("args")),
+        Ok(ApiCommand::Args(_))
+    ));
+}
+
+#[test]
+fn api_route_accepts_raw_route_without_body_command() {
+    let body = format!("{{{RAW_FIELDS}}}");
+    assert!(matches!(
+        parse_api_request(&body, Some("raw")),
+        Ok(ApiCommand::Raw(_, _))
+    ));
+}
+
+#[test]
+fn api_without_route_still_requires_body_command() {
+    let body = format!("{{{ARGS_FIELDS}}}");
+    assert_eq!(
+        parse_api_request(&body, None),
+        Err("missing JSON field 'command'".to_owned())
+    );
+}
+
 #[test]
 fn api_rejects_invalid_json() {
     assert!(

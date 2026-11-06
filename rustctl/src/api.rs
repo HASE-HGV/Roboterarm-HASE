@@ -93,12 +93,26 @@ pub(crate) fn parse_api_request(
 ) -> Result<ApiCommand, String> {
     let request: ApiRequest =
         serde_json::from_str(body).map_err(|error| format!("invalid JSON: {error}"))?;
-    let command = request
-        .command
-        .as_deref()
-        .or(default_command)
-        .ok_or_else(|| "missing JSON field 'command'".to_owned())?
-        .to_ascii_lowercase();
+    let default_command = default_command.map(str::to_ascii_lowercase);
+    let body_command = request.command.as_deref().map(str::to_ascii_lowercase);
+    let command = match (default_command, body_command) {
+        (Some(route), Some(requested)) => {
+            let canonical = if requested == "position" {
+                "args"
+            } else {
+                requested.as_str()
+            };
+            if canonical != route {
+                return Err(format!(
+                    "command '{requested}' does not match route /{route}"
+                ));
+            }
+            route.to_owned()
+        }
+        (Some(route), None) => route.to_owned(),
+        (None, Some(requested)) => requested,
+        (None, None) => return Err("missing JSON field 'command'".to_owned()),
+    };
 
     match command.as_str() {
         "args" | "position" => {
