@@ -150,9 +150,18 @@ fn shell_raw_loop_rejects_an_incomplete_start_position() {
 #[test]
 fn cli_prompt_reports_incomplete_input() {
     let error = prompt_position_with_io(Cursor::new(b"100\n"), Vec::new()).unwrap_err();
-    assert!(
-        error.to_string().contains("invalid digit") || error.to_string().contains("cannot parse")
-    );
+    let text = error.to_string();
+    assert!(text.contains("Input ended before 'Base angle Y (degrees)'"), "{text}");
+    assert!(!text.contains("ParseIntError"), "{text}");
+}
+
+#[test]
+fn cli_prompt_empty_input_names_the_first_missing_field() {
+    let error = prompt_position_with_io(Cursor::new(b""), Vec::new()).unwrap_err();
+    let text = error.to_string();
+    assert!(text.contains("Input ended before"), "{text}");
+    assert!(text.contains("Target radius X (mm)"), "{text}");
+    assert!(!text.contains("ParseIntError"), "{text}");
 }
 
 #[test]
