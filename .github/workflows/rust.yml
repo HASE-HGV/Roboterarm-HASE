@@ -20,3 +20,12 @@ jobs:
       run: cd rustctl && cargo build --verbose
     - name: Run tests
       run: cd rustctl && cargo test --verbose
+
+  check-hardware:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check hardware feature
+      run: cd rustctl && cargo check --all-targets --features hardware
