@@ -91,6 +91,14 @@ fn parse_start_position(values: &[&str]) -> Result<StartPosition, Box<dyn Error>
     })
 }
 
+fn parse_direction_flag(value: &str) -> Result<bool, Box<dyn Error>> {
+    match value.to_ascii_lowercase().as_str() {
+        "0" | "false" => Ok(false),
+        "1" | "true" => Ok(true),
+        _ => Err(format!("ccw_positive must be 0/1 or true/false, got {value:?}").into()),
+    }
+}
+
 pub(crate) fn config_from_position(values: &[&str]) -> Result<MotionConfig, Box<dyn Error>> {
     if values.len() != POSITION_FIELDS && values.len() != POSITION_FIELDS_WITH_START {
         return Err(format!(
@@ -117,7 +125,7 @@ pub(crate) fn config_from_position(values: &[&str]) -> Result<MotionConfig, Box<
         values[4].parse::<f64>()?,
         steps_per_rev,
         microstep,
-        values[7].parse::<u8>()? != 0,
+        parse_direction_flag(values[7])?,
     );
     config.start = start;
     Ok(config)
@@ -159,7 +167,7 @@ pub(crate) fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box
         1.0,
         steps_per_rev,
         microstep,
-        values[5].parse::<u8>()? != 0,
+        parse_direction_flag(values[5])?,
     );
     config.start = start;
     Ok((config, solution))

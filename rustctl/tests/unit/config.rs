@@ -107,15 +107,20 @@ fn config_parses_position_values_and_default_timing() {
 }
 
 #[test]
-fn config_accepts_zero_and_nonzero_direction_flags() {
+fn config_accepts_zero_and_one_direction_flags() {
     let zero = config_from_line("1 2 3 4 5 200 8 0").unwrap();
     assert!(!zero.ccw_positive);
+
+    let one = config_from_line("1 2 3 4 5 200 8 1").unwrap();
+    assert!(one.ccw_positive);
 }
 
 #[test]
-fn config_accepts_a_nonzero_direction_flag_as_true() {
-    let nonzero = config_from_line("1 2 3 4 5 200 8 2").unwrap();
-    assert!(nonzero.ccw_positive);
+fn config_rejects_non_boolean_direction_flags() {
+    for value in ["2", "-1", "3", "truee", "yes"] {
+        let error = config_from_line(&format!("1 2 3 4 5 200 8 {value}")).unwrap_err();
+        assert!(error.to_string().contains("ccw_positive"), "error={error}");
+    }
 }
 
 #[test]
