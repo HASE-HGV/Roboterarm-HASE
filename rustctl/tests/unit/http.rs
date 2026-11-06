@@ -149,6 +149,50 @@ fn http_rejects_unsupported_version_and_invalid_content_length() {
 }
 
 #[test]
+fn http_request_reader_rejects_chunked_transfer_encoding() {
+    let mut chunked = Cursor::new(
+        b"POST /args HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n2\r\n{}\r\n0\r\n\r\n"
+            .to_vec(),
+    );
+    match read_http_request(&mut chunked) {
+        Err(RequestError::Malformed(message)) => {
+            assert!(message.contains("chunked"), "{message}")
+        }
+        other => panic!("expected a Malformed(chunked) error, got {other:?}"),
+    }
+
+    let mut mixed_case = Cursor::new(
+        b"POST /args HTTP/1.1\r\ntransfer-ENCODING: gzip, chunked\r\nContent-Length: 2\r\n\r\n{}"
+            .to_vec(),
+    );
+    assert!(matches!(
+        read_http_request(&mut mixed_case),
+        Err(RequestError::Malformed(message)) if message.contains("chunked")
+    ));
+}
+
+#[test]
+fn http_request_reader_still_parses_content_length_bodies() {
+    let mut request = Cursor::new(
+        b"POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{}".to_vec(),
+    );
+    let parsed = read_http_request(&mut request).unwrap();
+    assert_eq!(parsed.method, "POST");
+    assert_eq!(parsed.target, "/args");
+    assert_eq!(parsed.body, "{}");
+}
+
+#[test]
+fn http_chunked_post_is_answered_with_bad_request_naming_chunked_encoding() {
+    let response = http_exchange(
+        b"POST /args HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n2\r\n{}\r\n0\r\n\r\n",
+    );
+    let response = String::from_utf8(response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 400 Bad Request\r\n"));
+    assert!(response.contains("chunked transfer encoding is not supported"));
+}
+
+#[test]
 fn http_request_reader_rejects_non_utf8_headers_and_bodies() {
     let mut invalid_header = Cursor::new(b"GET /status HTTP/1.1\r\nX-Name: \xff\r\n\r\n".to_vec());
     assert_eq!(
