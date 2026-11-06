@@ -83,11 +83,19 @@ impl MotionConfig {
     }
 }
 
+fn parse_finite_float(value: &str, field: &str) -> Result<f64, Box<dyn Error>> {
+    let parsed = value.parse::<f64>()?;
+    if !parsed.is_finite() {
+        return Err(format!("{field} must be finite, got {value:?}").into());
+    }
+    Ok(parsed)
+}
+
 fn parse_start_position(values: &[&str]) -> Result<StartPosition, Box<dyn Error>> {
     Ok(StartPosition {
-        base_deg: values[0].parse::<f64>()?,
-        axis1_deg: values[1].parse::<f64>()?,
-        axis2_deg: values[2].parse::<f64>()?,
+        base_deg: parse_finite_float(values[0], "start_base_deg")?,
+        axis1_deg: parse_finite_float(values[1], "start_axis1_deg")?,
+        axis2_deg: parse_finite_float(values[2], "start_axis2_deg")?,
     })
 }
 
@@ -118,11 +126,11 @@ pub(crate) fn config_from_position(values: &[&str]) -> Result<MotionConfig, Box<
     validate_motor_settings(steps_per_rev, microstep)
         .map_err(|error| -> Box<dyn Error> { error.into() })?;
     let mut config = MotionConfig::new(
-        values[0].parse::<f64>()?,
-        values[1].parse::<f64>()?,
-        values[2].parse::<f64>()?,
-        values[3].parse::<f64>()?,
-        values[4].parse::<f64>()?,
+        parse_finite_float(values[0], "radius_mm")?,
+        parse_finite_float(values[1], "base_angle_deg")?,
+        parse_finite_float(values[2], "height_mm")?,
+        parse_finite_float(values[3], "l1_mm")?,
+        parse_finite_float(values[4], "l2_mm")?,
         steps_per_rev,
         microstep,
         parse_direction_flag(values[7])?,
@@ -150,9 +158,9 @@ pub(crate) fn raw_command(line: &str) -> Result<(MotionConfig, ArmSolution), Box
         StartPosition::default()
     };
     let solution = ArmSolution {
-        theta_base_deg: values[0].parse::<f64>()?,
-        theta1_deg: values[1].parse::<f64>()?,
-        theta2_deg: values[2].parse::<f64>()?,
+        theta_base_deg: parse_finite_float(values[0], "base_deg")?,
+        theta1_deg: parse_finite_float(values[1], "axis1_deg")?,
+        theta2_deg: parse_finite_float(values[2], "axis2_deg")?,
         z_eff_mm: 0.0,
     };
     let steps_per_rev = values[3].parse::<u64>()?;

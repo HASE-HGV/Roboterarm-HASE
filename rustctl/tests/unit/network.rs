@@ -33,10 +33,12 @@ fn net_ranks_wired_before_wireless_before_usb_before_other() {
 #[test]
 fn net_dedups_duplicate_ip_addresses() {
     let ranked = rank_addresses(vec![
+        addr("wlan0", [192, 168, 1, 50]),
         addr("eth0", [192, 168, 1, 50]),
         addr("eth0:1", [192, 168, 1, 50]),
+        addr("usb0", [192, 168, 1, 60]),
     ]);
-    assert_eq!(ranked.len(), 1);
+    assert_eq!(ranked, vec![addr("eth0", [192, 168, 1, 50]), addr("usb0", [192, 168, 1, 60])]);
 }
 
 #[test]

@@ -1,7 +1,7 @@
 use std::{
     env,
     io::{self, Read, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{Shutdown, SocketAddr, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
     thread,
     time::Duration,
@@ -15,6 +15,7 @@ use crate::net;
 use crate::pretty;
 
 pub(crate) const DEFAULT_PORT: u16 = 8080;
+const MAX_WORKER_THREADS: usize = 64;
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -437,8 +438,17 @@ pub(crate) fn serve_requests(
         if shutdown_requested(&shutdown_rx) {
             break;
         }
+        reap_finished_workers(&mut workers);
         match listener.accept() {
             Ok((mut stream, _)) => {
+                if workers.len() >= MAX_WORKER_THREADS {
+                    eprintln!(
+                        "{}",
+                        pretty::warning("too many active client connections; refusing new requests")
+                    );
+                    let _ = stream.shutdown(Shutdown::Both);
+                    continue;
+                }
                 let shutdown = shutdown_tx.clone();
                 workers.push(thread::spawn(move || {
                     report_connection_result(handle_connection_with_shutdown(

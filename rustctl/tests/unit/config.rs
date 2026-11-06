@@ -186,12 +186,29 @@ fn raw_command_rejects_non_numeric_values() {
         "x 2 3 4 5 1",
         "1 x 3 4 5 1",
         "1 2 x 4 5 1",
-        "1 2 3 x 5 1",
-        "1 2 3 4 x 1",
+        "1 2 3 x 4 5 1",
+        "1 2 3 4 x 5 1",
         "1 2 3 4 5 x",
     ]
     .into_iter()
     .all(|input| raw_command(input).is_err()));
+}
+
+#[test]
+fn position_and_raw_commands_reject_nan_and_infinity() {
+    let originals = ["1", "2", "3", "4", "5", "200", "8", "1"];
+    for bad in ["NaN", "inf", "-inf", "1e309"] {
+        for index in [0, 1, 2, 3, 4] {
+            let mut values = originals;
+            values[index] = bad;
+            assert!(config_from_position(&values).is_err(), "config value={bad} index={index}");
+        }
+    }
+
+    for bad in ["NaN", "inf", "-inf", "1e309"] {
+        let raw = format!("{bad} 2 3 200 8 1");
+        assert!(raw_command(&raw).is_err(), "raw value={bad}");
+    }
 }
 
 #[test]

@@ -31,12 +31,18 @@ fn is_virtual_interface(name: &str) -> bool {
 pub(crate) fn rank_addresses(mut candidates: Vec<Address>) -> Vec<Address> {
     candidates.retain(|a| !a.ip.is_loopback() && !is_virtual_interface(&a.interface));
     candidates.sort_by(|a, b| {
+        a.ip
+            .cmp(&b.ip)
+            .then_with(|| interface_rank(&a.interface).cmp(&interface_rank(&b.interface)))
+            .then_with(|| a.interface.cmp(&b.interface))
+    });
+    candidates.dedup_by(|a, b| a.ip == b.ip);
+    candidates.sort_by(|a, b| {
         interface_rank(&a.interface)
             .cmp(&interface_rank(&b.interface))
             .then_with(|| a.interface.cmp(&b.interface))
             .then_with(|| a.ip.cmp(&b.ip))
     });
-    candidates.dedup_by(|a, b| a.ip == b.ip);
     candidates
 }
 

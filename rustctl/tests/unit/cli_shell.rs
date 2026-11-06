@@ -104,11 +104,13 @@ fn cli_help_text_documents_the_start_position_and_the_site_mode() {
     let text = crate::pretty::help("rustctl");
     assert!(text.contains("--site"), "{text}");
     assert!(text.contains("RUSTCTL_SITE_ADDR"), "{text}");
+    assert!(text.contains("sudo -E ./target/release/rustctl --site"), "{text}");
     assert!(text.contains("start_base_deg"), "{text}");
     assert!(text.contains("start_axis1_deg"), "{text}");
     assert!(text.contains("start_axis2_deg"), "{text}");
     assert!(text.contains("relative"), "{text}");
     assert!(!text.contains("--api"), "{text}");
+    assert!(!text.contains("cargo build --release --features hardware"), "{text}");
 }
 
 #[test]
