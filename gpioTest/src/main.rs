@@ -89,6 +89,10 @@ fn multi_motor_handler(count: u8) {
     }
 }
 
+/// Smallest accepted input: the lowest value for which `(input - 55) / 2 - 40`
+/// does not underflow. Inputs below this would underflow the calculation.
+const MIN_DELAY_INPUT_US: u64 = 135;
+
 fn read_delay_input() -> u64 {
     println!("Enter delay time in microseconds:");
     let mut delay_str = String::new();
@@ -96,9 +100,13 @@ fn read_delay_input() -> u64 {
         .read_line(&mut delay_str)
         .expect("Failed to read delay");
     let delay_int: u64 = delay_str.trim().parse().expect("Type valid number");
-    
-    let final_delay = if delay_int > 55 { delay_int - 55 } else { 0 };
-    final_delay / 2 - 40
+
+    if delay_int < MIN_DELAY_INPUT_US {
+        panic!("Delay must be at least {MIN_DELAY_INPUT_US} microseconds, got {delay_int}");
+    }
+
+    let final_delay = delay_int.saturating_sub(55);
+    (final_delay / 2).saturating_sub(40)
 }
 
 fn main() {
