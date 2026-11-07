@@ -16,6 +16,35 @@
   <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/languages.svg" alt="Language breakdown of tracked source files" width="620">
 </p>
 
+<p align="center">
+  <a href="https://www.star-history.com/?repos=hase-hgv%2Froboterarm-hase&type=date&legend=top-left">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" width="620">
+    </picture>
+  </a>
+</p>
+
+<details>
+<summary><b>More statistics</b> (generated daily from git history)</summary>
+
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/heatmap.svg" alt="Commit calendar" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/commits_per_month.svg" alt="Commits per month" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/cumulative_commits.svg" alt="Cumulative commits" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/weekday_hour.svg" alt="Weekday × hour" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/contributors.svg" alt="Contributors" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/timeline.svg" alt="Contributor timeline" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/hotspots.svg" alt="Hotspot files" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/loc_over_time.svg" alt="Source lines over time" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/languages_over_time.svg" alt="Languages over time" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/tests_over_time.svg" alt="Tests over time" width="620"></p>
+  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/repo_size.svg" alt="Repository size" width="620"></p>
+
+<p align="center"><sub>Source: <a href="https://github.com/Catrick-cpu/roboterarm-hase-stats">Catrick-cpu/roboterarm-hase-stats</a> · raw data in <a href="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/stats.json"><code>stats.json</code></a></sub></p>
+
+</details>
+
 ---
 
 ## Table of Contents
