@@ -16,6 +16,16 @@
   <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/languages.svg" alt="Language breakdown of tracked source files" width="620">
 </p>
 
+<p align="center">
+  <a href="https://www.star-history.com/?repos=hase-hgv%2Froboterarm-hase&type=date&legend=top-left">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" width="620">
+    </picture>
+  </a>
+</p>
+
 ---
 
 ## Table of Contents
