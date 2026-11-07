@@ -9,6 +9,13 @@
 > **Open-source robot arm and control software** developed by students of the  
 > [Humboldt Academy for Science and Engineering](https://www.humboldt-gym.de) at HGV Vaterstetten.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/summary.svg" alt="Project stats: commits, contributors, active days, last commit" width="620">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/languages.svg" alt="Language breakdown of tracked source files" width="620">
+</p>
+
 ---
 
 ## Table of Contents
