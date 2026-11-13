@@ -12,7 +12,24 @@ mod shell;
 
 use std::env;
 
+fn welcome() {
+    println!("");
+    println!("");
+    println!("");
+    println!(r#"                                          Welcome to:"#);
+    println!(r#"                                      _       _   _  "#);
+    println!(r#"                                     | |     | | | | "#);
+    println!(r#"                       _ __ _   _ ___| |_ ___| |_| | "#);
+    println!(r#"                      | '__| | | / __| __/ __| __| | "#);
+    println!(r#"                      | |  | |_| \__ \ || (__| |_| | "#);
+    println!(r#"                      |_|   \__,_|___/\__\___|\__|_| "#);
+    println!("");
+    println!("");
+    println!("");
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    welcome();
     let args: Vec<String> = env::args().collect();
     cli::get_mode(&args)
 }
