@@ -707,6 +707,27 @@ fn page_omits_an_all_zero_start_position_from_the_request() {
 }
 
 #[test]
+fn page_provides_keyboard_jog_holding_controls() {
+    assert!(
+        PAGE_HTML.contains("Keyboard jog · hold or press for 1°"),
+        "page must document hold or press controls"
+    );
+    for token in [
+        "startJogLoop",
+        "cancelJogSleep",
+        "executeJogStep",
+        "stopJogging",
+        "activeJogKeys",
+        "visibilitychange",
+    ] {
+        assert!(
+            PAGE_HTML.contains(token),
+            "page is missing keyboard hold token {token}"
+        );
+    }
+}
+
+#[test]
 fn page_root_serves_html_with_expected_headers() {
     let response =
         String::from_utf8(http_exchange(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")).unwrap();

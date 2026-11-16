@@ -334,12 +334,12 @@ pub(crate) fn banner_lines(
 
     let mut urls: Vec<String> = Vec::new();
     if is_wildcard {
-        for address in &addresses {
-            urls.push(format!(
+        urls.extend(addresses.iter().map(|address| {
+            format!(
                 "http://{}:{port}/  ({})",
                 address.ip, address.interface
-            ));
-        }
+            )
+        }));
         if let Some(hostname) = &hostname {
             if let Some(url) = net::hostname_url(hostname, port) {
                 urls.push(format!("{url}  (hostname, needs mDNS)"));
@@ -358,9 +358,7 @@ pub(crate) fn banner_lines(
             "No network address found (is the Ethernet cable connected?).",
         ));
     }
-    for url in &urls {
-        lines.push(pretty::info(url));
-    }
+    lines.extend(urls.iter().map(|url| pretty::info(url)));
     lines.push(pretty::info(&format!(
         "hardware_enabled={hardware_enabled} | routes=/,/status,/help,/test,/args,/raw,/api,/quit"
     )));
@@ -375,9 +373,9 @@ pub(crate) fn banner_lines(
 fn startup_banner(local_addr: SocketAddr) {
     let addresses = net::discover_addresses();
     let hostname = net::read_hostname();
-    for line in banner_lines(local_addr, addresses, hostname, hardware_enabled()) {
-        println!("{line}");
-    }
+    banner_lines(local_addr, addresses, hostname, hardware_enabled())
+        .into_iter()
+        .for_each(|line| println!("{line}"));
 }
 
 pub(crate) fn shutdown_requested(shutdown: &Receiver<()>) -> bool {
@@ -498,8 +496,8 @@ pub(crate) fn serve_requests(
         }
         reap_finished_workers(&mut workers);
     }
-    for worker in workers {
+    workers.into_iter().for_each(|worker| {
         let _ = worker.join();
-    }
+    });
     Ok(())
 }

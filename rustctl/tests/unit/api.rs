@@ -194,6 +194,25 @@ fn runtime_check_report_collects_failure_details() {
 }
 
 #[test]
+fn runtime_check_report_handles_all_passing_or_empty_checks() {
+    let empty_report = report_runtime_checks(&[]);
+    assert_eq!(empty_report.passed, 0);
+    assert_eq!(empty_report.failed, 0);
+    assert!(empty_report.checks.is_empty());
+    assert!(empty_report.failures.is_empty());
+
+    let passing_checks: [(&str, fn() -> Result<(), String>); 2] = [
+        ("check1", || Ok(())),
+        ("check2", || Ok(())),
+    ];
+    let all_passed = report_runtime_checks(&passing_checks);
+    assert_eq!(all_passed.passed, 2);
+    assert_eq!(all_passed.failed, 0);
+    assert_eq!(all_passed.checks, vec!["check1", "check2"]);
+    assert!(all_passed.failures.is_empty());
+}
+
+#[test]
 fn runtime_ik_roundtrip_validator_accepts_expected_target() {
     assert!(validate_ik_roundtrip(150.0, 40.0).is_ok());
 }

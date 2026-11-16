@@ -15,11 +15,13 @@ pub(crate) fn joint_deltas(start: StartPosition, solution: ArmSolution) -> [f64;
 }
 
 pub(crate) fn step_plan(config: &MotionConfig, solution: ArmSolution) -> [i64; NUM_AXES] {
-    let deltas = joint_deltas(config.start, solution);
     let mut steps = [0i64; NUM_AXES];
-    for (step, delta) in steps.iter_mut().zip(deltas) {
-        *step = deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO);
-    }
+    steps
+        .iter_mut()
+        .zip(joint_deltas(config.start, solution))
+        .for_each(|(step, delta)| {
+            *step = deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO);
+        });
     steps
 }
 
@@ -27,11 +29,14 @@ pub(crate) fn checked_step_plan(
     config: &MotionConfig,
     solution: ArmSolution,
 ) -> Result<[i64; NUM_AXES], String> {
-    let deltas = joint_deltas(config.start, solution);
     let mut steps = [0i64; NUM_AXES];
-    for (step, delta) in steps.iter_mut().zip(deltas) {
-        *step = checked_deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO)?;
-    }
+    steps
+        .iter_mut()
+        .zip(joint_deltas(config.start, solution))
+        .try_for_each(|(step, delta)| -> Result<(), String> {
+            *step = checked_deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO)?;
+            Ok(())
+        })?;
     Ok(steps)
 }
 
@@ -194,12 +199,15 @@ fn run_hardware(
     ];
     let mut spare = StepperMotor::new(&gpio, PIN_ENDEFFECTOR.0, PIN_ENDEFFECTOR.1)?;
     spare.reset();
-    for (motor, step) in motors.iter_mut().zip(steps) {
-        motor.set_direction_ccw(crate::kinematics::direction_is_ccw(
-            step,
-            config.ccw_positive,
-        ));
-    }
+    motors
+        .iter_mut()
+        .zip(steps)
+        .for_each(|(motor, step)| {
+            motor.set_direction_ccw(crate::kinematics::direction_is_ccw(
+                step,
+                config.ccw_positive,
+            ));
+        });
     TERMINATE.store(false, Ordering::SeqCst);
     ensure_ctrlc_handler_installed()?;
     let stepped = run_motion(
@@ -209,9 +217,7 @@ fn run_hardware(
         overhead_us,
         &TERMINATE,
     );
-    for motor in &mut motors {
-        motor.reset();
-    }
+    motors.iter_mut().for_each(|motor| motor.reset());
     spare.reset();
     println!("{}", pretty::success("Execution finished."));
     println!(
@@ -233,27 +239,29 @@ fn run_motion(
     let mut stepped = [0; NUM_AXES];
     let pulse = Duration::from_micros(pulse_t_us);
     let overhead = Duration::from_micros(overhead_us);
-    for pulses in MultiAxisPlanner::new(steps) {
-        if terminate.load(Ordering::SeqCst) {
-            break;
-        }
-        for i in 0..NUM_AXES {
-            if pulses[i] {
-                motors[i].pulse_high();
+    MultiAxisPlanner::new(steps)
+        .take_while(|_| !terminate.load(Ordering::SeqCst))
+        .for_each(|pulses| {
+            motors
+                .iter_mut()
+                .zip(pulses)
+                .filter(|(_, pulse)| *pulse)
+                .for_each(|(motor, _)| motor.pulse_high());
+            thread::sleep(pulse);
+            motors
+                .iter_mut()
+                .zip(pulses)
+                .zip(&mut stepped)
+                .filter(|((_, pulse), _)| *pulse)
+                .for_each(|((motor, _), count)| {
+                    motor.pulse_low();
+                    *count += 1;
+                });
+            thread::sleep(pulse);
+            if overhead_us > 0 {
+                thread::sleep(overhead);
             }
-        }
-        thread::sleep(pulse);
-        for i in 0..NUM_AXES {
-            if pulses[i] {
-                motors[i].pulse_low();
-                stepped[i] += 1;
-            }
-        }
-        thread::sleep(pulse);
-        if overhead_us > 0 {
-            thread::sleep(overhead);
-        }
-    }
+        });
     if !terminate.load(Ordering::SeqCst) {
         debug_assert_eq!(stepped, expected);
     }

@@ -348,6 +348,26 @@ fn checked_step_plan_matches_step_plan_for_finite_values() {
 }
 
 #[test]
+fn checked_step_plan_refuses_huge_or_nan_angle() {
+    let config = config_from_line(&position_line([0.0, 0.0, 0.0], None)).unwrap();
+    let nan_solution = ArmSolution {
+        theta_base_deg: f64::NAN,
+        theta1_deg: 0.0,
+        theta2_deg: 0.0,
+        z_eff_mm: 0.0,
+    };
+    assert!(checked_step_plan(&config, nan_solution).is_err());
+
+    let huge_solution = ArmSolution {
+        theta_base_deg: 0.0,
+        theta1_deg: 1e300,
+        theta2_deg: 0.0,
+        z_eff_mm: 0.0,
+    };
+    assert!(checked_step_plan(&config, huge_solution).is_err());
+}
+
+#[test]
 fn execute_solution_refuses_huge_joint_angle() {
     let (config, solution) = raw_command("1e300 0 0 200 16 1").unwrap();
     let err = execute_solution(&config, solution).unwrap_err();

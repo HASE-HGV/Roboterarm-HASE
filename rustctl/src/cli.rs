@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io::{self, BufRead, Write};
 
 use crate::config::{MotionConfig, config_from_position};
@@ -24,7 +25,7 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
     )?;
     let mut values: Vec<String> = Vec::with_capacity(11);
     let mut start: Vec<String> = Vec::with_capacity(3);
-    for (label, example) in [
+    [
         ("Target radius X (mm)", "100"),
         ("Base angle Y (degrees)", "0"),
         ("Target height Z (mm)", "50"),
@@ -33,7 +34,9 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
         ("Motor steps per revolution", "200"),
         ("Driver microstep resolution", "16"),
         ("CCW positive? (1 = yes, 0 = no)", "1"),
-    ] {
+    ]
+    .into_iter()
+    .try_for_each(|(label, example)| -> Result<(), Box<dyn Error>> {
         write!(writer, "{}", pretty::prompt(label, example))?;
         writer.flush()?;
         let mut input: String = String::new();
@@ -41,23 +44,30 @@ pub(crate) fn prompt_position_with_io<R: BufRead, W: Write>(
             return Err(format!("Input ended before '{label}' was entered").into());
         }
         values.push(input.trim().to_owned());
-    }
+        Ok(())
+    })?;
 
-    for label in [
+    let eof = std::cell::Cell::new(false);
+    [
         "Start base angle (degrees, 0 = homed)",
         "Start axis 1 angle (degrees)",
         "Start axis 2 angle (degrees)",
-    ] {
+    ]
+    .into_iter()
+    .take_while(|_| !eof.get())
+    .try_for_each(|label| -> Result<(), Box<dyn Error>> {
         write!(writer, "{}", pretty::prompt(label, "0"))?;
         writer.flush()?;
         let mut input: String = String::new();
         if reader.read_line(&mut input)? == 0 {
-            break;
+            eof.set(true);
+            return Ok(());
         }
         let answer = input.trim();
 
         start.push(if answer.is_empty() { "0" } else { answer }.to_owned());
-    }
+        Ok(())
+    })?;
     if start.len() == 3 {
         if start.iter().any(|value| value != "0") {
             values.extend(start.iter().cloned());

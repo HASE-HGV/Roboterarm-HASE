@@ -166,12 +166,12 @@ pub(crate) fn parse_api_request(
 pub(crate) type RuntimeCheck = (&'static str, fn() -> Result<(), String>);
 
 pub(crate) fn report_runtime_checks(tests: &[RuntimeCheck]) -> RuntimeTestReport {
-    let mut failures = Vec::new();
-    for &(function, test) in tests {
-        if let Err(message) = test() {
-            failures.push(RuntimeTestFailure { function, message });
-        }
-    }
+    let failures: Vec<RuntimeTestFailure> = tests
+        .iter()
+        .filter_map(|&(function, test)| {
+            test().err().map(|message| RuntimeTestFailure { function, message })
+        })
+        .collect();
     RuntimeTestReport {
         passed: tests.len() - failures.len(),
         failed: failures.len(),
@@ -254,14 +254,14 @@ pub(crate) fn runtime_test_report() -> RuntimeTestReport {
             validate_timing_validation(overhead_sleep_us(482, 200))
         }),
         ("runtime_test_multi_axis_planner", || {
-            let mut totals = [0; 3];
-            for pulse in MultiAxisPlanner::new([10, 5, 0]) {
-                for axis in 0..3 {
-                    if pulse[axis] {
-                        totals[axis] += 1;
-                    }
-                }
-            }
+            let totals = MultiAxisPlanner::new([10, 5, 0]).fold([0; 3], |mut totals, pulse| {
+                totals
+                    .iter_mut()
+                    .zip(pulse)
+                    .filter(|(_, p)| *p)
+                    .for_each(|(total, _)| *total += 1);
+                totals
+            });
             validate_planner_totals(totals)
         }),
         ("runtime_test_start_position_is_relative", || {

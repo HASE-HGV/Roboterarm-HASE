@@ -28,14 +28,18 @@ impl<const N: usize> Iterator for MultiAxisPlanner<N> {
         self.remaining -= 1;
 
         let mut pulses = [false; N];
-        for i in 0..N {
-            self.accum[i] += self.counts[i];
-            if self.accum[i] >= self.max_steps {
-                pulses[i] = true;
-                self.accum[i] -= self.max_steps;
-            }
-            debug_assert!(self.accum[i] >= 0 && self.accum[i] < self.max_steps.max(1));
-        }
+        pulses
+            .iter_mut()
+            .zip(self.accum.iter_mut())
+            .zip(self.counts.iter())
+            .for_each(|((pulse, accum), &count)| {
+                *accum += count;
+                if *accum >= self.max_steps {
+                    *pulse = true;
+                    *accum -= self.max_steps;
+                }
+                debug_assert!(*accum >= 0 && *accum < self.max_steps.max(1));
+            });
         Some(pulses)
     }
 }
