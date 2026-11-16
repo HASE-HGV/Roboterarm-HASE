@@ -140,7 +140,7 @@ The project is funded by sponsors and public grants as part of the school's STEM
 Each A4988 driver needs a **STEP** and **DIR** GPIO signal from the Raspberry Pi.  
 All BCM pin numbers reference the [pinout.xyz](https://pinout.xyz) standard.
 
-| Motor | Joint | STEP pin (BCM) | DIR pin (BCM) | Active |
+| Motor | Joint | STEP pin (BCM) | DIR pin (BCM) | Status |
 |-------|-------|:--------------:|:-------------:|:------:|
 | M1 | Shoulder (Arm 1) | GPIO 17 | GPIO 27 | ✅ |
 | M2 | Elbow (Arm 2) | GPIO 22 | GPIO 23 | ✅ |
