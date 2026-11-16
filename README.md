@@ -145,7 +145,7 @@ All BCM pin numbers reference the [pinout.xyz](https://pinout.xyz) standard.
 | M1 | Shoulder (Arm 1) | GPIO 17 | GPIO 27 | ✅ |
 | M2 | Elbow (Arm 2) | GPIO 22 | GPIO 23 | ✅ |
 | M3 | Base rotation | GPIO 24 | GPIO 25 | ✅ |
-| M4 | Auxiliary | GPIO 5 | GPIO 6 | ⬜ unused |
+| M4 | Auxiliary | GPIO 5 | GPIO 6 | ⬜ unused but reserved |
 
 ### 3.3 Wiring Diagram
 
