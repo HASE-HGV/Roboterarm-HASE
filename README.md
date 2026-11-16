@@ -15,24 +15,27 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/languages.svg" alt="Language breakdown of tracked source files" width="620">
 </p>
-
 <p align="center">
-  <a href="https://www.star-history.com/?repos=hase-hgv%2Froboterarm-hase&type=date&legend=top-left">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" />
-      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" width="620">
-    </picture>
-  </a>
+  <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/cumulative_commits.svg" alt="Cumulative commits" width="620">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/weekday_hour.svg" alt="Weekday × hour" width="620">
 </p>
 
 <details>
 <summary><b>More statistics</b> (generated daily from git history)</summary>
 
+  <p align="center">
+    <a href="https://www.star-history.com/?repos=hase-hgv%2Froboterarm-hase&type=date&legend=top-left">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&theme=dark&legend=top-left" />
+        <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" />
+        <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" width="620">
+      </picture>
+    </a>
+  </p>
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/heatmap.svg" alt="Commit calendar" width="620"></p>
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/commits_per_month.svg" alt="Commits per month" width="620"></p>
-  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/cumulative_commits.svg" alt="Cumulative commits" width="620"></p>
-  <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/weekday_hour.svg" alt="Weekday × hour" width="620"></p>
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/contributors.svg" alt="Contributors" width="620"></p>
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/timeline.svg" alt="Contributor timeline" width="620"></p>
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/hotspots.svg" alt="Hotspot files" width="620"></p>
