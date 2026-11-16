@@ -5,6 +5,8 @@
 ![License](https://img.shields.io/github/license/HASE-HGV/Roboterarm-HASE)
 ![School](https://img.shields.io/badge/HASE-HGV%20Vaterstetten-4CAF50)
 ![Axes](https://img.shields.io/badge/Axes-3%20DOF-blue)
+[![Rust Tests](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml)
+[![CodeQL Advanced](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml)
 
 > **Open-source robot arm and control software** developed by students of the  
 > [Humboldt Academy for Science and Engineering](https://www.humboldt-gym.de) at HGV Vaterstetten.
