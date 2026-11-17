@@ -210,21 +210,29 @@ fn run_hardware(
         });
     TERMINATE.store(false, Ordering::SeqCst);
     ensure_ctrlc_handler_installed()?;
-    let stepped = run_motion(
+    match run_motion(
         &mut motors,
         steps,
         config.pulse_t_us,
         overhead_us,
         &TERMINATE,
-    );
-    motors.iter_mut().for_each(|motor| motor.reset());
-    spare.reset();
-    println!("{}", pretty::success("Execution finished."));
-    println!(
-        "Processed steps -> Base: {} (target: {}), Axis 1: {} (target: {}), Axis 2: {} (target: {})",
-        stepped[2], steps[2], stepped[0], steps[0], stepped[1], steps[1]
-    );
-    Ok(())
+    ) {
+        Ok(stepped) => {
+            motors.iter_mut().for_each(|motor| motor.reset());
+            spare.reset();
+            println!("{}", pretty::success("Execution finished."));
+            println!(
+                "Processed steps -> Base: {} (target: {}), Axis 1: {} (target: {}), Axis 2: {} (target: {})",
+                stepped[2], steps[2], stepped[0], steps[0], stepped[1], steps[1]
+            );
+            Ok(())
+        }
+        Err(error) => {
+            motors.iter_mut().for_each(|motor| motor.reset());
+            spare.reset();
+            Err(error)
+        }
+    }
 }
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
@@ -234,7 +242,7 @@ fn run_motion(
     pulse_t_us: u64,
     overhead_us: u64,
     terminate: &AtomicBool,
-) -> [i64; NUM_AXES] {
+) -> Result<[i64; NUM_AXES], Box<dyn Error>> {
     let expected: [i64; NUM_AXES] = std::array::from_fn(|i| steps[i].abs());
     let mut stepped = [0; NUM_AXES];
     let pulse = Duration::from_micros(pulse_t_us);
@@ -262,9 +270,14 @@ fn run_motion(
                 thread::sleep(overhead);
             }
         });
-    if !terminate.load(Ordering::SeqCst) {
-        debug_assert_eq!(stepped, expected);
-        panic!("preemtively stopped (ESTOP)");
+    if terminate.load(Ordering::SeqCst) {
+        return Err(format!(
+            "motion interrupted by Ctrl+C after {} of {} steps",
+            stepped.iter().sum::<i64>(),
+            expected.iter().sum::<i64>()
+        )
+        .into());
     }
-    stepped
+    debug_assert_eq!(stepped, expected);
+    Ok(stepped)
 }
