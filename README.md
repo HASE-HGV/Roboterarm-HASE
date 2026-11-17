@@ -1110,9 +1110,7 @@ for all builder settings, hooks, Netplan, systemd, and Guacamole options.
 | 2 | **No acceleration profile** | 🟠 Medium | Steps use a fixed period, so abrupt starts can cause missed steps. |
 | 3 | **No mechanical joint limits or collision checks** | 🟠 Medium | IK rejects targets outside the two-link reach, but does not model joint stops, the physical arm envelope, or obstacles. |
 | 4 | **M4 is unused** | 🟠 Medium | The auxiliary motor mapping has no motion command or IK axis. |
-| 5 | **Gear ratio is fixed** | 🟡 Low | `GEAR_RATIO` is set to `16.0` in `rustctl/src/config.rs`. |
-| 6 | **`gpioTest` is an unsafe early utility** | 🟠 Medium | It loops indefinitely without Ctrl+C handling and has no direction control. Prefer `rustctl` for hardware motion. |
-| 7 | **Site API has no authentication or TLS** | 🔴 High | The API binds to loopback by default, and an explicit `RUSTCTL_SITE_ADDR` is required to expose it beyond the local machine. Restrict it further with a firewall or trusted proxy when enabled. |
+| 5 | **Gear ratio is fixed** | 🟡 Low | `GEAR_RATIO` is set to `16.0` in `rustctl/src/config.rs`. 
 
 ---
 
