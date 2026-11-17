@@ -264,6 +264,7 @@ fn run_motion(
         });
     if !terminate.load(Ordering::SeqCst) {
         debug_assert_eq!(stepped, expected);
+        panic!("preemtively stopped (ESTOP)");
     }
     stepped
 }
