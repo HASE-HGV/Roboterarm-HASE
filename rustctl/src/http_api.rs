@@ -2,7 +2,10 @@ use std::{
     env, fs,
     io::{self, Read, Write},
     net::{Shutdown, SocketAddr, TcpListener, TcpStream},
-    sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -22,6 +25,15 @@ const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
 const ACCEPT_ERROR_LOG_INTERVAL: Duration = Duration::from_secs(1);
 
 pub(crate) const PAGE_HTML: &str = include_str!("../web/index.html");
+static SERVER_SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn request_server_shutdown() {
+    SERVER_SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
+}
+
+fn clear_server_shutdown() {
+    SERVER_SHUTDOWN_REQUESTED.store(false, Ordering::SeqCst);
+}
 
 #[derive(Debug)]
 pub(crate) struct HttpRequest {
@@ -357,10 +369,34 @@ pub(crate) fn handle_request_with_shutdown(
             "200 OK",
             &json!({"ok": true, "status": "shutting_down"}),
         )?;
+        crate::motion::request_stop();
         if let Some(shutdown) = shutdown {
             let _ = shutdown.send(());
         }
         return Ok(());
+    }
+
+    if path == "/stop" {
+        if request.method != "POST" {
+            return write_json_response(
+                stream,
+                "405 Method Not Allowed",
+                &error_json("method not allowed"),
+            );
+        }
+        if !request.body.is_empty() {
+            return write_json_response(
+                stream,
+                "400 Bad Request",
+                &error_json("stop request body must be empty"),
+            );
+        }
+        crate::motion::request_stop();
+        return write_json_response(
+            stream,
+            "200 OK",
+            &json!({"ok": true, "status": "stopped"}),
+        );
     }
 
     match api_command_for_request(&request.method, &request.target, &request.body) {
@@ -450,7 +486,7 @@ pub(crate) fn banner_lines(
     }
     lines.extend(urls.iter().map(|url| pretty::info(url)));
     lines.push(pretty::info(&format!(
-        "hardware_enabled={hardware_enabled} | routes=/,/status,/help,/test,/args,/raw,/api,/quit"
+        "hardware_enabled={hardware_enabled} | routes=/,/status,/help,/test,/args,/raw,/api,/stop,/quit"
     )));
     if !hardware_enabled {
         lines.push(pretty::warning(
@@ -475,10 +511,14 @@ fn startup_banner(local_addr: SocketAddr) {
 }
 
 pub(crate) fn shutdown_requested(shutdown: &Receiver<()>) -> bool {
-    matches!(
+    let channel_requested = matches!(
         shutdown.try_recv(),
         Ok(()) | Err(TryRecvError::Disconnected)
-    )
+    );
+    let server_requested = SERVER_SHUTDOWN_REQUESTED
+        .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok();
+    channel_requested || server_requested
 }
 
 fn reap_finished_workers(workers: &mut Vec<thread::JoinHandle<()>>) {
@@ -526,6 +566,10 @@ pub(crate) fn run_api_with_address(
     }
     let listener = TcpListener::bind(&address)?;
     listener.set_nonblocking(true)?;
+    clear_server_shutdown();
+    crate::motion::reset_stop();
+    #[cfg(all(feature = "hardware", target_os = "linux"))]
+    crate::motion::ensure_ctrlc_handler_installed()?;
     startup_banner(listener.local_addr()?);
     io::stdout().flush()?;
     let (shutdown_tx, shutdown_rx) = mpsc::channel();

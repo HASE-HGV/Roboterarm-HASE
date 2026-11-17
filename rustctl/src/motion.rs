@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::config::{GEAR_RATIO, MotionConfig, NUM_AXES, StartPosition};
 use crate::kinematics::{
@@ -114,14 +115,7 @@ fn print_plan(config: &MotionConfig, solution: &ArmSolution) {
 }
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
-use std::{
-    sync::{
-        Once,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::Duration,
-};
+use std::{sync::Once, thread, time::Duration};
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 use crate::bresenham::MultiAxisPlanner;
@@ -171,16 +165,32 @@ impl StepperMotor {
     }
 }
 
-#[cfg(all(feature = "hardware", target_os = "linux"))]
 static TERMINATE: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn request_stop() {
+    TERMINATE.store(true, Ordering::SeqCst);
+}
+
+pub(crate) fn reset_stop() {
+    TERMINATE.store(false, Ordering::SeqCst);
+}
+
+#[allow(dead_code)]
+pub(crate) fn stop_requested() -> bool {
+    TERMINATE.load(Ordering::SeqCst)
+}
+
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 static CTRLC_INIT: Once = Once::new();
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
-fn ensure_ctrlc_handler_installed() -> Result<(), Box<dyn Error>> {
+pub(crate) fn ensure_ctrlc_handler_installed() -> Result<(), Box<dyn Error>> {
     let mut install_result: Result<(), ctrlc::Error> = Ok(());
     CTRLC_INIT.call_once(|| {
-        install_result = ctrlc::set_handler(|| TERMINATE.store(true, Ordering::SeqCst));
+        install_result = ctrlc::set_handler(|| {
+            request_stop();
+            crate::http_api::request_server_shutdown();
+        });
     });
     install_result.map_err(Into::into)
 }

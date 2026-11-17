@@ -100,6 +100,31 @@ fn http_routes_return_expected_error_statuses() {
 }
 
 #[test]
+fn http_stop_route_checks_method_empty_body_and_requests_stop() {
+    crate::motion::reset_stop();
+    let get = String::from_utf8(http_exchange(
+        b"GET /stop HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(get.starts_with("HTTP/1.1 405 Method Not Allowed\r\n"), "{get}");
+
+    let post_body = String::from_utf8(http_exchange(
+        b"POST /stop HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1\r\n\r\nx",
+    ))
+    .unwrap();
+    assert!(post_body.starts_with("HTTP/1.1 400 Bad Request\r\n"), "{post_body}");
+
+    let post = String::from_utf8(http_exchange(
+        b"POST /stop HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n",
+    ))
+    .unwrap();
+    assert!(post.starts_with("HTTP/1.1 200 OK\r\n"), "{post}");
+    assert!(post.contains("stopped"), "{post}");
+    assert!(crate::motion::stop_requested());
+    crate::motion::reset_stop();
+}
+
+#[test]
 fn http_quit_route_checks_method_and_empty_body() {
     let get = String::from_utf8(http_exchange(
         b"GET /quit HTTP/1.1\r\nHost: localhost\r\n\r\n",

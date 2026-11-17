@@ -38,6 +38,7 @@ pub(crate) enum ApiCommand {
     Help,
     Test,
     Quit,
+    Stop,
 }
 
 #[derive(Debug, Serialize)]
@@ -61,7 +62,7 @@ pub(crate) fn hardware_enabled() -> bool {
 
 pub(crate) fn api_help() -> String {
     format!(
-        "JSON commands: {{\"command\":\"args\",\"radius_mm\":100,\"base_angle_deg\":0,\"height_mm\":50,\"l1_mm\":200,\"l2_mm\":200,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true}} | {{\"command\":\"raw\",\"base_deg\":0,\"axis1_deg\":25,\"axis2_deg\":30,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true}} | {{\"command\":\"status\"}} | {{\"command\":\"test\"}} | {{\"command\":\"help\"}} | {{\"command\":\"quit\"}} | optional start position on either motion command: {{\"start_base_deg\":0,\"start_axis1_deg\":10,\"start_axis2_deg\":20}} makes the move relative to those joint angles. Text formats: {POSITION_FORMAT} and {RAW_FORMAT}"
+        "JSON commands: {{\"command\":\"args\",\"radius_mm\":100,\"base_angle_deg\":0,\"height_mm\":50,\"l1_mm\":200,\"l2_mm\":200,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true}} | {{\"command\":\"raw\",\"base_deg\":0,\"axis1_deg\":25,\"axis2_deg\":30,\"steps_per_rev\":200,\"microstep\":16,\"ccw_positive\":true}} | {{\"command\":\"status\"}} | {{\"command\":\"test\"}} | {{\"command\":\"help\"}} | {{\"command\":\"stop\"}} | {{\"command\":\"quit\"}} | optional start position on either motion command: {{\"start_base_deg\":0,\"start_axis1_deg\":10,\"start_axis2_deg\":20}} makes the move relative to those joint angles. Text formats: {POSITION_FORMAT} and {RAW_FORMAT}"
     )
 }
 
@@ -159,6 +160,7 @@ pub(crate) fn parse_api_request(
         "help" => Ok(ApiCommand::Help),
         "test" | "tests" => Ok(ApiCommand::Test),
         "quit" | "exit" => Ok(ApiCommand::Quit),
+        "stop" => Ok(ApiCommand::Stop),
         _catch_all => Err(format!("unknown API command '{command}'")),
     }
 }
@@ -299,7 +301,7 @@ pub(crate) fn runtime_ik_solution(
 pub(crate) fn api_command_response(command: ApiCommand) -> Value {
     match command {
         ApiCommand::Status => {
-            json!({"ok": true, "status": "ready", "hardware_enabled": hardware_enabled(), "busy": crate::control::is_busy(), "commands": ["args", "raw", "status", "help", "test", "quit"]})
+            json!({"ok": true, "status": "ready", "hardware_enabled": hardware_enabled(), "busy": crate::control::is_busy(), "commands": ["args", "raw", "status", "help", "test", "stop", "quit"]})
         }
         ApiCommand::Help => json!({"ok": true, "help": api_help()}),
         ApiCommand::Test => {
@@ -307,6 +309,10 @@ pub(crate) fn api_command_response(command: ApiCommand) -> Value {
             json!({"ok": tests.failed == 0, "status": "tests_completed", "tests": tests})
         }
         ApiCommand::Quit => json!({"ok": true, "status": "bye", "reason": "client"}),
+        ApiCommand::Stop => {
+            crate::motion::request_stop();
+            json!({"ok": true, "status": "stopped"})
+        }
         ApiCommand::Args(config) => match execute_position(config) {
             Ok(()) => {
                 json!({"ok": true, "status": "done", "mode": "args", "hardware_enabled": hardware_enabled()})
@@ -338,6 +344,7 @@ pub(crate) fn api_command_for_request(
         ("GET", "/test") if body.is_empty() => Ok(ApiCommand::Test),
         ("POST", "/args") => parse_api_request(body, Some("args")),
         ("POST", "/raw") => parse_api_request(body, Some("raw")),
+        ("POST", "/stop") if body.is_empty() => Ok(ApiCommand::Stop),
         ("POST", "/api") => parse_api_request(body, None),
         ("GET", _routecatch) => Err("unknown API route".to_owned()),
         (_methodcatch, _routecatch) => Err("method not allowed".to_owned()),
