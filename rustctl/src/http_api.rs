@@ -492,6 +492,7 @@ pub(crate) fn serve_requests(
                     suppressed_accept_errors += 1;
                 }
                 thread::sleep(ACCEPT_ERROR_BACKOFF);
+                panic!("accept error");
             }
         }
         reap_finished_workers(&mut workers);
