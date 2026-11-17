@@ -582,12 +582,12 @@ pub(crate) fn serve_requests(
                         "{}",
                         pretty::warning(&format!("API connection failed: {error}{suppressed}"))
                     );
+                    last_accept_log = Some(now);
+                    suppressed_accept_errors = 0;
                 } else {
                     suppressed_accept_errors += 1;
                 }
                 thread::sleep(ACCEPT_ERROR_BACKOFF);
-                //TODO catch
-                panic!("accept error");
             }
         }
         reap_finished_workers(&mut workers);
