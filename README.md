@@ -663,7 +663,7 @@ rustctl --cli | --shell | --raw | --site | --help
 | `--cli` | Prompt for one XYZ position and execute it. |
 | `--shell` | Repeatedly read position commands until EOF or Ctrl+C. |
 | `--raw` | Repeatedly read raw joint angles until EOF or Ctrl+C. |
-| `--site` | Serve the web control page and JSON API (default `0.0.0.0:8080`). |
+| `--site` | Serve the web control page and JSON API (default `127.0.0.1:8080`). |
 | `--help` | Print the complete usage guide. |
 
 > [!NOTE]
@@ -745,9 +745,10 @@ cargo build --release --features hardware
 sudo ./target/release/rustctl --site
 ```
 
-The server listens on `0.0.0.0:8080` by default. Set
-`RUSTCTL_SITE_ADDR=127.0.0.1:8080` to restrict it to local access, or choose a
-specific interface and port. `RUSTCTL_API_ADDR` is a deprecated fallback.
+The server listens on `127.0.0.1:8080` by default so it stays local-only unless
+explicitly configured otherwise. Set `RUSTCTL_SITE_ADDR=0.0.0.0:8080` to
+expose the site on a LAN, or choose a specific interface and port.
+`RUSTCTL_API_ADDR` is a deprecated fallback.
 
 #### Routes and request format
 
@@ -1111,7 +1112,7 @@ for all builder settings, hooks, Netplan, systemd, and Guacamole options.
 | 4 | **M4 is unused** | 🟠 Medium | The auxiliary motor mapping has no motion command or IK axis. |
 | 5 | **Gear ratio is fixed** | 🟡 Low | `GEAR_RATIO` is set to `16.0` in `rustctl/src/config.rs`. |
 | 6 | **`gpioTest` is an unsafe early utility** | 🟠 Medium | It loops indefinitely without Ctrl+C handling and has no direction control. Prefer `rustctl` for hardware motion. |
-| 7 | **Site API has no authentication or TLS** | 🔴 High | It binds to `0.0.0.0:8080` by default. Restrict the bind address or protect it with a firewall and trusted proxy. |
+| 7 | **Site API has no authentication or TLS** | 🔴 High | The API binds to loopback by default, and an explicit `RUSTCTL_SITE_ADDR` is required to expose it beyond the local machine. Restrict it further with a firewall or trusted proxy when enabled. |
 
 ---
 

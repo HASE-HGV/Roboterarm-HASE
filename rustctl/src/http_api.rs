@@ -1,5 +1,5 @@
 use std::{
-    env,
+    env, fs,
     io::{self, Read, Write},
     net::{Shutdown, SocketAddr, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
@@ -30,6 +30,8 @@ pub(crate) struct HttpRequest {
     pub(crate) body: String,
     pub(crate) origin: Option<String>,
     pub(crate) host: Option<String>,
+    pub(crate) authorization: Option<String>,
+    pub(crate) rustctl_token: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -81,7 +83,7 @@ pub(crate) fn read_http_request(stream: &mut impl Read) -> Result<HttpRequest, R
             ));
         }
     };
-    let (method, target, content_length, origin, host) = {
+    let (method, target, content_length, origin, host, authorization, rustctl_token) = {
         let text = std::str::from_utf8(&buffer[..header_end])
             .map_err(|_| RequestError::Malformed("invalid HTTP headers".to_owned()))?;
         let mut lines = text.split("\r\n");
@@ -130,7 +132,23 @@ pub(crate) fn read_http_request(stream: &mut impl Read) -> Result<HttpRequest, R
             .iter()
             .find(|(name, _)| name.eq_ignore_ascii_case("host"))
             .map(|(_, value)| (*value).to_owned());
-        (method.to_owned(), target.to_owned(), length, origin, host)
+        let authorization = headers
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+            .map(|(_, value)| (*value).to_owned());
+        let rustctl_token = headers
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("x-rustctl-token"))
+            .map(|(_, value)| (*value).to_owned());
+        (
+            method.to_owned(),
+            target.to_owned(),
+            length,
+            origin,
+            host,
+            authorization,
+            rustctl_token,
+        )
     };
     if content_length > 1024 * 1024 {
         return Err(RequestError::Malformed(
@@ -161,6 +179,8 @@ pub(crate) fn read_http_request(stream: &mut impl Read) -> Result<HttpRequest, R
         body: body.to_owned(),
         origin,
         host,
+        authorization,
+        rustctl_token,
     })
 }
 
@@ -208,6 +228,64 @@ pub(crate) fn origin_is_trusted(origin: Option<&str>, host: Option<&str>) -> boo
     }
 }
 
+fn read_optional_secret(path: &str) -> Option<String> {
+    fs::read_to_string(path)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+pub(crate) fn resolve_token_with(get: impl Fn(&str) -> Option<String>) -> Option<String> {
+    for name in ["RUSTCTL_SITE_TOKEN", "RUSTCTL_API_TOKEN"] {
+        if let Some(value) = get(name) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_owned());
+            }
+        }
+    }
+    for path in [
+        "/etc/rustctl/site-token",
+        "/etc/rustctl/api-token",
+        "/var/run/rustctl/site-token",
+        "/var/run/rustctl/api-token",
+    ] {
+        if let Some(value) = read_optional_secret(path) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+pub(crate) fn resolve_token() -> Option<String> {
+    resolve_token_with(|name| env::var(name).ok())
+}
+
+pub(crate) fn request_has_valid_token(request: &HttpRequest, token: &str) -> bool {
+    let candidates = [
+        request.authorization.as_deref(),
+        request.rustctl_token.as_deref(),
+    ];
+    for value in candidates {
+        let Some(value) = value else {
+            continue;
+        };
+        let value = value.trim();
+        if value.is_empty() {
+            continue;
+        }
+        let bearer = value
+            .strip_prefix("Bearer ")
+            .or_else(|| value.strip_prefix("bearer "))
+            .map(str::trim)
+            .unwrap_or(value);
+        if bearer == token {
+            return true;
+        }
+    }
+    false
+}
+
 pub(crate) fn handle_connection_with_shutdown(
     stream: &mut TcpStream,
     shutdown: Option<Sender<()>>,
@@ -245,6 +323,18 @@ pub(crate) fn handle_request_with_shutdown(
             "403 Forbidden",
             &error_json("cross-origin request refused"),
         );
+    }
+
+    if request.method == "POST" {
+        if let Some(token) = resolve_token() {
+            if !request_has_valid_token(&request, &token) {
+                return write_json_response(
+                    stream,
+                    "401 Unauthorized",
+                    &error_json("missing or invalid API token"),
+                );
+            }
+        }
     }
 
     if path == "/quit" {
@@ -316,7 +406,7 @@ pub(crate) fn resolve_bind_address_with(get: impl Fn(&str) -> Option<String>) ->
             return (trimmed.to_owned(), true);
         }
     }
-    (format!("0.0.0.0:{DEFAULT_PORT}"), false)
+    (format!("127.0.0.1:{DEFAULT_PORT}"), false)
 }
 
 pub(crate) fn resolve_bind_address() -> (String, bool) {
@@ -376,6 +466,12 @@ fn startup_banner(local_addr: SocketAddr) {
     banner_lines(local_addr, addresses, hostname, hardware_enabled())
         .into_iter()
         .for_each(|line| println!("{line}"));
+    if resolve_token().is_some() {
+        println!(
+            "{}",
+            pretty::info("POST routes require a shared secret in Authorization: Bearer <token> or X-Rustctl-Token")
+        );
+    }
 }
 
 pub(crate) fn shutdown_requested(shutdown: &Receiver<()>) -> bool {

@@ -513,6 +513,31 @@ fn con_cross_origin_post_is_rejected() {
 }
 
 #[test]
+fn request_token_matches_header_and_bearer_values() {
+    let authorized = crate::http_api::HttpRequest {
+        method: "POST".to_owned(),
+        target: "/args".to_owned(),
+        body: "{}".to_owned(),
+        origin: Some("http://localhost:5000".to_owned()),
+        host: Some("localhost:5000".to_owned()),
+        authorization: Some("Bearer secret-token".to_owned()),
+        rustctl_token: None,
+    };
+    let direct = crate::http_api::HttpRequest {
+        method: "POST".to_owned(),
+        target: "/args".to_owned(),
+        body: "{}".to_owned(),
+        origin: Some("http://localhost:5000".to_owned()),
+        host: Some("localhost:5000".to_owned()),
+        authorization: None,
+        rustctl_token: Some("secret-token".to_owned()),
+    };
+    assert!(crate::http_api::request_has_valid_token(&authorized, "secret-token"));
+    assert!(crate::http_api::request_has_valid_token(&direct, "secret-token"));
+    assert!(!crate::http_api::request_has_valid_token(&authorized, "wrong-token"));
+}
+
+#[test]
 fn con_same_origin_post_is_allowed() {
     let _serial = busy_test_lock();
     let body = br#"{"radius_mm":100,"base_angle_deg":0,"height_mm":50,"l1_mm":200,"l2_mm":200,"steps_per_rev":200,"microstep":16,"ccw_positive":true}"#;
