@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/github/license/HASE-HGV/Roboterarm-HASE)
 
 [![Rust Tests](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml)
-![Number of tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHASE-HGV%2FRoboterarm-HASE%2Fmain%2Frustctl-tests.json&cacheSeconds=300)
+![unit tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHASE-HGV%2FRoboterarm-HASE%2Fmain%2Frustctl-tests.json&label=unit%20tests&color=orange&cacheSeconds=300&v=2)
 [![CodeQL Advanced](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml)
 
 > **Open-source robot arm and control software** developed by students of the  

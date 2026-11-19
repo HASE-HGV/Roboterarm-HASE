@@ -42,7 +42,7 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add rustctl-tests.json
-        git commit -m "Update rustctl test count badge"
+        git commit -m "dynamic label refresh"
         git push
 
   check-hardware:
