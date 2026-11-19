@@ -5,6 +5,7 @@
 ![License](https://img.shields.io/github/license/HASE-HGV/Roboterarm-HASE)
 ![School](https://img.shields.io/badge/HASE-HGV%20Vaterstetten-4CAF50)
 ![Axes](https://img.shields.io/badge/Axes-3%20DOF-blue)
+
 [![Rust Tests](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml)
 ![Number of tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHASE-HGV%2FRoboterarm-HASE%2Fmain%2Frustctl-tests.json&cacheSeconds=300)
 [![CodeQL Advanced](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml)
