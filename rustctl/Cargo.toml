@@ -16,8 +16,8 @@ path = "tests/summary.rs"
 harness = false
 
 [features]
-default = []
-hardware = ["dep:ctrlc", "dep:rppal"]
+default = ["dep:ctrlc"]
+hardware = ["dep:ctrlc","dep:rppal"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -29,4 +29,4 @@ ctrlc = { version = "3", optional = true }
 rppal = { version = "0.22", optional = true }
 
 #[lints.rust]
-#warnings = "deny"   
+#warnings = "deny"   	

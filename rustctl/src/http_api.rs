@@ -27,10 +27,6 @@ const ACCEPT_ERROR_LOG_INTERVAL: Duration = Duration::from_secs(1);
 pub(crate) const PAGE_HTML: &str = include_str!("../web/index.html");
 static SERVER_SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-pub(crate) fn request_server_shutdown() {
-    SERVER_SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
-}
-
 fn clear_server_shutdown() {
     SERVER_SHUTDOWN_REQUESTED.store(false, Ordering::SeqCst);
 }

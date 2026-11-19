@@ -384,6 +384,105 @@ class node_config,node_kinematics,node_step_conversion,node_planner,node_motion,
 class node_gpio_backend,node_drivers,node_robot,node_gpio_test toneMint
 ```
 
+#### Function flow by file
+
+The arrows below show the main runtime calls between functions. Each subgraph
+groups functions by their source file; helper and formatting calls are omitted
+where they do not change the control flow.
+
+```mermaid
+flowchart LR
+  subgraph main_rs["rustctl/src/main.rs"]
+    main_fn["main"]
+  end
+  subgraph cli_rs["rustctl/src/cli.rs"]
+    get_mode["get_mode"]
+    prompt_position["prompt_position → prompt_position_with_io"]
+  end
+  subgraph shell_rs["rustctl/src/shell.rs"]
+    position_loop["run_position_loop → run_position_loop_with_io"]
+    raw_loop["run_raw_loop → run_raw_loop_with_io"]
+    read_line["read_input_line"]
+  end
+  subgraph http_rs["rustctl/src/http_api.rs"]
+    run_api["run_api → run_api_with_address"]
+    serve["serve_requests"]
+    handle_conn["handle_connection_with_shutdown → handle_request_with_shutdown"]
+    route["api_command_for_request"]
+    respond["respond_to_command"]
+  end
+  subgraph api_rs["rustctl/src/api.rs"]
+    parse_api["parse_api_request"]
+    command_response["api_command_response"]
+    runtime_tests["runtime_test_report"]
+  end
+  subgraph config_rs["rustctl/src/config.rs"]
+    config_position["config_from_position"]
+    config_line["config_from_line"]
+    config_raw["raw_command"]
+  end
+  subgraph motion_rs["rustctl/src/motion.rs"]
+    execute_position["execute_position"]
+    execute_solution["execute_solution"]
+    plan["checked_step_plan → joint_deltas"]
+    plan_report["print_plan → plan_report"]
+    hardware_run["run_hardware → run_motion (hardware build)"]
+  end
+  subgraph kinematics_rs["rustctl/src/kinematics.rs"]
+    ik["ik_angles_3d_deg → forward_r_z_mm"]
+    checked_steps["checked_deg_to_steps → scaled_steps"]
+    timing["overhead_sleep_us"]
+  end
+  subgraph planner_rs["rustctl/src/bresenham.rs"]
+    planner["MultiAxisPlanner::new → Iterator::next"]
+  end
+  subgraph control_rs["rustctl/src/control.rs"]
+    busy["BusyGuard::acquire → try_acquire"]
+  end
+
+  main_fn --> get_mode
+  get_mode --> prompt_position
+  get_mode --> position_loop
+  get_mode --> raw_loop
+  get_mode --> run_api
+  prompt_position --> config_position
+  position_loop --> read_line
+  position_loop --> config_line
+  position_loop --> parse_api
+  position_loop --> command_response
+  position_loop --> execute_position
+  raw_loop --> read_line
+  raw_loop --> config_raw
+  raw_loop --> execute_solution
+  run_api --> serve
+  serve --> handle_conn
+  handle_conn --> route
+  route --> parse_api
+  handle_conn --> respond
+  respond --> busy
+  respond --> command_response
+  parse_api --> command_response
+  command_response --> runtime_tests
+  command_response --> execute_position
+  command_response --> execute_solution
+  execute_position --> ik
+  execute_position --> execute_solution
+  execute_solution --> timing
+  execute_solution --> plan
+  execute_solution --> plan_report
+  execute_solution --> hardware_run
+  plan --> checked_steps
+  plan_report --> plan
+  run_motion --> planner
+
+  classDef entry fill:#dbeafe,stroke:#2563eb,color:#172554
+  classDef core fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef service fill:#dcfce7,stroke:#16a34a,color:#14532d
+  class main_fn,get_mode,prompt_position,position_loop,raw_loop,read_line,run_api,serve,handle_conn,route,respond,parse_api,command_response,runtime_tests entry
+  class config_position,config_line,config_raw,execute_position,execute_solution,plan,plan_report,hardware_run,ik,checked_steps,timing,planner core
+  class busy service
+```
+
 **Motor mapping:**
 
 | Variable | GPIO STEP | GPIO DIR | Joint | IK Angle |
