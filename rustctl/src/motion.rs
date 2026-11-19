@@ -35,7 +35,8 @@ pub(crate) fn checked_step_plan(
         .iter_mut()
         .zip(joint_deltas(config.start, solution))
         .try_for_each(|(step, delta)| -> Result<(), String> {
-            *step = checked_deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO)?;
+            *step =
+                checked_deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO)?;
             Ok(())
         })?;
     Ok(steps)
@@ -209,15 +210,12 @@ fn run_hardware(
     ];
     let mut spare = StepperMotor::new(&gpio, PIN_ENDEFFECTOR.0, PIN_ENDEFFECTOR.1)?;
     spare.reset();
-    motors
-        .iter_mut()
-        .zip(steps)
-        .for_each(|(motor, step)| {
-            motor.set_direction_ccw(crate::kinematics::direction_is_ccw(
-                step,
-                config.ccw_positive,
-            ));
-        });
+    motors.iter_mut().zip(steps).for_each(|(motor, step)| {
+        motor.set_direction_ccw(crate::kinematics::direction_is_ccw(
+            step,
+            config.ccw_positive,
+        ));
+    });
     TERMINATE.store(false, Ordering::SeqCst);
     ensure_ctrlc_handler_installed()?;
     match run_motion(

@@ -171,7 +171,9 @@ pub(crate) fn report_runtime_checks(tests: &[RuntimeCheck]) -> RuntimeTestReport
     let failures: Vec<RuntimeTestFailure> = tests
         .iter()
         .filter_map(|&(function, test)| {
-            test().err().map(|message| RuntimeTestFailure { function, message })
+            test()
+                .err()
+                .map(|message| RuntimeTestFailure { function, message })
         })
         .collect();
     RuntimeTestReport {

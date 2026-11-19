@@ -122,7 +122,8 @@ pub(crate) fn read_http_request(stream: &mut impl Read) -> Result<HttpRequest, R
             .any(|(name, _)| name.eq_ignore_ascii_case("transfer-encoding"))
         {
             return Err(RequestError::Malformed(
-                "chunked transfer encoding is not supported; send a Content-Length header".to_owned(),
+                "chunked transfer encoding is not supported; send a Content-Length header"
+                    .to_owned(),
             ));
         }
         let length = headers
@@ -244,25 +245,24 @@ fn read_optional_secret(path: &str) -> Option<String> {
 }
 
 pub(crate) fn resolve_token_with(get: impl Fn(&str) -> Option<String>) -> Option<String> {
-    for name in ["RUSTCTL_SITE_TOKEN", "RUSTCTL_API_TOKEN"] {
-        if let Some(value) = get(name) {
-            let trimmed = value.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_owned());
-            }
-        }
-    }
-    for path in [
-        "/etc/rustctl/site-token",
-        "/etc/rustctl/api-token",
-        "/var/run/rustctl/site-token",
-        "/var/run/rustctl/api-token",
-    ] {
-        if let Some(value) = read_optional_secret(path) {
-            return Some(value);
-        }
-    }
-    None
+    ["RUSTCTL_SITE_TOKEN", "RUSTCTL_API_TOKEN"]
+        .into_iter()
+        .find_map(|name| {
+            get(name).and_then(|value| {
+                let trimmed = value.trim();
+                (!trimmed.is_empty()).then(|| trimmed.to_owned())
+            })
+        })
+        .or_else(|| {
+            [
+                "/etc/rustctl/site-token",
+                "/etc/rustctl/api-token",
+                "/var/run/rustctl/site-token",
+                "/var/run/rustctl/api-token",
+            ]
+            .into_iter()
+            .find_map(read_optional_secret)
+        })
 }
 
 pub(crate) fn resolve_token() -> Option<String> {
@@ -274,24 +274,18 @@ pub(crate) fn request_has_valid_token(request: &HttpRequest, token: &str) -> boo
         request.authorization.as_deref(),
         request.rustctl_token.as_deref(),
     ];
-    for value in candidates {
-        let Some(value) = value else {
-            continue;
-        };
+    candidates.into_iter().flatten().any(|value| {
         let value = value.trim();
         if value.is_empty() {
-            continue;
+            return false;
         }
         let bearer = value
             .strip_prefix("Bearer ")
             .or_else(|| value.strip_prefix("bearer "))
             .map(str::trim)
             .unwrap_or(value);
-        if bearer == token {
-            return true;
-        }
-    }
-    false
+        bearer == token
+    })
 }
 
 pub(crate) fn handle_connection_with_shutdown(
@@ -388,11 +382,7 @@ pub(crate) fn handle_request_with_shutdown(
             );
         }
         crate::motion::request_stop();
-        return write_json_response(
-            stream,
-            "200 OK",
-            &json!({"ok": true, "status": "stopped"}),
-        );
+        return write_json_response(stream, "200 OK", &json!({"ok": true, "status": "stopped"}));
     }
 
     match api_command_for_request(&request.method, &request.target, &request.body) {
@@ -456,12 +446,11 @@ pub(crate) fn banner_lines(
 
     let mut urls: Vec<String> = Vec::new();
     if is_wildcard {
-        urls.extend(addresses.iter().map(|address| {
-            format!(
-                "http://{}:{port}/  ({})",
-                address.ip, address.interface
-            )
-        }));
+        urls.extend(
+            addresses
+                .iter()
+                .map(|address| format!("http://{}:{port}/  ({})", address.ip, address.interface)),
+        );
         if let Some(hostname) = &hostname {
             if let Some(url) = net::hostname_url(hostname, port) {
                 urls.push(format!("{url}  (hostname, needs mDNS)"));
@@ -501,7 +490,9 @@ fn startup_banner(local_addr: SocketAddr) {
     if resolve_token().is_some() {
         println!(
             "{}",
-            pretty::info("POST routes require a shared secret in Authorization: Bearer <token> or X-Rustctl-Token")
+            pretty::info(
+                "POST routes require a shared secret in Authorization: Bearer <token> or X-Rustctl-Token"
+            )
         );
     }
 }
@@ -590,7 +581,9 @@ pub(crate) fn serve_requests(
                 if workers.len() >= MAX_WORKER_THREADS {
                     eprintln!(
                         "{}",
-                        pretty::warning("too many active client connections; refusing new requests")
+                        pretty::warning(
+                            "too many active client connections; refusing new requests"
+                        )
                     );
                     let _ = stream.shutdown(Shutdown::Both);
                     continue;
