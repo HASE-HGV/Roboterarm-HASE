@@ -1,10 +1,8 @@
 # Roboterarm HASE
 
-![Rust](https://img.shields.io/badge/Rust-edition_2024-orange?logo=rust&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-v1.97.1-orange?logo=rust&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%204B%2B-C51A4A?logo=raspberry-pi&logoColor=white)
 ![License](https://img.shields.io/github/license/HASE-HGV/Roboterarm-HASE)
-![School](https://img.shields.io/badge/HASE-HGV%20Vaterstetten-4CAF50)
-![Axes](https://img.shields.io/badge/Axes-3%20DOF-blue)
 
 [![Rust Tests](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml)
 ![Number of tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHASE-HGV%2FRoboterarm-HASE%2Fmain%2Frustctl-tests.json&cacheSeconds=300)
