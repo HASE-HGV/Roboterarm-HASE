@@ -34,7 +34,7 @@ jobs:
         print(total)
         PY
         )
-        printf '{"schemaVersion":1,"label":"rustctl tests","message":"%s","color":"blue"}\n' "$count" > rustctl-tests.json
+        printf '{"schemaVersion":1,"label":"unit tests","message":"%s","color":"orange"}\n' "$count" > rustctl-tests.json
         if git diff --quiet -- rustctl-tests.json; then
           echo "Test count unchanged: $count"
           exit 0
