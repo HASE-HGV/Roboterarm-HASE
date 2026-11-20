@@ -50,10 +50,9 @@ test:
   shell: false
 
 guacamole:
-  enabled: true
-  # Accessible from the network; replace root/root before using on a shared LAN.
-  username: root
-  password: root
+  enabled: true.
+  username: robo
+  password: roboarm
   ssh_host: host.docker.internal
   ssh_port: 22
   web_port: 2000
