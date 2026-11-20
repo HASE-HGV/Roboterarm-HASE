@@ -1,7 +1,7 @@
 use std::{
     env, fs,
     io::{self, Read, Write},
-    net::{Shutdown, SocketAddr, TcpListener, TcpStream},
+    net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream},
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError},
@@ -18,7 +18,7 @@ use crate::net;
 use crate::pretty;
 
 pub(crate) const DEFAULT_PORT: u16 = 8080;
-const MAX_WORKER_THREADS: usize = 64;
+pub(crate) const MAX_WORKER_THREADS: usize = 64;
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
@@ -241,6 +241,92 @@ pub(crate) fn origin_is_trusted(origin: Option<&str>, host: Option<&str>) -> boo
     }
 }
 
+fn host_name_from_authority(authority: &str) -> Option<String> {
+    let authority = authority.trim();
+    if authority.is_empty()
+        || authority.bytes().any(|byte| {
+            byte.is_ascii_whitespace() || matches!(byte, b'/' | b'?' | b'#' | b'@' | b',')
+        })
+    {
+        return None;
+    }
+
+    let name = if let Some(rest) = authority.strip_prefix('[') {
+        let (name, suffix) = rest.split_once(']')?;
+        if !suffix.is_empty()
+            && !suffix
+                .strip_prefix(':')
+                .is_some_and(|port| !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return None;
+        }
+        name
+    } else if let Some((name, port)) = authority.rsplit_once(':') {
+        if !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) {
+            if name.contains(':') {
+                return None;
+            }
+            name
+        } else if authority.contains(':') {
+            return None;
+        } else {
+            authority
+        }
+    } else {
+        authority
+    };
+    let name = name.trim_end_matches('.');
+    (!name.is_empty()).then(|| name.to_ascii_lowercase())
+}
+
+pub(crate) fn host_is_allowed_with(
+    authority: Option<&str>,
+    configured_hosts: &str,
+    interface_ips: impl IntoIterator<Item = IpAddr>,
+    hostname: Option<&str>,
+) -> bool {
+    let Some(name) = authority.and_then(host_name_from_authority) else {
+        return false;
+    };
+
+    if name == "localhost"
+        || name
+            .parse::<IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback() || interface_ips.into_iter().any(|local| local == ip))
+    {
+        return true;
+    }
+
+    let configured = configured_hosts
+        .split(',')
+        .filter_map(host_name_from_authority)
+        .any(|allowed| allowed == name);
+    if configured {
+        return true;
+    }
+
+    hostname
+        .into_iter()
+        .flat_map(|value| [value.to_owned(), format!("{value}.local")])
+        .filter_map(|value| host_name_from_authority(&value))
+        .any(|allowed| allowed == name)
+}
+
+fn host_is_allowed(authority: Option<&str>) -> bool {
+    let interface_ips = net::discover_addresses()
+        .into_iter()
+        .map(|address| IpAddr::V4(address.ip))
+        .collect::<Vec<_>>();
+    let configured_hosts = env::var("RUSTCTL_SITE_HOSTS").unwrap_or_default();
+    let hostname = net::read_hostname();
+    host_is_allowed_with(
+        authority,
+        &configured_hosts,
+        interface_ips,
+        hostname.as_deref(),
+    )
+}
+
 fn read_optional_secret(path: &str) -> Option<String> {
     fs::read_to_string(path)
         .ok()
@@ -317,6 +403,14 @@ pub(crate) fn handle_request_with_shutdown(
     };
 
     let path = request.target.split('?').next().unwrap_or(&request.target);
+    if !host_is_allowed(request.host.as_deref()) {
+        return write_json_response(
+            stream,
+            "403 Forbidden",
+            &error_json("unrecognized Host header"),
+        );
+    }
+
     if request.method == "GET" && (path == "/" || path == "/index.html") {
         return write_http_response(stream, "200 OK", "text/html; charset=utf-8", PAGE_HTML);
     }
@@ -588,6 +682,12 @@ pub(crate) fn serve_requests(
                         pretty::warning(
                             "too many active client connections; refusing new requests"
                         )
+                    );
+                    let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
+                    let _ = write_json_response(
+                        &mut stream,
+                        "503 Service Unavailable",
+                        &error_json("too many active client connections"),
                     );
                     let _ = stream.shutdown(Shutdown::Both);
                     continue;

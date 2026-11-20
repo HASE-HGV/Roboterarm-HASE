@@ -70,6 +70,43 @@ mod server_tests {
     }
 
     #[test]
+    fn server_refuses_connections_over_the_worker_limit_with_503() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+        let server_shutdown = shutdown_tx.clone();
+        let server = thread::spawn(move || {
+            http_api::serve_requests(&listener, server_shutdown, shutdown_rx).unwrap();
+        });
+
+        let mut clients = Vec::new();
+        for _ in 0..http_api::MAX_WORKER_THREADS {
+            clients.push(TcpStream::connect(address).unwrap());
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        let mut overflow = TcpStream::connect(address).unwrap();
+        overflow
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        overflow
+            .write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            .unwrap();
+        let mut response = String::new();
+        overflow.read_to_string(&mut response).unwrap();
+        assert!(
+            response.starts_with("HTTP/1.1 503 Service Unavailable\r\n"),
+            "{response}"
+        );
+        assert!(response.contains("too many active client connections"));
+
+        drop(clients);
+        shutdown_tx.send(()).unwrap();
+        server.join().unwrap();
+    }
+
+    #[test]
     fn run_api_uses_the_legacy_address_and_reports_bind_errors() {
         let site_address = std::env::var_os("RUSTCTL_SITE_ADDR");
         let legacy_address = std::env::var_os("RUSTCTL_API_ADDR");

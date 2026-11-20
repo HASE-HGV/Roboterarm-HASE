@@ -326,6 +326,66 @@ fn origin_without_scheme_or_without_host_header_is_rejected() {
 }
 
 #[test]
+fn host_allowlist_accepts_loopback_local_interfaces_and_configured_hosts() {
+    use std::net::{IpAddr, Ipv4Addr};
+
+    let interfaces = [IpAddr::V4(Ipv4Addr::new(192, 168, 1, 50))];
+    let allowed = |host| {
+        crate::http_api::host_is_allowed_with(
+            Some(host),
+            "robot.example, proxy.example:8080",
+            interfaces,
+            Some("robot-arm"),
+        )
+    };
+
+    for host in [
+        "localhost",
+        "localhost:8080",
+        "[::1]:8080",
+        "192.168.1.50:8080",
+        "robot-arm:8080",
+        "robot-arm.local:8080",
+        "robot.example:8080",
+        "proxy.example:8080",
+    ] {
+        assert!(allowed(host), "expected {host} to be accepted");
+    }
+}
+
+#[test]
+fn host_allowlist_rejects_dns_rebinding_and_malformed_authorities() {
+    use std::net::{IpAddr, Ipv4Addr};
+
+    let interfaces = [IpAddr::V4(Ipv4Addr::new(192, 168, 1, 50))];
+    for host in [
+        None,
+        Some("attacker.example:8080"),
+        Some("attacker.example:8080/path"),
+        Some("attacker.example:8080@localhost"),
+        Some("192.168.1.51:8080"),
+    ] {
+        assert!(
+            !crate::http_api::host_is_allowed_with(
+                host,
+                "robot.example",
+                interfaces,
+                Some("robot-arm"),
+            ),
+            "expected {host:?} to be rejected"
+        );
+    }
+}
+
+#[test]
+fn con_same_origin_dns_rebinding_host_is_rejected() {
+    let request = b"POST /quit HTTP/1.1\r\nHost: attacker.example:8080\r\nOrigin: http://attacker.example:8080\r\nContent-Length: 0\r\n\r\n";
+    let response = String::from_utf8(http_exchange(request)).unwrap();
+    assert!(response.starts_with("HTTP/1.1 403 Forbidden\r\n"), "{response}");
+    assert!(response.contains("unrecognized Host header"));
+}
+
+#[test]
 fn req_oversized_headers_are_rejected() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
@@ -841,7 +901,7 @@ fn http_request_reader_accepts_a_body_at_the_one_mib_limit() {
 fn http_position_rejects_unsupported_microstep_with_structured_error() {
     let body = args_request_with_motor_settings(200, 3);
     let request = format!(
-        "POST /args HTTP/1.1\r\nContent-Length: {}\r\n\r\n{body}",
+        "POST /args HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{body}",
         body.len()
     );
     let response = String::from_utf8(http_exchange(request.as_bytes())).unwrap();
@@ -855,7 +915,7 @@ fn http_position_rejects_unsupported_microstep_with_structured_error() {
 #[test]
 fn http_api_rejects_invalid_json_with_structured_error() {
     let response = String::from_utf8(http_exchange(
-        b"POST /api HTTP/1.1\r\nContent-Length: 8\r\n\r\nnot-json",
+        b"POST /api HTTP/1.1\r\nHost: localhost\r\nContent-Length: 8\r\n\r\nnot-json",
     ))
     .unwrap();
     assert!(

@@ -847,6 +847,13 @@ explicitly configured otherwise. Set `RUSTCTL_SITE_ADDR=0.0.0.0:8080` to
 expose the site on a LAN, or choose a specific interface and port.
 `RUSTCTL_API_ADDR` is a deprecated fallback.
 
+When binding beyond loopback, the server accepts requests only when the `Host`
+header names localhost, a local interface address, the machine hostname (or its
+`.local` name), or a hostname listed in `RUSTCTL_SITE_HOSTS`. Set that variable
+to a comma-separated list when using a trusted custom DNS name or reverse proxy.
+Requests using an arbitrary hostname are rejected even if its `Origin` matches;
+this prevents DNS rebinding from making an attacker's domain look same-origin.
+
 #### Routes and request format
 
 The server accepts one HTTP/1.0 or HTTP/1.1 request per connection and closes
@@ -953,7 +960,8 @@ A validly formatted request that cannot execute a move may still return HTTP
 |-------------|---------|
 | `200 OK` | Request handled; inspect `ok` for semantic or motion errors. |
 | `400 Bad Request` | Invalid HTTP request or JSON, missing fields, or invalid `/quit` body. |
-| `403 Forbidden` | A POST included an `Origin` that does not match its `Host`. |
+| `403 Forbidden` | The `Host` is not allowlisted or a POST included an `Origin` that does not match its `Host`. |
+| `503 Service Unavailable` | The server has reached its concurrent client connection limit. |
 | `404 Not Found` | Unknown GET route. |
 | `405 Method Not Allowed` | Unsupported method for the route. |
 | `408 Request Timeout` | Request data was not received before the read timeout. |
@@ -1023,6 +1031,8 @@ async function moveArm(radius, baseAngle, height) {
   expected move. A client-side timeout does not cancel a move already underway.
 - POSTs with an `Origin` header are accepted only when its host matches the
   request's `Host`. The server does not emit CORS headers.
+- The `Host` header must resolve to a local or explicitly configured hostname.
+  Configure custom names with the comma-separated `RUSTCTL_SITE_HOSTS` variable.
 - The API has no authentication or TLS. Keep it on loopback or protect network
   access with a firewall and a trusted proxy.
 - There is no sensor-based homing, position feedback, acceleration profile,
