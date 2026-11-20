@@ -5,7 +5,6 @@
 ![License](https://img.shields.io/github/license/HASE-HGV/Roboterarm-HASE)
 
 [![Rust Tests](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml)
-![Unit tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHASE-HGV%2FRoboterarm-HASE%2Fmain%2Frustctl-tests.json&label=unit%20tests&color=orange&cacheSeconds=300)
 [![CodeQL Advanced](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml)
 
 > **Open-source robot arm and control software** developed by students of the  
@@ -47,8 +46,12 @@ shows the latest build, test, and security checks.
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/tests_over_time.svg" alt="Tests over time" width="620"></p>
   <p align="center"><img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/repo_size.svg" alt="Repository size" width="620"></p>
   <p align="center">
-    <a href="https://github.com/HASE-HGV/Roboterarm-HASE/stargazers">
-      <img alt="GitHub stars" src="https://img.shields.io/github/stars/HASE-HGV/Roboterarm-HASE?style=social">
+    <a href="https://www.star-history.com/?repos=hase-hgv%2Froboterarm-hase&type=date&legend=top-left">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&theme=dark&legend=top-left" />
+        <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" />
+        <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hase-hgv/roboterarm-hase&type=date&legend=top-left" width="620">
+      </picture>
     </a>
   </p>
 
@@ -316,12 +319,7 @@ flowchart LR
 - **Core crates:** `serde`, `serde_json`, `if-addrs`
 - **Optional Linux hardware crates:** [`rppal`](https://docs.rs/rppal/latest/rppal/) `0.22.1`, [`ctrlc`](https://docs.rs/ctrlc/latest/ctrlc/) `3.5.2`
 
-![Rust control architecture](docs/diagrams/rustctl-architecture.svg)
-
-<details>
-<summary>Mermaid source</summary>
-
-```text
+```mermaid
 flowchart TD
 
 subgraph group_interfaces["Command interfaces"]
@@ -396,20 +394,13 @@ class node_config,node_kinematics,node_step_conversion,node_planner,node_motion,
 class node_gpio_backend,node_drivers,node_robot,node_gpio_test toneMint
 ```
 
-</details>
-
 #### Function flow by file
 
 The arrows below show the main runtime calls between functions. Each subgraph
 groups functions by their source file; helper and formatting calls are omitted
 where they do not change the control flow.
 
-![Rust control flow by source file](docs/diagrams/rustctl-function-flow.svg)
-
-<details>
-<summary>Mermaid source</summary>
-
-```text
+```mermaid
 flowchart LR
   subgraph main_rs["rustctl/src/main.rs"]
     main_fn["main"]
@@ -501,8 +492,6 @@ flowchart LR
   class config_position,config_line,config_raw,execute_position,execute_solution,plan,plan_report,hardware_run,ik,checked_steps,timing,planner core
   class busy service
 ```
-
-</details>
 
 **Motor mapping:**
 
@@ -629,12 +618,7 @@ The base rotation motor (M3) swings the entire shoulder–elbow plane around Z. 
 
 **Function:** `ik_angles_3d_deg(x, y, z, l1, l2) → (theta_base, theta1, theta2, z_eff)`
 
-![Inverse kinematics model](docs/diagrams/inverse-kinematics.svg)
-
-<details>
-<summary>Mermaid source</summary>
-
-```text
+```mermaid
 flowchart TD
     IN["Input: radius X, base angle Y°, height Z, l1, l2"]
     S1["① Base rotation\ntheta_base = radians(Y)"]
@@ -652,8 +636,6 @@ flowchart TD
     S3 -- Yes --> S4 --> S5 --> S6 --> S7 --> OUT
 ```
 
-</details>
-
 All angles are returned in **degrees**. The `clamp(-1.0, 1.0)` before `acos` prevents NaN from floating-point rounding errors near the workspace boundary.
 Both inverse-kinematics branches are evaluated; the returned pose maximizes
 the elbow joint's height (`l1 · sin(theta1)`). The elbow is above the shoulder
@@ -666,9 +648,7 @@ the current and target poses.
 
 **Function:** `deg_to_steps(angle_deg, steps_per_rev, microstep) → i64`
 
-$$
-\text{steps} = \text{angle} \times \frac{\text{steps\_per\_rev} \times \text{microstep}}{360^\circ} \times \text{GEAR\_RATIO}
-$$
+$$\text{steps} = \text{angle} \times \frac{\text{steps\_per\_rev} \times \text{microstep}}{360°} \times \text{GEAR\_RATIO}$$
 
 | Constant | Value | Notes |
 |----------|:-----:|-------|
@@ -695,12 +675,7 @@ $$
 
 The movement loop uses a **[Bresenham-like](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm) integer accumulator** to distribute steps across three axes so they all start and finish simultaneously — achieving synchronized, coordinated motion.
 
-![Synchronized motor step algorithm](docs/diagrams/motor-synchronization.svg)
-
-<details>
-<summary>Mermaid source</summary>
-
-```text
+```mermaid
 flowchart TD
     INIT["max_steps = max(|steps_base|, |steps1|, |steps2|)\naccum_b = accum1 = accum2 = 0"]
     LOOP["for i in 0..max_steps"]
@@ -723,8 +698,6 @@ flowchart TD
     OVH -- No --> LOOP
     LOOP -- done --> DONE
 ```
-
-</details>
 
 **Timing constraints:**
 
