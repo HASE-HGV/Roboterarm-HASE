@@ -1,53 +1,45 @@
-
 name: Rust Code Coverage
 
 on:
   push:
-    branches:
-      - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   coverage:
+    name: Generate Rust coverage report
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: main
 
-      - name: Install Rust
+      - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      
-      - name: Generate coverage
+      - name: Generate HTML coverage report
         working-directory: rustctl
         run: |
           cargo llvm-cov \
             --workspace \
             --all-features \
-            --json \
-            --output-path ../coverage.json
-            --no-fail-fast
+            --tests \
+            --html \
+            --ignore-run-fail \
+            --output-dir coverage-html
 
+      - name: Upload HTML coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-html
+          path: rustctl/coverage-html/
+          if-no-files-found: warn
+          retention-days: 14
 
-      - name: Generate Markdown report
-        run: |
-          python3 scripts/coverage_to_md.py coverage.json > COVERAGE.md
-
-      - name: Commit coverage report
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add COVERAGE.md
-          git diff --cached --quiet || git commit -m "docs: update code coverage"
-          git push
