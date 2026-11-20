@@ -1,10 +1,11 @@
 [hardware]
-gear_ratio = 16.0
-pulse_t_us = 500
-overhead_us = 83
+gear_ratio =        16.0
+pulse_t_us =        500
+overhead_us =       83
 
 [pins]
-m1 = [17, 27] # Shoulder
-m2 = [22, 23] # Elbow
-m3 = [24, 25] # Base
-m4 = [5, 6]   # End Effector
+m1 =                [17, 27] # Shoulder
+m2 =                [22, 23] # Elbow
+m3 =                [24, 25] # Base
+m4 =                [5,  6 ]   # End Effector
+‚
