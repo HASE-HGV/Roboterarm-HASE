@@ -64,7 +64,7 @@ jobs:
               return f"{covered / count * 100:.1f}%" if count else "N/A"
 
           rows = [
-              "| Datei | Zeilen | Funktionen | Bereiche |",
+              "| File | Lines | Functions | Regions |",
               "|---|---:|---:|---:|",
           ]
 
@@ -87,11 +87,11 @@ jobs:
 
           rows.extend([
               "",
-              "**Gesamt:**",
+              "**Overall:**",
               "",
-              f"- Zeilen: **{percent(totals, 'lines')}**",
-              f"- Funktionen: **{percent(totals, 'functions')}**",
-              f"- Bereiche: **{percent(totals, 'regions')}**",
+              f"- Lines: **{percent(totals, 'lines')}**",
+              f"- Functions: **{percent(totals, 'functions')}**",
+              f"- Regions: **{percent(totals, 'regions')}**",
           ])
 
           readme = readme_file.read_text(encoding="utf-8")
