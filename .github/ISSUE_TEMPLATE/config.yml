@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Project wiki
+    url: https://github.com/HASE-HGV/Roboterarm-HASE/wiki
+    about: Read the setup, hardware safety, and software guides before opening a question.

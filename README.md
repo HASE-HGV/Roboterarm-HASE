@@ -15,6 +15,10 @@
 collects focused setup and safety guides; [GitHub Actions](https://github.com/HASE-HGV/Roboterarm-HASE/actions)
 shows the latest build, test, and security checks.
 
+> **GitHub shortcuts:** Use the wiki's [DE/EN switcher](https://github.com/HASE-HGV/Roboterarm-HASE/wiki),
+> open any Actions run's **Summary** for test results, and let **Dependabot** propose
+> grouped Rust and GitHub Actions updates. New issues and pull requests use guided forms/checklists.
+
 
 <details>
 <summary><b>More statistics</b> (generated daily from git history)</summary>
