@@ -28,13 +28,16 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      
       - name: Generate coverage
+        working-directory: rustctl
         run: |
           cargo llvm-cov \
             --workspace \
             --all-features \
             --json \
-            --output-path coverage.json
+            --output-path ../coverage.json
+
 
       - name: Generate Markdown report
         run: |
