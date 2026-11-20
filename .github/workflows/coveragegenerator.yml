@@ -6,16 +6,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   coverage:
-    name: Generate Rust coverage report
+    name: Update README coverage table
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
@@ -23,23 +25,73 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Generate HTML coverage report
+      - name: Generate coverage JSON (continue if tests fail)
         working-directory: rustctl
         run: |
           cargo llvm-cov \
             --workspace \
             --all-features \
             --tests \
-            --html \
-            --ignore-run-fail \
-            --output-dir coverage-html
+            --json \
+            --output-path coverage.json \
+            --ignore-run-fail || true
 
-      - name: Upload HTML coverage report
+      - name: Update coverage table in README
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-coverage-html
-          path: rustctl/coverage-html/
-          if-no-files-found: warn
-          retention-days: 14
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          coverage_file = Path("rustctl/coverage.json")
+          readme_file = Path("README.md")
+
+          start_marker = "<!-- COVERAGE-START -->"
+          end_marker = "<!-- COVERAGE-END -->"
+
+          if not coverage_file.exists():
+              raise SystemExit(
+                  "Coverage JSON was not created. Check the cargo llvm-cov step."
+              )
+
+          data = json.loads(coverage_file.read_text(encoding="utf-8"))
+          report = data["data"][0]
+          files = report.get("files", [])
+          totals = report.get("totals", {})
+
+          def percent(summary, key):
+              metric = summary.get(key, {})
+              count = metric.get("count", 0)
+              covered = metric.get("covered", 0)
+              return f"{covered / count * 100:.1f}%" if count else "N/A"
+
+          rows = [
+              "| Datei | Zeilen | Funktionen | Bereiche |",
+              "|---|---:|---:|---:|",
+          ]
+
+          for item in sorted(files, key=lambda x: x["filename"]):
+              filename = item["filename"].replace("\\", "/")
+              if "/rustctl/" in filename:
+                  filename = "rustctl/" + filename.rsplit("/rustctl/", 1)[1]
+              else:
+                  filename = Path(filename).name
+
+              summary = item.get("summary", {})
+              rows.append(
+                  f"| `{filename}` "
+                  f"| {percent(summary, 'lines')} "
+                  f"| {percent(summary, 'functions')} "
+                  f"| {percent(summary, 'regions')} |"
+              )
+
+          rows.append("")
+          rows.append("**Gesamt:**")
+          rows.append("")
+          rows.append(
+              f"- Zeilen: **{percent(totals, 'lines')}**"
+          )
+          rows.append(
+              f"- Funktionen: **{percent(totals, 'functions')}**"
 
