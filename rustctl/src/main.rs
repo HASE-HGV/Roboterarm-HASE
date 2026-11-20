@@ -17,6 +17,7 @@ fn welcome() {
     println!("");
     println!("");
     println!(r#"                               Welcome to:           "#);
+    println!(r#"                                                     "#);
     println!(r#"                                      _       _   _  "#);
     println!(r#"                                     | |     | | | | "#);
     println!(r#"                       _ __ _   _ ___| |_ ___| |_| | "#);
