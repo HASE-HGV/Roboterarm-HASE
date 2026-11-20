@@ -22,7 +22,22 @@ jobs:
     - name: Build
       run: cd rustctl && cargo build --verbose
     - name: Run tests
-      run: cd rustctl && cargo test --verbose
+      run: |
+        set -o pipefail
+        cd rustctl
+        cargo test --verbose 2>&1 | tee "$RUNNER_TEMP/rust-test.log"
+    - name: Add test results to run summary
+      if: always()
+      run: |
+        {
+          echo '## Rust test results'
+          echo
+          if [ -f "$RUNNER_TEMP/rust-test.log" ]; then
+            grep '^test result:' "$RUNNER_TEMP/rust-test.log" | sed 's/^/- `/; s/$/`/' || true
+          else
+            echo 'The test command did not produce a log.'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Update rustctl test count badge
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'

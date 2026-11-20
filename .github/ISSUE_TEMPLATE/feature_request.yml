@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a useful improvement to the robot arm or its software
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe the user need or current limitation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Explain what you would like to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Rust software / CLI
+        - Web/API
+        - Raspberry Pi / GPIO
+        - Mechanical / electrical design
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or additional context
+      description: Any trade-offs, sketches, or links that help explain the idea.
