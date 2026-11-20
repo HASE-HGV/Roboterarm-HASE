@@ -1085,7 +1085,7 @@ cargo llvm-cov --html --open
 | `rustctl/src/cli.rs` | 89.8% | 100.0% | 88.0% |
 | `rustctl/src/config.rs` | 100.0% | 100.0% | 98.0% |
 | `rustctl/src/control.rs` | 100.0% | 100.0% | 100.0% |
-| `rustctl/src/http_api.rs` | 90.0% | 88.1% | 88.9% |
+| `rustctl/src/http_api.rs` | 91.1% | 90.2% | 89.6% |
 | `rustctl/src/kinematics.rs` | 96.6% | 100.0% | 96.3% |
 | `rustctl/src/main.rs` | 100.0% | 100.0% | 100.0% |
 | `rustctl/src/motion.rs` | 50.5% | 48.5% | 53.4% |
@@ -1095,9 +1095,9 @@ cargo llvm-cov --html --open
 
 **Overall:**
 
-- Lines: **87.3%**
-- Functions: **86.9%**
-- Regions: **85.3%**
+- Lines: **87.9%**
+- Functions: **87.9%**
+- Regions: **85.7%**
 <!-- COVERAGE-END -->
 
 The latest default-build run on macOS reported **97.69% line coverage**,
