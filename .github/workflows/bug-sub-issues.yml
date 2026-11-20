@@ -25,9 +25,9 @@ jobs:
           set -euo pipefail
 
           endpoint="repos/${REPOSITORY}/issues/${PARENT_ISSUE}/sub_issues"
-          existing="$(gh api --paginate --slurp "$endpoint?per_page=100" --jq 'add | .[].number')"
-          bugs="$(gh api --paginate --slurp "repos/${REPOSITORY}/issues?state=all&labels=bug&per_page=100" \
-            --jq 'add | .[] | select(.pull_request == null) | .number')"
+          existing="$(gh api --paginate "$endpoint?per_page=100" | jq -r '.[].number')"
+          bugs="$(gh api --paginate "repos/${REPOSITORY}/issues?state=all&labels=bug&per_page=100" \
+            | jq -r '.[] | select(.pull_request == null) | .number')"
 
           while IFS= read -r issue_number; do
             [[ -z "$issue_number" || "$issue_number" == "$PARENT_ISSUE" ]] && continue
