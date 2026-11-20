@@ -1,12 +1,12 @@
-import os
 import subprocess
 import time  # Imported to track elapsed time
+from pathlib import Path
 
 def encode_videos():
     # Ensure the output directory exists
-    output_dir = "encoded"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    output_dir = Path("encoded")
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
         print(f"Created directory: {output_dir}/")
 
     print("--- DaVinci Resolve Linux Video Converter ---")
@@ -25,24 +25,42 @@ def encode_videos():
     total_start_time = time.time()
 
     for file_name in files:
-        if not os.path.exists(file_name):
-            print(f"❌ Error: File '{file_name}' not found in this folder. Skipping.")
+        source_path = Path(file_name).expanduser()
+        if not source_path.is_file():
+            print(f"Error: Input '{file_name}' is not an existing file. Skipping.")
             continue
 
-        # Extract filename without extension to name the output file
-        base_name, _ = os.path.splitext(file_name)
-        output_file = os.path.join(output_dir, f"{base_name}.mov")
+        # Keep relative subfolders under encoded/, while absolute inputs use
+        # only their filename so they cannot escape the output directory.
+        if source_path.is_absolute():
+            relative_source = Path(source_path.name)
+        else:
+            relative_source = source_path
+            if ".." in relative_source.parts:
+                print(f"Error: Input path '{file_name}' must not contain '..'. Skipping.")
+                continue
 
-        print(f"\n🎬 Encoding: {file_name} -> {output_file}...")
+        output_file = output_dir / relative_source.with_suffix(".mov")
+        if output_file.exists():
+            print(f"Error: Output '{output_file}' already exists; refusing to overwrite. Skipping.")
+            continue
+
+        try:
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            print(f"Error: Could not create output directory '{output_file.parent}': {error}")
+            continue
+
+        print(f"\nEncoding: {file_name} -> {output_file}...")
 
         # Start timer for individual file
         file_start_time = time.time()
 
         # ffmpeg command built as a list for stability
         cmd = [
-            "ffmpeg", "-y", "-i", file_name,
+            "ffmpeg", "-n", "-i", str(source_path),
             "-c:v", "prores_ks", "-profile:v", "1",
-            "-c:a", "pcm_s16le", output_file
+            "-c:a", "pcm_s16le", str(output_file)
         ]
 
         try:
@@ -51,21 +69,21 @@ def encode_videos():
 
             # Calculate individual file elapsed time
             file_elapsed = time.time() - file_start_time
-            print(f"✅ Successfully encoded: {output_file} (Took {file_elapsed:.2f}s)")
+            print(f"Successfully encoded: {output_file} (Took {file_elapsed:.2f}s)")
 
             # Add to our list of successful encodes
             successful_files.append(output_file)
 
-        except subprocess.CalledProcessError:
-            print(f"❌ Error: Failed to encode '{file_name}'. Is ffmpeg installed?")
+        except subprocess.CalledProcessError as error:
+            print(f"Error: ffmpeg failed to encode '{file_name}' (exit status {error.returncode}).")
         except FileNotFoundError:
-            print("❌ Error: 'ffmpeg' command not found. Please install ffmpeg on your system.")
+            print("Error: 'ffmpeg' command not found. Please install ffmpeg on your system.")
             return
 
     # --- FINAL SUMMARY SECTION ---
     total_elapsed = time.time() - total_start_time
     print("\n" + "="*40)
-    print("🏁 ENCODING JOB COMPLETED")
+    print("ENCODING JOB COMPLETED")
     print(f"Total time elapsed: {total_elapsed:.2f} seconds")
 
     if successful_files:
