@@ -222,6 +222,8 @@ The [A4988](https://www.pololu.com/file/0J450/A4988.pdf) is a microstepping driv
 
 > [!IMPORTANT]
 > Set the **current limit** via the onboard potentiometer before powering the motors. Exceeding the motor's rated current causes overheating. Formula: `V_ref = I_max × 8 × R_sense` (R_sense is typically 0.1 Ω on clone boards → `V_ref = 0.8 × I_max`).
+>
+> Record board-specific capacitor, sense-resistor, and current-limit checks in the [A4988 verification worksheet](hardware/a4988-driver-verification.md). Clone boards can differ; do not assume their sense-resistor value is identical.
 
 ### 3.5 Microstepping Reference
 
