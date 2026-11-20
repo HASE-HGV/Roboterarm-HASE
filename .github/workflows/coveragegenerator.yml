@@ -37,6 +37,7 @@ jobs:
             --all-features \
             --json \
             --output-path ../coverage.json
+            --no-fail-fast
 
 
       - name: Generate Markdown report
