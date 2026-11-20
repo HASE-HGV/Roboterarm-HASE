@@ -150,10 +150,10 @@ All BCM pin numbers reference the [pinout.xyz](https://pinout.xyz) standard.
 
 | Motor | Joint | STEP pin (BCM) | DIR pin (BCM) | Status |
 |-------|-------|:--------------:|:-------------:|:------:|
-| M1 | Shoulder (Arm 1) | GPIO 17 | GPIO 27 | ✅ |
-| M2 | Elbow (Arm 2) | GPIO 22 | GPIO 23 | ✅ |
-| M3 | Base rotation | GPIO 24 | GPIO 25 | ✅ |
-| M4 | Auxiliary | GPIO 5 | GPIO 6 | ⬜ unused but reserved |
+| M1 | Shoulder (Arm 1) | GPIO 17 | GPIO 27 | ✓ |
+| M2 | Elbow (Arm 2) | GPIO 22 | GPIO 23 | ✓ |
+| M3 | Base rotation | GPIO 24 | GPIO 25 | ✓ |
+| M4 | Auxiliary | GPIO 5 | GPIO 6 | unused but reserved |
 
 > Homing sensors and repeatability are not yet verified. Use the [homing sensor planning and verification worksheet](hardware/homing-verification.md) to record actual sensor wiring, reference positions, and unloaded/loaded results.
 
@@ -1153,7 +1153,8 @@ sudo ./target/release/rustctl --shell
 ```
 
 Commands are rejected with an error and the loop continues. Press **Ctrl+C** to
-stop the current hardware operation safely.
+stop the current hardware operation safely; the shell then exits. In `--site`
+mode, Ctrl+C stops an active move and shuts down the server.
 
 ### 7.7 Building a Raspberry Pi OS Image
 
