@@ -965,8 +965,16 @@ function kinematics(form, path, body) {
     if (reach > l1 + l2 || reach < Math.abs(l1 - l2)) throw new Error("Target is outside the arm’s modeled workspace.");
     const alpha = Math.atan2(height, radius);
     const cosElbow = Math.max(-1, Math.min(1, (reach * reach - l1 * l1 - l2 * l2) / (2 * l1 * l2)));
-    const theta2 = Math.acos(cosElbow);
-    const theta1 = alpha - Math.atan2(l2 * Math.sin(theta2), l1 + l2 * Math.cos(theta2));
+    const elbowMagnitude = Math.acos(cosElbow);
+    const shoulderOffset = Math.atan2(l2 * Math.sin(elbowMagnitude), l1 + l2 * Math.cos(elbowMagnitude));
+    let theta1 = alpha - shoulderOffset;
+    let theta2 = elbowMagnitude;
+    const alternateTheta1 = alpha + shoulderOffset;
+    // Match ik_angles_3d_deg: select the branch with the greater shoulder sine.
+    if (Math.sin(alternateTheta1) > Math.sin(theta1)) {
+      theta1 = alternateTheta1;
+      theta2 = -elbowMagnitude;
+    }
     target = { base, shoulder: theta1 * 180 / Math.PI, elbow: theta2 * 180 / Math.PI };
   }
   if (l1 <= 0 || l2 <= 0) throw new Error("Link lengths must be positive.");
