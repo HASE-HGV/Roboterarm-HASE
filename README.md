@@ -1068,7 +1068,7 @@ cargo llvm-cov --html --open
 ## Rust Code Coverage
 
 <!-- COVERAGE-START -->
-| Datei | Zeilen | Funktionen | Bereiche |
+| File | Lines | Functions | Regions |
 |---|---:|---:|---:|
 | `rustctl/src/api.rs` | 97.5% | 100.0% | 92.5% |
 | `rustctl/src/bresenham.rs` | 100.0% | 100.0% | 100.0% |
@@ -1083,11 +1083,11 @@ cargo llvm-cov --html --open
 | `rustctl/src/pretty.rs` | 90.6% | 85.7% | 89.7% |
 | `rustctl/src/shell.rs` | 77.8% | 100.0% | 66.2% |
 
-**Gesamt:**
+**Overall:**
 
-- Zeilen: **87.2%**
-- Funktionen: **86.9%**
-- Bereiche: **85.2%**
+- Lines: **87.2%**
+- Functions: **86.9%**
+- Regions: **85.2%**
 <!-- COVERAGE-END -->
 
 The latest default-build run on macOS reported **97.69% line coverage**,
