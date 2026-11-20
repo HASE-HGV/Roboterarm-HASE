@@ -19,7 +19,7 @@ RUN rustup default stable && \
 
 WORKDIR /src/rustctl
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-RUN cargo build --release --target aarch64-unknown-linux-gnu && \
+RUN cargo build --release --target aarch64-unknown-linux-gnu --features hardware && \
     cp target/aarch64-unknown-linux-gnu/release/rustctl /export/export_build
 
 FROM scratch AS export
