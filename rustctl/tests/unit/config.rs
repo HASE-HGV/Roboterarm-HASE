@@ -245,6 +245,17 @@ fn motor_settings_reject_microstep_above_a4988_maximum() {
 }
 
 #[test]
+fn motor_settings_reject_overflowing_microstep_scale() {
+    let error = validate_motor_settings(1 << 60, 16).unwrap_err();
+    assert!(error.contains("must fit in u64"), "{error}");
+}
+
+#[test]
+fn motor_settings_accept_the_largest_non_overflowing_scale() {
+    assert!(validate_motor_settings(u64::MAX / 16, 16).is_ok());
+}
+
+#[test]
 fn position_text_rejects_zero_steps_per_revolution() {
     assert!(config_from_line("100 0 50 200 200 0 1 1").is_err());
 }
