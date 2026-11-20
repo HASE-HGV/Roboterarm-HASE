@@ -676,6 +676,7 @@ pub(crate) fn serve_requests(
         reap_finished_workers(&mut workers);
         match listener.accept() {
             Ok((mut stream, _)) => {
+                stream.set_nonblocking(false)?;
                 if workers.len() >= MAX_WORKER_THREADS {
                     eprintln!(
                         "{}",

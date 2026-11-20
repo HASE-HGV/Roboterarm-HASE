@@ -74,6 +74,8 @@ mod server_tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let address = listener.local_addr().unwrap();
+        let (accepted_tx, accepted_rx) = mpsc::channel();
+        let listener = NotifyingListener(listener, accepted_tx);
         let (shutdown_tx, shutdown_rx) = mpsc::channel();
         let server_shutdown = shutdown_tx.clone();
         let server = thread::spawn(move || {
@@ -82,8 +84,16 @@ mod server_tests {
 
         let mut clients = Vec::new();
         for _ in 0..http_api::MAX_WORKER_THREADS {
-            clients.push(TcpStream::connect(address).unwrap());
-            thread::sleep(Duration::from_millis(10));
+            let mut client = TcpStream::connect(address).unwrap();
+            client
+                .write_all(b"GET /status HTTP/1.1\r\nHost: localhost\r\n")
+                .unwrap();
+            clients.push(client);
+        }
+        for _ in 0..http_api::MAX_WORKER_THREADS {
+            accepted_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("server should accept each held connection");
         }
 
         let mut overflow = TcpStream::connect(address).unwrap();
@@ -157,6 +167,16 @@ mod server_tests {
         fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
             self.0.fetch_add(1, Ordering::SeqCst);
             Err(io::Error::other("synthetic accept failure"))
+        }
+    }
+
+    struct NotifyingListener(TcpListener, Sender<()>);
+
+    impl HttpListener for NotifyingListener {
+        fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
+            let accepted = self.0.accept()?;
+            let _ = self.1.send(());
+            Ok(accepted)
         }
     }
 

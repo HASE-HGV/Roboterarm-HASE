@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 
 use crate::bresenham::MultiAxisPlanner;
 use crate::config::{
-    GEAR_RATIO, MotionConfig, POSITION_FORMAT, RAW_FORMAT, StartPosition, validate_motor_settings,
+    MotionConfig, POSITION_FORMAT, RAW_FORMAT, StartPosition, settings, validate_motor_settings,
 };
 use crate::kinematics::{
     ArmSolution, deg_to_steps, forward_r_z_mm, ik_angles_3d_deg, overhead_sleep_us,
@@ -251,7 +251,7 @@ pub(crate) fn runtime_test_report() -> RuntimeTestReport {
             validate_ik_roundtrip(radius, height)
         }),
         ("runtime_test_step_conversion", || {
-            let steps = deg_to_steps(360.0, 200, 1, GEAR_RATIO);
+            let steps = deg_to_steps(360.0, 200, 1, settings().hardware.gear_ratio);
             validate_step_conversion(steps)
         }),
         ("runtime_test_timing_validation", || {

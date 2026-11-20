@@ -31,6 +31,22 @@ fn welcome() {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     welcome();
+    config::load_settings()?;
+    let config = config::settings();
+    println!(
+        "{}",
+        pretty::info(&format!(
+            "gear_ratio={:.2} | target={}µs (2 × pulse={}µs + overhead={}µs) | GPIO M1={:?} M2={:?} M3={:?} M4={:?}",
+            config.hardware.gear_ratio,
+            config.hardware.target_time_us(),
+            config.hardware.pulse_t_us,
+            config.hardware.overhead_us,
+            config.pins.m1,
+            config.pins.m2,
+            config.pins.m3,
+            config.pins.m4
+        ))
+    );
     let args: Vec<String> = env::args().collect();
     cli::get_mode(&args)
 }

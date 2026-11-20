@@ -1,9 +1,10 @@
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::config::{GEAR_RATIO, MotionConfig, NUM_AXES, StartPosition};
+use crate::config::{MotionConfig, NUM_AXES, StartPosition, settings};
 use crate::kinematics::{
-    ArmSolution, checked_deg_to_steps, deg_to_steps, ik_angles_3d_deg, overhead_sleep_us,
+    ArmSolution, checked_deg_to_steps, deg_to_steps, ik_angles_3d_deg,
+    overhead_sleep_us_with_overhead,
 };
 use crate::pretty;
 
@@ -21,7 +22,12 @@ pub(crate) fn step_plan(config: &MotionConfig, solution: ArmSolution) -> [i64; N
         .iter_mut()
         .zip(joint_deltas(config.start, solution))
         .for_each(|(step, delta)| {
-            *step = deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO);
+            *step = deg_to_steps(
+                delta,
+                config.steps_per_rev,
+                config.microstep,
+                settings().hardware.gear_ratio,
+            );
         });
     steps
 }
@@ -35,8 +41,12 @@ pub(crate) fn checked_step_plan(
         .iter_mut()
         .zip(joint_deltas(config.start, solution))
         .try_for_each(|(step, delta)| -> Result<(), String> {
-            *step =
-                checked_deg_to_steps(delta, config.steps_per_rev, config.microstep, GEAR_RATIO)?;
+            *step = checked_deg_to_steps(
+                delta,
+                config.steps_per_rev,
+                config.microstep,
+                settings().hardware.gear_ratio,
+            )?;
             Ok(())
         })?;
     Ok(steps)
@@ -58,7 +68,11 @@ pub(crate) fn execute_solution(
     config: &MotionConfig,
     solution: ArmSolution,
 ) -> Result<(), Box<dyn Error>> {
-    let overhead_us = overhead_sleep_us(config.total_time_us, config.pulse_t_us)?;
+    let overhead_us = overhead_sleep_us_with_overhead(
+        config.total_time_us,
+        config.pulse_t_us,
+        settings().hardware.overhead_us,
+    )?;
     let steps = checked_step_plan(config, solution)?;
     print_plan(config, &solution);
 
@@ -105,8 +119,11 @@ pub(crate) fn plan_report(config: &MotionConfig, solution: &ArmSolution) -> Stri
         )));
     }
     lines.push(pretty::info(&format!(
-        "Target steps (16:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
-        steps[2], steps[0], steps[1]
+        "Target steps ({:.1}:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
+        settings().hardware.gear_ratio,
+        steps[2],
+        steps[0],
+        steps[1]
     )));
     lines.join("\n")
 }
@@ -123,15 +140,6 @@ use crate::bresenham::MultiAxisPlanner;
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 use rppal::gpio::{Gpio, OutputPin};
-
-#[cfg(all(feature = "hardware", target_os = "linux"))]
-const PIN_AXIS1: (u8, u8) = (17, 27);
-#[cfg(all(feature = "hardware", target_os = "linux"))]
-const PIN_AXIS2: (u8, u8) = (22, 23);
-#[cfg(all(feature = "hardware", target_os = "linux"))]
-const PIN_BASE: (u8, u8) = (24, 25);
-#[cfg(all(feature = "hardware", target_os = "linux"))]
-const PIN_ENDEFFECTOR: (u8, u8) = (5, 6);
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
 struct StepperMotor {
@@ -203,12 +211,13 @@ fn run_hardware(
     overhead_us: u64,
 ) -> Result<(), Box<dyn Error>> {
     let gpio = Gpio::new()?;
+    let pins = settings().pins;
     let mut motors = [
-        StepperMotor::new(&gpio, PIN_AXIS1.0, PIN_AXIS1.1)?,
-        StepperMotor::new(&gpio, PIN_AXIS2.0, PIN_AXIS2.1)?,
-        StepperMotor::new(&gpio, PIN_BASE.0, PIN_BASE.1)?,
+        StepperMotor::new(&gpio, pins.m1[0], pins.m1[1])?,
+        StepperMotor::new(&gpio, pins.m2[0], pins.m2[1])?,
+        StepperMotor::new(&gpio, pins.m3[0], pins.m3[1])?,
     ];
-    let mut spare = StepperMotor::new(&gpio, PIN_ENDEFFECTOR.0, PIN_ENDEFFECTOR.1)?;
+    let mut spare = StepperMotor::new(&gpio, pins.m4[0], pins.m4[1])?;
     spare.reset();
     motors.iter_mut().zip(steps).for_each(|(motor, step)| {
         motor.set_direction_ccw(crate::kinematics::direction_is_ccw(

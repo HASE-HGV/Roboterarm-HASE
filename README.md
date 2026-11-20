@@ -648,13 +648,39 @@ the current and target poses.
 
 **Function:** `deg_to_steps(angle_deg, steps_per_rev, microstep) → i64`
 
-$$\text{steps} = \text{angle} \times \frac{\text{steps\_per\_rev} \times \text{microstep}}{360°} \times \text{GEAR\_RATIO}$$
+$$\text{steps} = \text{angle} \times \frac{\text{steps\_per\_rev} \times \text{microstep}}{360°} \times \text{gear\_ratio}$$
 
-| Constant | Value | Notes |
+| Setting | Default | Notes |
 |----------|:-----:|-------|
-| `GEAR_RATIO` | 16.0 | Hardcoded 16:1 reduction gearbox |
+| `gear_ratio` | 16.0 | Gearbox reduction ratio from `rustctl/src/configs/config.toml` |
 | `steps_per_rev` | 200 | Typical for 1.8°/step NEMA 17 |
 | `microstep` | 16 | 1/16 microstepping (MS1+MS2+MS3 all HIGH) |
+
+Hardware settings are read from `src/configs/config.toml`, relative to the
+`rustctl` working directory. The file accepts these keys (each pin pair is
+`[STEP, DIR]`, using BCM numbers):
+
+```toml
+[hardware]
+gear_ratio = 16.0
+pulse_t_us = 500
+overhead_us = 83
+
+[pins]
+m1 = [17, 27] # Shoulder
+m2 = [22, 23] # Elbow
+m3 = [24, 25] # Base
+m4 = [5, 6]   # Auxiliary
+```
+
+The `[hardware]` section contains the gear ratio, pulse width, and hardware
+overhead. The target period is calculated as `2 * pulse_t_us + overhead_us`
+(1083 µs with these defaults); it is not set separately. The `[pins]`
+section names motors M1 through M4; each pair is that motor's STEP then DIR
+GPIO. If the file is absent, built-in defaults are used. Startup rejects
+non-positive or non-finite gear ratios, timing that cannot fit the pulse and
+GPIO overhead, duplicate pins, and BCM GPIO numbers above 27; it prints the
+active settings.
 
 > [!NOTE]
 > With the above defaults: **1° of joint angle = 142.2 motor steps**.  

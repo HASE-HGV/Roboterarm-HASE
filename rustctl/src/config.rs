@@ -1,11 +1,128 @@
+use serde::Deserialize;
 use std::error::Error;
+use std::{fs, sync::OnceLock};
 
 use crate::kinematics::ArmSolution;
 
-pub(crate) const TOTAL_TIME_US: u64 = 1083;
-pub(crate) const PULSE_T_US: u64 = 500;
-pub(crate) const GEAR_RATIO: f64 = 16.0;
 pub(crate) const NUM_AXES: usize = 3;
+
+// Legacy names used by the existing unit cases; runtime reads these from TOML.
+#[cfg(test)]
+pub(crate) const TOTAL_TIME_US: u64 = 1083;
+#[cfg(test)]
+pub(crate) const PULSE_T_US: u64 = 500;
+#[cfg(test)]
+pub(crate) const GEAR_RATIO: f64 = 16.0;
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(default)]
+// Hardware and pin settings loaded from src/configs/config.toml.
+pub(crate) struct HardwareConfig {
+    pub(crate) hardware: HardwareSettings,
+    pub(crate) pins: Pins,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(default)]
+pub(crate) struct HardwareSettings {
+    pub(crate) gear_ratio: f64,
+    pub(crate) pulse_t_us: u64,
+    pub(crate) overhead_us: u64,
+}
+
+impl HardwareSettings {
+    pub(crate) fn target_time_us(self) -> u64 {
+        self.pulse_t_us
+            .checked_mul(2)
+            .and_then(|pulse| pulse.checked_add(self.overhead_us))
+            .expect("hardware timing is validated at startup")
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(default)]
+// Each pair is [STEP, DIR] for one motor.
+pub(crate) struct Pins {
+    pub(crate) m1: [u8; 2],
+    pub(crate) m2: [u8; 2],
+    pub(crate) m3: [u8; 2],
+    pub(crate) m4: [u8; 2],
+}
+//Defaults for when config file is missing values or is missing all together
+impl Default for Pins {
+    fn default() -> Self {
+        Self {
+            m1: [17, 27],
+            m2: [22, 23],
+            m3: [24, 25],
+            m4: [5, 6],
+        }
+    }
+}
+
+impl Default for HardwareConfig {
+    fn default() -> Self {
+        Self {
+            hardware: HardwareSettings::default(),
+            pins: Pins::default(),
+        }
+    }
+}
+
+impl Default for HardwareSettings {
+    fn default() -> Self {
+        Self {
+            gear_ratio: 16.0,
+            pulse_t_us: 500,
+            overhead_us: 83,
+        }
+    }
+}
+
+static HARDWARE_CONFIG: OnceLock<HardwareConfig> = OnceLock::new();
+
+pub(crate) fn settings() -> &'static HardwareConfig {
+    HARDWARE_CONFIG.get_or_init(HardwareConfig::default)
+}
+
+pub(crate) fn load_settings() -> Result<(), Box<dyn Error>> {
+    let path = "src/configs/config.toml";
+    let config = match fs::read_to_string(path) {
+        Ok(text) => toml::from_str::<HardwareConfig>(&text)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => HardwareConfig::default(),
+        Err(error) => return Err(error.into()),
+    };
+    validate_settings(&config)?;
+    let _ = HARDWARE_CONFIG.set(config);
+    Ok(())
+}
+
+fn validate_settings(config: &HardwareConfig) -> Result<(), Box<dyn Error>> {
+    if !config.hardware.gear_ratio.is_finite() || config.hardware.gear_ratio <= 0.0 {
+        return Err("gear_ratio must be finite and positive".into());
+    }
+    crate::kinematics::overhead_sleep_us_with_overhead(
+        config.hardware.target_time_us(),
+        config.hardware.pulse_t_us,
+        config.hardware.overhead_us,
+    )?;
+    let pins = [
+        config.pins.m1,
+        config.pins.m2,
+        config.pins.m3,
+        config.pins.m4,
+    ];
+    let flat: Vec<u8> = pins.into_iter().flatten().collect();
+    if flat.iter().any(|pin| *pin > 27)
+        || flat
+            .iter()
+            .enumerate()
+            .any(|(i, pin)| flat[..i].contains(pin))
+    {
+        return Err("GPIO pins must be unique BCM numbers from 0 through 27".into());
+    }
+    Ok(())
+}
 
 pub(crate) const POSITION_FIELDS: usize = 8;
 
@@ -73,8 +190,8 @@ impl MotionConfig {
         ccw_positive: bool,
     ) -> Self {
         Self {
-            total_time_us: TOTAL_TIME_US,
-            pulse_t_us: PULSE_T_US,
+            total_time_us: settings().hardware.target_time_us(),
+            pulse_t_us: settings().hardware.pulse_t_us,
             x_mm,
             y_mm,
             z_mm,

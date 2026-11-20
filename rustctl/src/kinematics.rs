@@ -1,4 +1,4 @@
-const HARDWARE_OVERHEAD_US: u64 = 83;
+const DEFAULT_HARDWARE_OVERHEAD_US: u64 = 83;
 // The IK equations square distances and lengths.  Above this bound, a finite
 // input can still overflow that intermediate calculation.
 const MAX_SAFE_IK_DIMENSION_MM: f64 = 1.340_780_792_994_259_6e154;
@@ -147,17 +147,37 @@ pub(crate) fn direction_is_ccw(steps: i64, ccw_positive: bool) -> bool {
     (steps > 0) == ccw_positive
 }
 
+#[cfg(test)]
 pub(crate) fn minimum_period_us(pulse_t_us: u64) -> u64 {
-    2 * pulse_t_us + HARDWARE_OVERHEAD_US
+    minimum_period_us_with_overhead(pulse_t_us, DEFAULT_HARDWARE_OVERHEAD_US)
+        .expect("default timing fits in u64")
 }
 
 pub(crate) fn overhead_sleep_us(total_time_us: u64, pulse_t_us: u64) -> Result<u64, String> {
-    let min = minimum_period_us(pulse_t_us);
-    if total_time_us < min {
+    overhead_sleep_us_with_overhead(total_time_us, pulse_t_us, DEFAULT_HARDWARE_OVERHEAD_US)
+}
+
+pub(crate) fn minimum_period_us_with_overhead(
+    pulse_t_us: u64,
+    overhead_us: u64,
+) -> Result<u64, String> {
+    pulse_t_us
+        .checked_mul(2)
+        .and_then(|pulse| pulse.checked_add(overhead_us))
+        .ok_or_else(|| "pulse timing and hardware overhead exceed u64".to_owned())
+}
+
+pub(crate) fn overhead_sleep_us_with_overhead(
+    target_time_us: u64,
+    pulse_t_us: u64,
+    overhead_us: u64,
+) -> Result<u64, String> {
+    let min = minimum_period_us_with_overhead(pulse_t_us, overhead_us)?;
+    if target_time_us < min {
         return Err(format!(
-            "total_time ({total_time_us}) must be >= {min} µs to accommodate \
+            "target_time_us/total_time ({target_time_us}) must be >= {min} µs to accommodate \
              pulse widths and hardware overhead"
         ));
     }
-    Ok(total_time_us - min)
+    Ok(target_time_us - min)
 }
