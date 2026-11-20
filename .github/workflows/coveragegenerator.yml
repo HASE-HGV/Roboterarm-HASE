@@ -1,8 +1,8 @@
+
 name: Rust Code Coverage
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          ref: ${{ github.ref_name }}
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
@@ -25,7 +25,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Generate coverage JSON (continue if tests fail)
+      - name: Generate coverage JSON
         working-directory: rustctl
         run: |
           cargo llvm-cov \
@@ -41,7 +41,6 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
-          import os
           from pathlib import Path
 
           coverage_file = Path("rustctl/coverage.json")
@@ -51,9 +50,7 @@ jobs:
           end_marker = "<!-- COVERAGE-END -->"
 
           if not coverage_file.exists():
-              raise SystemExit(
-                  "Coverage JSON was not created. Check the cargo llvm-cov step."
-              )
+              raise SystemExit("Coverage JSON was not created.")
 
           data = json.loads(coverage_file.read_text(encoding="utf-8"))
           report = data["data"][0]
@@ -73,12 +70,14 @@ jobs:
 
           for item in sorted(files, key=lambda x: x["filename"]):
               filename = item["filename"].replace("\\", "/")
+
               if "/rustctl/" in filename:
                   filename = "rustctl/" + filename.rsplit("/rustctl/", 1)[1]
               else:
                   filename = Path(filename).name
 
               summary = item.get("summary", {})
+
               rows.append(
                   f"| `{filename}` "
                   f"| {percent(summary, 'lines')} "
@@ -86,12 +85,47 @@ jobs:
                   f"| {percent(summary, 'regions')} |"
               )
 
-          rows.append("")
-          rows.append("**Gesamt:**")
-          rows.append("")
-          rows.append(
-              f"- Zeilen: **{percent(totals, 'lines')}**"
-          )
-          rows.append(
-              f"- Funktionen: **{percent(totals, 'functions')}**"
+          rows.extend([
+              "",
+              "**Gesamt:**",
+              "",
+              f"- Zeilen: **{percent(totals, 'lines')}**",
+              f"- Funktionen: **{percent(totals, 'functions')}**",
+              f"- Bereiche: **{percent(totals, 'regions')}**",
+          ])
 
+          readme = readme_file.read_text(encoding="utf-8")
+
+          if start_marker not in readme or end_marker not in readme:
+              raise SystemExit("Coverage markers missing in README.md")
+
+          before, rest = readme.split(start_marker, 1)
+          _, after = rest.split(end_marker, 1)
+
+          updated = (
+              before
+              + start_marker
+              + "\n"
+              + "\n".join(rows)
+              + "\n"
+              + end_marker
+              + after
+          )
+
+          readme_file.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Commit updated README
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+users.noreply.github.com"
+
+          git add README.md
+
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: update Rust coverage [skip ci]"
+            git push
+          else
+            echo "README coverage has not changed."
+          fi
