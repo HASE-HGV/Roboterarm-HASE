@@ -25,6 +25,11 @@ pub(crate) fn validate_motor_settings(steps_per_rev: u64, microstep: u64) -> Res
     if !matches!(microstep, 1 | 2 | 4 | 8 | 16) {
         return Err("microstep must be one of 1, 2, 4, 8, or 16".to_owned());
     }
+    if steps_per_rev > u64::MAX / microstep {
+        return Err(format!(
+            "steps_per_rev is too large for microstep {microstep}; steps_per_rev * microstep must fit in u64"
+        ));
+    }
     Ok(())
 }
 

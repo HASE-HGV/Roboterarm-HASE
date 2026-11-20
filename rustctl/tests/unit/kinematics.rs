@@ -275,3 +275,11 @@ fn ik_rejects_infinite_second_link_length() {
         Err("Kinematics inputs must be finite")
     );
 }
+
+#[test]
+fn ik_rejects_finite_geometry_that_would_overflow_workspace_math() {
+    assert_eq!(
+        ik_angles_3d_deg(1e308, 0.0, 0.0, 1e308, 1e308),
+        Err("Kinematics geometry is too large to represent safely")
+    );
+}

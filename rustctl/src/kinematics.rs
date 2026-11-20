@@ -1,4 +1,7 @@
 const HARDWARE_OVERHEAD_US: u64 = 83;
+// The IK equations square distances and lengths.  Above this bound, a finite
+// input can still overflow that intermediate calculation.
+const MAX_SAFE_IK_DIMENSION_MM: f64 = 1.340_780_792_994_259_6e154;
 
 macro_rules! debug_invariant {
     ($cond:expr $(, $dump:expr)*) => {
@@ -53,6 +56,13 @@ pub(crate) fn ik_angles_3d_deg(
     }
     if x_mm < 0.0 {
         return Err("Radius X must be non-negative");
+    }
+    if x_mm.abs() > MAX_SAFE_IK_DIMENSION_MM
+        || z_mm.abs() > MAX_SAFE_IK_DIMENSION_MM
+        || l1_mm > MAX_SAFE_IK_DIMENSION_MM
+        || l2_mm > MAX_SAFE_IK_DIMENSION_MM
+    {
+        return Err("Kinematics geometry is too large to represent safely");
     }
 
     let theta_base = y_mm.to_radians();
