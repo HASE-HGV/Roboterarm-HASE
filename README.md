@@ -1065,6 +1065,11 @@ cargo install cargo-llvm-cov
 cargo llvm-cov --summary-only
 cargo llvm-cov --html --open
 ```
+## Rust Code Coverage
+
+<!-- COVERAGE-START -->
+Gets updated when push
+<!-- COVERAGE-END -->
 
 The latest default-build run on macOS reported **97.69% line coverage**,
 **95.61% region coverage**, and **99.24% function coverage**. Line coverage is
