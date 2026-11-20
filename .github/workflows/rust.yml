@@ -18,7 +18,7 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Build
       run: cd rustctl && cargo build --verbose
     - name: Run tests
@@ -65,6 +65,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Check hardware feature
       run: cd rustctl && cargo check --all-targets --features hardware
