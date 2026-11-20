@@ -147,6 +147,8 @@ All BCM pin numbers reference the [pinout.xyz](https://pinout.xyz) standard.
 | M3 | Base rotation | GPIO 24 | GPIO 25 | ✅ |
 | M4 | Auxiliary | GPIO 5 | GPIO 6 | ⬜ unused but reserved |
 
+> Homing sensors and repeatability are not yet verified. Use the [homing sensor planning and verification worksheet](hardware/homing-verification.md) to record actual sensor wiring, reference positions, and unloaded/loaded results.
+
 ### 3.3 Wiring Diagram
 
 ```mermaid
