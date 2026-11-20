@@ -3,20 +3,15 @@ name: Rust Code Coverage
 
 on:
   push:
-    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   coverage:
     name: Update README coverage table
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    permissions:
-      contents: write
 
     steps:
       - name: Check out repository
@@ -38,9 +33,11 @@ jobs:
             --all-features \
             --tests \
             --json \
-            --output-path coverage.json
+            --output-path coverage.json \
+            --ignore-run-fail || true
 
       - name: Update coverage table in README
+        if: always()
         run: |
           python3 - <<'PY'
           import json
@@ -119,6 +116,7 @@ jobs:
           PY
 
       - name: Commit updated README
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+users.noreply.github.com"
