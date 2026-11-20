@@ -68,3 +68,7 @@ jobs:
     - uses: actions/checkout@v7
     - name: Check hardware feature
       run: cd rustctl && cargo check --all-targets --features hardware
+    - name: Check formatting
+      run: cd rustctl && cargo fmt --all -- --check
+    - name: Run Clippy
+      run: cd rustctl && cargo clippy --all-targets --features hardware -- -D warnings

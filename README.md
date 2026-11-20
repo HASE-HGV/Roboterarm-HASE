@@ -1101,6 +1101,13 @@ test binaries, so `cargo test --quiet` prints each heading above its test dots
 without inserting progress counters between them. Tests run serially so the
 headings stay grouped and readable. The final output includes the combined
 test count across all Rust test targets.
+
+CI also checks formatting, compiles all targets with the `hardware` feature on
+Linux, and runs Clippy with warnings treated as errors. From `rustctl/`, those
+checks are `cargo fmt --all -- --check`,
+`cargo check --all-targets --features hardware`, and
+`cargo clippy --all-targets --features hardware -- -D warnings`.
+
 The hardware GPIO path still requires a Linux Raspberry Pi or suitable GPIO
 test hardware.
 

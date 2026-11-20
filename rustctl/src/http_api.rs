@@ -425,16 +425,15 @@ pub(crate) fn handle_request_with_shutdown(
         );
     }
 
-    if request.method == "POST" {
-        if let Some(token) = resolve_token() {
-            if !request_has_valid_token(&request, &token) {
-                return write_json_response(
-                    stream,
-                    "401 Unauthorized",
-                    &error_json("missing or invalid API token"),
-                );
-            }
-        }
+    if request.method == "POST"
+        && let Some(token) = resolve_token()
+        && !request_has_valid_token(&request, &token)
+    {
+        return write_json_response(
+            stream,
+            "401 Unauthorized",
+            &error_json("missing or invalid API token"),
+        );
     }
 
     if path == "/quit" {
@@ -549,10 +548,10 @@ pub(crate) fn banner_lines(
                 .iter()
                 .map(|address| format!("http://{}:{port}/  ({})", address.ip, address.interface)),
         );
-        if let Some(hostname) = &hostname {
-            if let Some(url) = net::hostname_url(hostname, port) {
-                urls.push(format!("{url}  (hostname, needs mDNS)"));
-            }
+        if let Some(hostname) = &hostname
+            && let Some(url) = net::hostname_url(hostname, port)
+        {
+            urls.push(format!("{url}  (hostname, needs mDNS)"));
         }
         if urls.is_empty() {
             urls.push(format!("http://127.0.0.1:{port}/  (loopback only)"));
@@ -649,7 +648,7 @@ pub(crate) fn run_api_with_address(
             pretty::warning("RUSTCTL_API_ADDR is deprecated; use RUSTCTL_SITE_ADDR instead.")
         );
     }
-    let listener = TcpListener::bind(&address)?;
+    let listener = TcpListener::bind(address)?;
     listener.set_nonblocking(true)?;
     clear_server_shutdown();
     crate::motion::reset_stop();

@@ -38,6 +38,7 @@ pub(crate) fn run_position_loop(api: bool) -> Result<(), Box<dyn std::error::Err
     }
 }
 
+#[cfg(any(test, not(all(feature = "hardware", target_os = "linux"))))]
 pub(crate) fn run_position_loop_with_io<R: BufRead, W: Write>(
     mut reader: R,
     writer: W,
@@ -145,6 +146,7 @@ pub(crate) fn run_raw_loop() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+#[cfg(any(test, not(all(feature = "hardware", target_os = "linux"))))]
 pub(crate) fn run_raw_loop_with_io<R: BufRead, W: Write>(
     mut reader: R,
     writer: W,

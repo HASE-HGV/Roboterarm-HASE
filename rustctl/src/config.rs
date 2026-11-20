@@ -14,7 +14,7 @@ pub(crate) const PULSE_T_US: u64 = 500;
 #[cfg(test)]
 pub(crate) const GEAR_RATIO: f64 = 16.0;
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(default)]
 // Hardware and pin settings loaded from src/configs/config.toml.
 pub(crate) struct HardwareConfig {
@@ -56,15 +56,6 @@ impl Default for Pins {
             m2: [22, 23],
             m3: [24, 25],
             m4: [5, 6],
-        }
-    }
-}
-
-impl Default for HardwareConfig {
-    fn default() -> Self {
-        Self {
-            hardware: HardwareSettings::default(),
-            pins: Pins::default(),
         }
     }
 }
@@ -179,6 +170,7 @@ pub(crate) struct MotionConfig {
 }
 
 impl MotionConfig {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         x_mm: f64,
         y_mm: f64,

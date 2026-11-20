@@ -218,13 +218,10 @@ fn spawn_accept_loop() -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     thread::spawn(move || {
-        for stream in listener.incoming() {
-            if let Ok(stream) = stream {
-                thread::spawn(move || {
-                    let mut stream = stream;
-                    let _ = crate::http_api::handle_connection_with_shutdown(&mut stream, None);
-                });
-            }
+        for mut stream in listener.incoming().flatten() {
+            thread::spawn(move || {
+                let _ = crate::http_api::handle_connection_with_shutdown(&mut stream, None);
+            });
         }
     });
     address

@@ -13,9 +13,9 @@ mod shell;
 use std::env;
 
 fn welcome() {
-    println!("");
-    println!("");
-    println!("");
+    println!();
+    println!();
+    println!();
     println!(r#"                               Welcome to:           "#);
     println!(r#"                                                     "#);
     println!(r#"                                      _       _   _  "#);
@@ -24,9 +24,9 @@ fn welcome() {
     println!(r#"                      | '__| | | / __| __/ __| __| | "#);
     println!(r#"                      | |  | |_| \__ \ || (__| |_| | "#);
     println!(r#"                      |_|   \__,_|___/\__\___|\__|_| "#);
-    println!("");
-    println!("");
-    println!("");
+    println!();
+    println!();
+    println!();
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

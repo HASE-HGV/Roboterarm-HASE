@@ -1,4 +1,4 @@
-mod server_tests {
+mod http_server_tests {
     use crate::http_api::{self, HttpListener};
     use std::io::{self, Read, Write};
     use std::net::{SocketAddr, TcpListener, TcpStream};

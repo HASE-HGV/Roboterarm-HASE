@@ -180,7 +180,8 @@ fn runtime_tests_report_named_failures() {
 
 #[test]
 fn runtime_check_report_collects_failure_details() {
-    let checks: [(&str, fn() -> Result<(), String>); 2] = [
+    type RuntimeCheck = (&'static str, fn() -> Result<(), String>);
+    let checks: [RuntimeCheck; 2] = [
         ("passing_check", || Ok(())),
         ("failing_check", || Err("expected synthetic failure".to_owned())),
     ];
@@ -201,7 +202,7 @@ fn runtime_check_report_handles_all_passing_or_empty_checks() {
     assert!(empty_report.checks.is_empty());
     assert!(empty_report.failures.is_empty());
 
-    let passing_checks: [(&str, fn() -> Result<(), String>); 2] = [
+    let passing_checks: [RuntimeCheck; 2] = [
         ("check1", || Ok(())),
         ("check2", || Ok(())),
     ];
