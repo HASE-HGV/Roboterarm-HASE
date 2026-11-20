@@ -5,11 +5,15 @@
 ![License](https://img.shields.io/github/license/HASE-HGV/Roboterarm-HASE)
 
 [![Rust Tests](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/rust.yml)
-![unit tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHASE-HGV%2FRoboterarm-HASE%2Fmain%2Frustctl-tests.json&label=unit%20tests&color=orange&cacheSeconds=300&v=2)
 [![CodeQL Advanced](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml/badge.svg)](https://github.com/HASE-HGV/Roboterarm-HASE/actions/workflows/codeql.yml)
 
 > **Open-source robot arm and control software** developed by students of the  
 > [Humboldt Academy for Science and Engineering](https://www.humboldt-gym.de) at HGV Vaterstetten.
+
+**New here?** Start with the [project overview](#2-project-overview), then follow
+[installation and usage](#7-installation--usage). The [project wiki](https://github.com/HASE-HGV/Roboterarm-HASE/wiki)
+collects focused setup and safety guides; [GitHub Actions](https://github.com/HASE-HGV/Roboterarm-HASE/actions)
+shows the latest build, test, and security checks.
 
 
 <details>
@@ -1104,12 +1108,9 @@ cargo llvm-cov --html --open
 - Regions: **85.7%**
 <!-- COVERAGE-END -->
 
-The latest default-build run on macOS reported **97.69% line coverage**,
-**95.61% region coverage**, and **99.24% function coverage**. Line coverage is
-100% in every Rust source module except `cli.rs` (90.54%), `shell.rs` (86.21%),
-and `http_api.rs` (98.05%). The Linux-only GPIO implementation enabled by the
-`hardware` feature is excluded on macOS, so it still needs coverage on a Linux
-Raspberry Pi or other suitable GPIO test hardware.
+The table is generated from the latest successful coverage workflow run on
+GitHub Actions. Coverage measures the Rust workspace tests; it does not replace
+validation on a Raspberry Pi or exercise connected motors and GPIO hardware.
 
 ### 7.6 Running on a Raspberry Pi
 
