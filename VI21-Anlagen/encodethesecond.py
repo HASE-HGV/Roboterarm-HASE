@@ -1,13 +1,34 @@
-import os
 import subprocess
-import time  # Imported to track elapsed time
+import time
+from pathlib import Path
+
+
+def output_path_for(file_name, output_dir):
+    """Map an input below the current directory to a matching output path."""
+    working_dir = Path.cwd().resolve()
+    source = Path(file_name)
+    if source.is_absolute():
+        source = source.resolve().relative_to(working_dir)
+    elif ".." in source.parts:
+        raise ValueError("Input paths must stay inside the current directory")
+
+    return Path(output_dir) / source.with_suffix(".mov")
+
+
+def colliding_outputs(files, output_dir):
+    outputs = {}
+    collisions = set()
+    for file_name in files:
+        output_file = output_path_for(file_name, output_dir)
+        if output_file in outputs:
+            collisions.add(output_file)
+        else:
+            outputs[output_file] = file_name
+    return collisions
+
 
 def encode_videos():
-    # Ensure the output directory exists
-    output_dir = "encoded"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        print(f"Created directory: {output_dir}/")
+    output_dir = Path("encoded")
 
     print("--- DaVinci Resolve Linux Video Converter ---")
     print("Enter the filenames you want to convert (e.g., C0045.mp4).")
@@ -23,15 +44,32 @@ def encode_videos():
     # Trackers for the final summary
     successful_files = []
     total_start_time = time.time()
+    try:
+        collisions = colliding_outputs(files, output_dir)
+    except ValueError as error:
+        print(f"❌ Error: {error}.")
+        return
 
     for file_name in files:
-        if not os.path.exists(file_name):
+        source = Path(file_name)
+        if not source.is_file():
             print(f"❌ Error: File '{file_name}' not found in this folder. Skipping.")
             continue
 
-        # Extract filename without extension to name the output file
-        base_name, _ = os.path.splitext(file_name)
-        output_file = os.path.join(output_dir, f"{base_name}.mov")
+        try:
+            output_file = output_path_for(file_name, output_dir)
+        except ValueError as error:
+            print(f"❌ Error: {error}. Skipping '{file_name}'.")
+            continue
+
+        if output_file in collisions:
+            print(f"❌ Error: Multiple inputs map to '{output_file}'. Skipping '{file_name}' to avoid overwriting.")
+            continue
+        if output_file.exists():
+            print(f"❌ Error: Output '{output_file}' already exists. Skipping to avoid overwriting.")
+            continue
+
+        output_file.parent.mkdir(parents=True, exist_ok=True)
 
         print(f"\n🎬 Encoding: {file_name} -> {output_file}...")
 
@@ -40,7 +78,7 @@ def encode_videos():
 
         # ffmpeg command built as a list for stability
         cmd = [
-            "ffmpeg", "-y", "-i", file_name,
+            "ffmpeg", "-n", "-i", file_name,
             "-c:v", "prores_ks", "-profile:v", "1",
             "-c:a", "pcm_s16le", output_file
         ]
@@ -57,7 +95,7 @@ def encode_videos():
             successful_files.append(output_file)
 
         except subprocess.CalledProcessError:
-            print(f"❌ Error: Failed to encode '{file_name}'. Is ffmpeg installed?")
+            print(f"❌ Error: ffmpeg failed to encode '{file_name}'.")
         except FileNotFoundError:
             print("❌ Error: 'ffmpeg' command not found. Please install ffmpeg on your system.")
             return
