@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+#[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
+use crate::config::MotionProfile;
 use crate::config::{MotionConfig, NUM_AXES, StartPosition, settings};
 use crate::kinematics::{
     ArmSolution, checked_deg_to_steps, deg_to_steps, ik_angles_3d_deg,
@@ -52,6 +54,58 @@ pub(crate) fn checked_step_plan(
     Ok(steps)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
+pub(crate) struct StepPeriodSchedule {
+    total_steps: u64,
+    cruise_period_us: u64,
+    profile: MotionProfile,
+    ramp_steps: u64,
+    start_period_multiplier: u64,
+}
+
+#[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
+impl StepPeriodSchedule {
+    pub(crate) fn new(
+        total_steps: u64,
+        cruise_period_us: u64,
+        profile: MotionProfile,
+        ramp_steps: u64,
+        start_period_multiplier: u64,
+    ) -> Self {
+        Self {
+            total_steps,
+            cruise_period_us,
+            profile,
+            ramp_steps,
+            start_period_multiplier,
+        }
+    }
+
+    pub(crate) fn period_us_at(self, tick: u64) -> u64 {
+        if self.profile == MotionProfile::Fixed || self.total_steps == 0 {
+            return self.cruise_period_us;
+        }
+        let ramp = self.ramp_steps.min(self.total_steps / 2);
+        let edge_distance = tick.min(self.total_steps.saturating_sub(1).saturating_sub(tick));
+        if ramp == 0 || edge_distance >= ramp {
+            return self.cruise_period_us;
+        }
+        let extra = u128::from(self.cruise_period_us)
+            * u128::from(self.start_period_multiplier.saturating_sub(1))
+            * u128::from(ramp - edge_distance)
+            / u128::from(ramp);
+        self.cruise_period_us + extra as u64
+    }
+
+    #[cfg(test)]
+    pub(crate) fn duration_us(self) -> u64 {
+        (0..self.total_steps)
+            .map(|tick| self.period_us_at(tick))
+            .sum()
+    }
+}
+
 pub(crate) fn execute_position(config: MotionConfig) -> Result<(), Box<dyn Error>> {
     let solution = ik_angles_3d_deg(
         config.x_mm,
@@ -68,7 +122,7 @@ pub(crate) fn execute_solution(
     config: &MotionConfig,
     solution: ArmSolution,
 ) -> Result<(), Box<dyn Error>> {
-    let overhead_us = overhead_sleep_us_with_overhead(
+    let _overhead_us = overhead_sleep_us_with_overhead(
         config.total_time_us,
         config.pulse_t_us,
         settings().hardware.overhead_us,
@@ -77,11 +131,11 @@ pub(crate) fn execute_solution(
     print_plan(config, &solution);
 
     #[cfg(all(feature = "hardware", target_os = "linux"))]
-    run_hardware(config, steps, overhead_us)?;
+    run_hardware(config, steps)?;
 
     #[cfg(not(all(feature = "hardware", target_os = "linux")))]
     {
-        let _ = (overhead_us, steps);
+        let _ = (_overhead_us, steps);
         println!(
             "{}",
             pretty::warning(
@@ -205,11 +259,7 @@ pub(crate) fn ensure_ctrlc_handler_installed() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(all(feature = "hardware", target_os = "linux"))]
-fn run_hardware(
-    config: &MotionConfig,
-    steps: [i64; NUM_AXES],
-    overhead_us: u64,
-) -> Result<(), Box<dyn Error>> {
+fn run_hardware(config: &MotionConfig, steps: [i64; NUM_AXES]) -> Result<(), Box<dyn Error>> {
     let gpio = Gpio::new()?;
     let pins = settings().pins;
     let mut motors = [
@@ -231,7 +281,11 @@ fn run_hardware(
         &mut motors,
         steps,
         config.pulse_t_us,
-        overhead_us,
+        config.total_time_us,
+        settings().hardware.overhead_us,
+        settings().hardware.motion_profile,
+        settings().hardware.ramp_steps,
+        settings().hardware.start_period_multiplier,
         &TERMINATE,
     ) {
         Ok(stepped) => {
@@ -257,36 +311,56 @@ fn run_motion(
     motors: &mut [StepperMotor; NUM_AXES],
     steps: [i64; NUM_AXES],
     pulse_t_us: u64,
-    overhead_us: u64,
+    cruise_period_us: u64,
+    hardware_overhead_us: u64,
+    profile: MotionProfile,
+    ramp_steps: u64,
+    start_period_multiplier: u64,
     terminate: &AtomicBool,
 ) -> Result<[i64; NUM_AXES], Box<dyn Error>> {
     let expected: [i64; NUM_AXES] = std::array::from_fn(|i| steps[i].abs());
     let mut stepped = [0; NUM_AXES];
     let pulse = Duration::from_micros(pulse_t_us);
-    let overhead = Duration::from_micros(overhead_us);
-    MultiAxisPlanner::new(steps)
-        .take_while(|_| !terminate.load(Ordering::SeqCst))
-        .for_each(|pulses| {
-            motors
-                .iter_mut()
-                .zip(pulses)
-                .filter(|(_, pulse)| *pulse)
-                .for_each(|(motor, _)| motor.pulse_high());
-            thread::sleep(pulse);
-            motors
-                .iter_mut()
-                .zip(pulses)
-                .zip(&mut stepped)
-                .filter(|((_, pulse), _)| *pulse)
-                .for_each(|((motor, _), count)| {
-                    motor.pulse_low();
-                    *count += 1;
-                });
-            thread::sleep(pulse);
-            if overhead_us > 0 {
-                thread::sleep(overhead);
-            }
-        });
+    let total_ticks = steps
+        .iter()
+        .map(|step| step.unsigned_abs())
+        .max()
+        .unwrap_or(0);
+    let schedule = StepPeriodSchedule::new(
+        total_ticks,
+        cruise_period_us,
+        profile,
+        ramp_steps,
+        start_period_multiplier,
+    );
+    for (tick, pulses) in MultiAxisPlanner::new(steps).enumerate() {
+        if terminate.load(Ordering::SeqCst) {
+            break;
+        }
+        motors
+            .iter_mut()
+            .zip(pulses)
+            .filter(|(_, pulse)| *pulse)
+            .for_each(|(motor, _)| motor.pulse_high());
+        thread::sleep(pulse);
+        motors
+            .iter_mut()
+            .zip(pulses)
+            .zip(&mut stepped)
+            .filter(|((_, pulse), _)| *pulse)
+            .for_each(|((motor, _), count)| {
+                motor.pulse_low();
+                *count += 1;
+            });
+        thread::sleep(pulse);
+        let baseline_us = pulse_t_us * 2 + hardware_overhead_us;
+        let sleep_us = schedule
+            .period_us_at(tick as u64)
+            .saturating_sub(baseline_us);
+        if sleep_us > 0 {
+            thread::sleep(Duration::from_micros(sleep_us));
+        }
+    }
     if terminate.load(Ordering::SeqCst) {
         return Err(format!(
             "motion interrupted by Ctrl+C after {} of {} steps",

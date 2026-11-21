@@ -1,5 +1,26 @@
 use super::*;
 use crate::motion::{checked_step_plan, execute_solution};
+use crate::config::MotionProfile;
+use crate::motion::StepPeriodSchedule;
+
+#[test]
+fn trapezoidal_schedule_ramps_slowly_and_matches_total_duration() {
+    let schedule = StepPeriodSchedule::new(12, 1000, MotionProfile::Trapezoidal, 3, 2);
+    assert_eq!(
+        (0..12).map(|tick| schedule.period_us_at(tick)).collect::<Vec<_>>(),
+        [
+            2000, 1666, 1333, 1000, 1000, 1000, 1000, 1000, 1000, 1333, 1666, 2000
+        ]
+    );
+    assert_eq!(schedule.duration_us(), 15998);
+}
+
+#[test]
+fn fixed_schedule_keeps_the_cruise_period_for_every_tick() {
+    let schedule = StepPeriodSchedule::new(5, 1083, MotionProfile::Fixed, 32, 2);
+    assert_eq!((0..5).map(|tick| schedule.period_us_at(tick)).collect::<Vec<_>>(), [1083; 5]);
+    assert_eq!(schedule.duration_us(), 5 * 1083);
+}
 
 #[test]
 fn a_domain_label() {

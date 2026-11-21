@@ -666,6 +666,9 @@ Hardware settings are read from `src/configs/config.toml`, relative to the
 gear_ratio = 16.0
 pulse_t_us = 500
 overhead_us = 83
+motion_profile = "trapezoidal" # or "fixed"
+ramp_steps = 32
+start_period_multiplier = 2
 
 [pins]
 m1 = [17, 27] # Shoulder
@@ -674,9 +677,14 @@ m3 = [24, 25] # Base
 m4 = [5, 6]   # Auxiliary
 ```
 
-The `[hardware]` section contains the gear ratio, pulse width, and hardware
-overhead. The target period is calculated as `2 * pulse_t_us + overhead_us`
-(1083 µs with these defaults); it is not set separately. The `[pins]`
+The `[hardware]` section contains the gear ratio, pulse width, hardware
+overhead, and step timing profile. The target cruise period is calculated as
+`2 * pulse_t_us + overhead_us` (1083 µs with these defaults); it is not set
+separately. `motion_profile = "trapezoidal"` slows the first and last
+`ramp_steps` ticks linearly from `start_period_multiplier` times the cruise
+period down to cruise speed. Short moves shorten both ramps to fit without
+overlap. Set `motion_profile = "fixed"` to keep every step at the cruise
+period. The `[pins]`
 section names motors M1 through M4; each pair is that motor's STEP then DIR
 GPIO. If the file is absent, built-in defaults are used. Startup rejects
 non-positive or non-finite gear ratios, timing that cannot fit the pulse and
@@ -1282,7 +1290,7 @@ for all builder settings, hooks, Netplan, systemd, and Guacamole options.
 | # | Issue | Severity | Details |
 |---|-------|:--------:|---------|
 | 1 | **No homing or position feedback** | 🔴 High | Start angles are declarations supplied by the caller. There are no sensors to confirm the pose or detect missed steps. |
-| 2 | **No acceleration profile** | 🟠 Medium | Steps use a fixed period, so abrupt starts can cause missed steps. |
+| 2 | **No measured acceleration profile** | 🟠 Medium | A configurable trapezoidal period schedule is available; verify ramp settings on the Raspberry Pi under the intended load. |
 | 3 | **No mechanical joint limits or collision checks** | 🟠 Medium | IK rejects targets outside the two-link reach, but does not model joint stops, the physical arm envelope, or obstacles. |
 | 4 | **M4 is unused** | 🟠 Medium | The auxiliary motor mapping has no motion command or IK axis. |
 | 5 | **Gear ratio is fixed** | 🟡 Low | `GEAR_RATIO` is set to `16.0` in `rustctl/src/config.rs`. 

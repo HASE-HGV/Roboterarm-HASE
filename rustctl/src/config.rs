@@ -28,6 +28,17 @@ pub(crate) struct HardwareSettings {
     pub(crate) gear_ratio: f64,
     pub(crate) pulse_t_us: u64,
     pub(crate) overhead_us: u64,
+    pub(crate) motion_profile: MotionProfile,
+    pub(crate) ramp_steps: u64,
+    pub(crate) start_period_multiplier: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum MotionProfile {
+    Fixed,
+    #[default]
+    Trapezoidal,
 }
 
 impl HardwareSettings {
@@ -66,6 +77,9 @@ impl Default for HardwareSettings {
             gear_ratio: 16.0,
             pulse_t_us: 500,
             overhead_us: 83,
+            motion_profile: MotionProfile::Trapezoidal,
+            ramp_steps: 32,
+            start_period_multiplier: 2,
         }
     }
 }
@@ -97,6 +111,19 @@ fn validate_settings(config: &HardwareConfig) -> Result<(), Box<dyn Error>> {
         config.hardware.pulse_t_us,
         config.hardware.overhead_us,
     )?;
+    if config.hardware.motion_profile == MotionProfile::Trapezoidal {
+        if config.hardware.ramp_steps == 0 {
+            return Err("ramp_steps must be positive for the trapezoidal profile".into());
+        }
+        if config.hardware.start_period_multiplier < 2 {
+            return Err("start_period_multiplier must be at least 2".into());
+        }
+        config
+            .hardware
+            .target_time_us()
+            .checked_mul(config.hardware.start_period_multiplier)
+            .ok_or("maximum ramp period exceeds u64")?;
+    }
     let pins = [
         config.pins.m1,
         config.pins.m2,
