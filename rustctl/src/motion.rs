@@ -64,6 +64,17 @@ pub(crate) struct StepPeriodSchedule {
     start_period_multiplier: u64,
 }
 
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+#[derive(Debug, Clone, Copy)]
+struct MotionTiming {
+    pulse_t_us: u64,
+    cruise_period_us: u64,
+    hardware_overhead_us: u64,
+    profile: MotionProfile,
+    ramp_steps: u64,
+    start_period_multiplier: u64,
+}
+
 #[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
 impl StepPeriodSchedule {
     pub(crate) fn new(
@@ -277,15 +288,18 @@ fn run_hardware(config: &MotionConfig, steps: [i64; NUM_AXES]) -> Result<(), Box
     });
     TERMINATE.store(false, Ordering::SeqCst);
     ensure_ctrlc_handler_installed()?;
+    let hardware = settings().hardware;
     match run_motion(
         &mut motors,
         steps,
-        config.pulse_t_us,
-        config.total_time_us,
-        settings().hardware.overhead_us,
-        settings().hardware.motion_profile,
-        settings().hardware.ramp_steps,
-        settings().hardware.start_period_multiplier,
+        MotionTiming {
+            pulse_t_us: config.pulse_t_us,
+            cruise_period_us: config.total_time_us,
+            hardware_overhead_us: hardware.overhead_us,
+            profile: hardware.motion_profile,
+            ramp_steps: hardware.ramp_steps,
+            start_period_multiplier: hardware.start_period_multiplier,
+        },
         &TERMINATE,
     ) {
         Ok(stepped) => {
@@ -310,17 +324,12 @@ fn run_hardware(config: &MotionConfig, steps: [i64; NUM_AXES]) -> Result<(), Box
 fn run_motion(
     motors: &mut [StepperMotor; NUM_AXES],
     steps: [i64; NUM_AXES],
-    pulse_t_us: u64,
-    cruise_period_us: u64,
-    hardware_overhead_us: u64,
-    profile: MotionProfile,
-    ramp_steps: u64,
-    start_period_multiplier: u64,
+    timing: MotionTiming,
     terminate: &AtomicBool,
 ) -> Result<[i64; NUM_AXES], Box<dyn Error>> {
     let expected: [i64; NUM_AXES] = std::array::from_fn(|i| steps[i].abs());
     let mut stepped = [0; NUM_AXES];
-    let pulse = Duration::from_micros(pulse_t_us);
+    let pulse = Duration::from_micros(timing.pulse_t_us);
     let total_ticks = steps
         .iter()
         .map(|step| step.unsigned_abs())
@@ -328,10 +337,10 @@ fn run_motion(
         .unwrap_or(0);
     let schedule = StepPeriodSchedule::new(
         total_ticks,
-        cruise_period_us,
-        profile,
-        ramp_steps,
-        start_period_multiplier,
+        timing.cruise_period_us,
+        timing.profile,
+        timing.ramp_steps,
+        timing.start_period_multiplier,
     );
     for (tick, pulses) in MultiAxisPlanner::new(steps).enumerate() {
         if terminate.load(Ordering::SeqCst) {
@@ -353,7 +362,7 @@ fn run_motion(
                 *count += 1;
             });
         thread::sleep(pulse);
-        let baseline_us = pulse_t_us * 2 + hardware_overhead_us;
+        let baseline_us = timing.pulse_t_us * 2 + timing.hardware_overhead_us;
         let sleep_us = schedule
             .period_us_at(tick as u64)
             .saturating_sub(baseline_us);
