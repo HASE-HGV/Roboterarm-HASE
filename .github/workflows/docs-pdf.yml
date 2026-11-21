@@ -1,0 +1,91 @@
+
+name: Generate Documentation PDFs
+
+on:
+  push:
+    paths:
+      - 'docs/**/*.md'
+      - 'docs/*.md'
+      - '.github/workflows/docs-pdf.yml'
+      - '.github/docs-pdf.css'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-pdfs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc weasyprint
+
+      - name: Generate PDFs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          docs = Path("docs")
+          output_dir = docs / "pdf"
+
+          markdown_files = sorted(
+              file for file in docs.rglob("*.md")
+              if output_dir not in file.parents
+          )
+
+          for md_file in markdown_files:
+              relative = md_file.relative_to(docs)
+              pdf_file = (output_dir / relative).with_suffix(".pdf")
+
+              pdf_file.parent.mkdir(parents=True, exist_ok=True)
+
+              html_file = Path("/tmp/documentation.html")
+
+              subprocess.run([
+                  "pandoc",
+                  str(md_file),
+                  "--from=gfm",
+                  "--to=html5",
+                  "--standalone",
+                  "--toc",
+                  "--toc-depth=3",
+                  "--number-sections",
+                  "--metadata",
+                  f"title={md_file.stem.replace('-', ' ').title()}",
+                  "--css=.github/docs-pdf.css",
+                  f"--resource-path=.:{md_file.parent}",
+                  "-o", str(html_file)
+              ], check=True)
+
+              subprocess.run([
+                  "weasyprint",
+                  str(html_file.resolve()),
+                  str(pdf_file.resolve())
+              ], check=True)
+
+              print(f"Generated: {pdf_file}")
+
+          print(f"Successfully generated {len(markdown_files)} PDFs.")
+          PY
+
+      - name: Remove obsolete PDFs
+        run: |
+          find docs/pdf -type f -name '*.pdf' | while read pdf; do
+            source="docs/$(realpath --relative-to=docs/pdf "$pdf" | sed 's/\.pdf$/.md/')"
+            if [ ! -f "$source" ]; then
+              rm "$pdf"
+            fi
+          done
+
+      - name: Commit updated PDFs
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "docs: update generated PDFs"
+          file_pattern: docs/pdf/*.pdf docs/pdf/**/*.pdf

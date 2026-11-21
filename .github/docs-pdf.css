@@ -1,0 +1,139 @@
+
+@page {
+    size: A4;
+    margin: 22mm 20mm 24mm 20mm;
+
+    @top-left {
+        content: "ROB OTERARM HASE";
+        font-size: 8pt;
+        color: #64748b;
+    }
+
+    @top-right {
+        content: "TECHNISCHE DOKUMENTATION";
+        font-size: 8pt;
+        color: #64748b;
+    }
+
+    @bottom-center {
+        content: "Seite " counter(page) " von " counter(pages);
+        font-size: 8pt;
+        color: #64748b;
+    }
+}
+
+@page:first {
+    @top-left { content: ""; }
+    @top-right { content: ""; }
+}
+
+body {
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 10pt;
+    line-height: 1.65;
+    color: #1e293b;
+}
+
+h1 {
+    color: #0f172a;
+    font-size: 25pt;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 8px;
+    margin-top: 28px;
+}
+
+h2 {
+    color: #1d4ed8;
+    font-size: 17pt;
+    margin-top: 25px;
+}
+
+h3 {
+    color: #334155;
+    font-size: 12pt;
+    margin-top: 20px;
+}
+
+p {
+    text-align: justify;
+}
+
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+code {
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+pre {
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    font-size: 8pt;
+}
+
+pre code {
+    background: transparent;
+    padding: 0;
+}
+
+blockquote {
+    border-left: 3px solid #2563eb;
+    padding-left: 12px;
+    color: #475569;
+    margin-left: 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 9pt;
+}
+
+th {
+    background: #1e293b;
+    color: white;
+    text-align: left;
+}
+
+td, th {
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+}
+
+tr {
+    break-inside: avoid;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.chapter-break {
+    break-before: page;
+}
+
+#TOC {
+    page-break-after: always;
+}
+
+#TOC a {
+    color: #1e293b;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #cbd5e1;
+    margin: 25px 0;
+}
