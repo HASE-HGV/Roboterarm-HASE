@@ -88,4 +88,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "docs: update generated PDFs"
-          file_pattern: docs/pdf/*.pdf docs/pdf/**/*.pdf
+          file_pattern: docs/pdf/
+
