@@ -1,78 +1,63 @@
 
+import argparse
 import cv2
-import torch
-import numpy as np
-
-from PIL import Image
-from torchvision import transforms
-
-from model import CNN
+from ultralytics import YOLO
 
 
-device = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
+def run_camera(weights, camera_id, confidence, device):
+    model = YOLO(weights)
 
-checkpoint = torch.load(
-    "models/classifier.pth",
-    map_location=device,
-    weights_only=True
-)
+    camera = cv2.VideoCapture(camera_id)
 
-classes = checkpoint["classes"]
+    if not camera.isOpened():
+        raise RuntimeError("Could not open camera!")
 
-model = CNN(num_classes=len(classes)).to(device)
-model.load_state_dict(checkpoint["model_state"])
-model.eval()
+    print("Camera started. Press Q to quit.")
 
-transform = transforms.Compose([
-    transforms.Resize((32, 32)),
-    transforms.ToTensor(),
-    transforms.Normalize(
-        (0.4914, 0.4822, 0.4465),
-        (0.247, 0.243, 0.261)
-    )
-])
+    try:
+        while True:
+            success, frame = camera.read()
 
-camera = cv2.VideoCapture(0)
+            if not success:
+                break
 
-if not camera.isOpened():
-    raise RuntimeError("Camera not found!")
+            results = model.predict(
+                source=frame,
+                conf=confidence,
+                imgsz=640,
+                device=device,
+                verbose=False
+            )
 
-while True:
-    ret, frame = camera.read()
+            output = results[0].plot()
 
-    if not ret:
-        break
+            cv2.imshow("YOLO Object Detection", output)
 
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    image = Image.fromarray(rgb)
+            if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+                break
 
-    tensor = transform(image).unsqueeze(0).to(device)
+    finally:
+        camera.release()
+        cv2.destroyAllWindows()
 
-    with torch.no_grad():
-        outputs = model(tensor)
-        probabilities = torch.softmax(outputs, dim=1)
 
-        confidence, prediction = probabilities.max(dim=1)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    label = classes[prediction.item()]
-    score = confidence.item() * 100
-
-    cv2.putText(
-        frame,
-        f"{label}: {score:.1f}%",
-        (20, 40),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2
+    parser.add_argument(
+        "--weights",
+        default="models/best.pt"
     )
 
-    cv2.imshow("Neural Network Camera", frame)
+    parser.add_argument("--camera", type=int, default=0)
+    parser.add_argument("--conf", type=float, default=0.35)
+    parser.add_argument("--device", default="cpu")
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+    args = parser.parse_args()
 
-camera.release()
-cv2.destroyAllWindows()
+    run_camera(
+        args.weights,
+        args.camera,
+        args.conf,
+        args.device
+    )
