@@ -22,7 +22,7 @@ shows the latest build, test, and security checks.
 
 
 <details>
-<summary><b>More statistics</b> (generated daily from git history)</summary>
+<summary><b>statistics</b> (generated daily from git history)</summary>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Catrick-cpu/roboterarm-hase-stats/main/summary.svg" alt="Project stats: commits, contributors, active days, last commit" width="620">
