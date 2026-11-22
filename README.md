@@ -1143,13 +1143,13 @@ cargo llvm-cov --html --open
 | `rustctl/src/kinematics.rs` | 96.3% | 91.7% | 95.0% |
 | `rustctl/src/main.rs` | 100.0% | 100.0% | 97.6% |
 | `rustctl/src/motion.rs` | 54.9% | 55.6% | 55.3% |
-| `rustctl/src/net.rs` | 91.6% | 100.0% | 88.7% |
+| `rustctl/src/net.rs` | 89.4% | 100.0% | 88.7% |
 | `rustctl/src/pretty.rs` | 90.6% | 85.7% | 89.7% |
 | `rustctl/src/shell.rs` | 81.3% | 100.0% | 71.6% |
 
 **Overall:**
 
-- Lines: **87.1%**
+- Lines: **87.0%**
 - Functions: **89.0%**
 - Regions: **84.5%**
 <!-- COVERAGE-END -->
