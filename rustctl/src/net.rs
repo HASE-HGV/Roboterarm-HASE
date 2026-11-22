@@ -1,6 +1,6 @@
+use std::fs;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
-use std::fs;
 use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -76,7 +76,11 @@ pub(crate) fn read_hostname() -> Option<String> {
             if output.status.success() {
                 let name = String::from_utf8(output.stdout).ok()?;
                 let trimmed = name.trim();
-                if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
             } else {
                 None
             }
@@ -94,7 +98,6 @@ pub(crate) fn read_hostname_from(path: &Path) -> Option<String> {
         Some(trimmed.to_string())
     }
 }
-
 
 pub(crate) fn hostname_url(hostname: &str, port: u16) -> Option<String> {
     if hostname.is_empty() {
