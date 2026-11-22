@@ -1,5 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
+use std::fs;
+use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Address {
@@ -66,16 +68,33 @@ pub(crate) fn rank_ip_addresses(
     rank_addresses(candidates)
 }
 
-pub(crate) fn read_hostname_from(path: &Path) -> Option<String> {
-    std::fs::read_to_string(path)
-        .ok()
-        .map(|s| s.trim().to_owned())
-        .filter(|s| !s.is_empty())
+pub(crate) fn read_hostname() -> Option<String> {
+    match std::env::consts::OS {
+        "linux" | "android" => read_hostname_from(Path::new("/proc/sys/kernel/hostname")),
+        "macos" | "ios" | "freebsd" | "openbsd" | "netbsd" => {
+            let output = Command::new("hostname").output().ok()?;
+            if output.status.success() {
+                let name = String::from_utf8(output.stdout).ok()?;
+                let trimmed = name.trim();
+                if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
 }
 
-pub(crate) fn read_hostname() -> Option<String> {
-    read_hostname_from(Path::new("/proc/sys/kernel/hostname"))
+pub(crate) fn read_hostname_from(path: &Path) -> Option<String> {
+    let content = fs::read_to_string(path).ok()?;
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
+
 
 pub(crate) fn hostname_url(hostname: &str, port: u16) -> Option<String> {
     if hostname.is_empty() {

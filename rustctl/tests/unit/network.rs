@@ -82,10 +82,12 @@ fn net_discovered_addresses_exclude_loopback() {
 
 #[test]
 fn net_hostname_file_is_trimmed_and_empty_content_is_ignored() {
-    assert_eq!(read_hostname(), read_hostname_from(std::path::Path::new(
-        "/proc/sys/kernel/hostname",
-    )));
-
+    #[cfg(target_os = "linux")]
+    {
+        assert_eq!(read_hostname(), read_hostname_from(std::path::Path::new(
+            "/proc/sys/kernel/hostname",
+        )));
+    }
     let path = std::env::temp_dir().join(format!("rustctl-hostname-{}", std::process::id()));
     std::fs::write(&path, " robot-arm.local \n").unwrap();
     assert_eq!(read_hostname_from(&path).as_deref(), Some("robot-arm.local"));
@@ -94,6 +96,7 @@ fn net_hostname_file_is_trimmed_and_empty_content_is_ignored() {
     std::fs::remove_file(&path).unwrap();
     assert_eq!(read_hostname_from(&path), None);
 }
+
 
 #[test]
 fn net_hostname_url_rejects_empty_hostname() {
