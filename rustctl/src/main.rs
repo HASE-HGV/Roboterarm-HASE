@@ -35,6 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = config::settings();
     println!(
         "{}",
+        // printing the current config pulled from rustctl/src/config/configs.toml
         pretty::info(&format!(
             "gear_ratio={:.2} | target={}µs (2 × pulse={}µs + overhead={}µs) | GPIO M1={:?} M2={:?} M3={:?} M4={:?}",
             config.hardware.gear_ratio,
