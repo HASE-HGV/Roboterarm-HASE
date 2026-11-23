@@ -263,7 +263,7 @@ pub(crate) fn ensure_ctrlc_handler_installed() -> Result<(), Box<dyn Error>> {
     CTRLC_INIT.call_once(|| {
         install_result = ctrlc::set_handler(|| {
             request_stop();
-            crate::http_api::request_server_shutdown();
+            crate::http_api::_request_server_shutdown();
         });
     });
     install_result.map_err(Into::into)
