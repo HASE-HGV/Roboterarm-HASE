@@ -35,9 +35,6 @@ pub(crate) struct HardwareSettings {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-
-//defining Trapezoidal MotionProfile as Default, Fixed only runs if specified
-
 pub(crate) enum MotionProfile {
     Fixed,
     #[default]
