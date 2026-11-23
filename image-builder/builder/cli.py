@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Build a customized Raspberry Pi OS image from an existing .img file."""
 
 from __future__ import annotations
 
@@ -18,7 +17,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml # type: ignore
 
 
 class BuildError(RuntimeError):
