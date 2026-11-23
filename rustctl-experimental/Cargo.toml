@@ -1,0 +1,34 @@
+[package]
+name = "rustctl"
+version = "0.9.35"
+edition = "2024"
+build = "build.rs"
+
+[[bin]]
+name = "rustctl"
+path = "src/main.rs"
+test = true
+bench = false
+
+[[test]]
+name = "zz_test_summary"
+path = "tests/summary.rs"
+harness = false
+
+[features]
+default = ["dep:ctrlc"]
+hardware = ["dep:ctrlc","dep:rppal"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1.2"
+if-addrs = "0.15"
+hostname = "0.4"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ctrlc = { version = "3", optional = true }
+rppal = { version = "0.22", optional = true }
+
+#[lints.rust]
+#warnings = "deny"   	

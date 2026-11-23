@@ -1,0 +1,183 @@
+const DEFAULT_HARDWARE_OVERHEAD_US: u64 = 83;
+// The IK equations square distances and lengths.  Above this bound, a finite
+// input can still overflow that intermediate calculation.
+const MAX_SAFE_IK_DIMENSION_MM: f64 = 1.340_780_792_994_259_6e154;
+
+macro_rules! debug_invariant {
+    ($cond:expr $(, $dump:expr)*) => {
+        #[cfg(debug_assertions)]
+        {
+            if !($cond) {
+                $(dbg!(&$dump);)*
+                panic!("debug invariant violated: {}", stringify!($cond));
+            }
+        }
+    };
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ArmSolution {
+    pub(crate) theta_base_deg: f64,
+    pub(crate) theta1_deg: f64,
+    pub(crate) theta2_deg: f64,
+    pub(crate) z_eff_mm: f64,
+}
+
+pub(crate) fn forward_r_z_mm(
+    theta1_deg: f64,
+    theta2_deg: f64,
+    l1_mm: f64,
+    l2_mm: f64,
+) -> (f64, f64) {
+    let t1 = theta1_deg.to_radians();
+    let t12 = (theta1_deg + theta2_deg).to_radians();
+    let r = l1_mm * t1.cos() + l2_mm * t12.cos();
+    let z = l1_mm * t1.sin() + l2_mm * t12.sin();
+    (r, z)
+}
+
+pub(crate) fn ik_angles_3d_deg(
+    x_mm: f64,
+    y_mm: f64,
+    z_mm: f64,
+    l1_mm: f64,
+    l2_mm: f64,
+) -> Result<ArmSolution, &'static str> {
+    if !x_mm.is_finite()
+        || !y_mm.is_finite()
+        || !z_mm.is_finite()
+        || !l1_mm.is_finite()
+        || !l2_mm.is_finite()
+    {
+        return Err("Kinematics inputs must be finite");
+    }
+    if l1_mm <= 0.0 || l2_mm <= 0.0 {
+        return Err("Link lengths must be positive");
+    }
+    if x_mm < 0.0 {
+        return Err("Radius X must be non-negative");
+    }
+    if x_mm.abs() > MAX_SAFE_IK_DIMENSION_MM
+        || z_mm.abs() > MAX_SAFE_IK_DIMENSION_MM
+        || l1_mm > MAX_SAFE_IK_DIMENSION_MM
+        || l2_mm > MAX_SAFE_IK_DIMENSION_MM
+    {
+        return Err("Kinematics geometry is too large to represent safely");
+    }
+
+    let theta_base = y_mm.to_radians();
+    let r = x_mm;
+    let r_space = (r * r + z_mm * z_mm).sqrt();
+    if r_space > l1_mm + l2_mm || r_space < (l1_mm - l2_mm).abs() {
+        return Err("Out of workspace");
+    }
+
+    let alpha = z_mm.atan2(r);
+    let cos_theta2 = ((r_space * r_space - l1_mm * l1_mm - l2_mm * l2_mm) / (2.0 * l1_mm * l2_mm))
+        .clamp(-1.0, 1.0);
+    let theta2 = cos_theta2.acos();
+    let shoulder_offset = (l2_mm * theta2.sin()).atan2(l1_mm + l2_mm * theta2.cos());
+    let mut theta1 = alpha - shoulder_offset;
+    let mut selected_theta2 = theta2;
+    let alternate_theta1 = alpha + shoulder_offset;
+    if alternate_theta1.sin() > theta1.sin() {
+        theta1 = alternate_theta1;
+        selected_theta2 = -theta2;
+    }
+
+    let (_r_eff, z_eff) = forward_r_z_mm(
+        theta1.to_degrees(),
+        selected_theta2.to_degrees(),
+        l1_mm,
+        l2_mm,
+    );
+
+    debug_invariant!(
+        (_r_eff - r).abs() < 1e-6 && (z_eff - z_mm).abs() < 1e-6,
+        r,
+        z_mm,
+        _r_eff,
+        z_eff
+    );
+
+    Ok(ArmSolution {
+        theta_base_deg: theta_base.to_degrees(),
+        theta1_deg: theta1.to_degrees(),
+        theta2_deg: selected_theta2.to_degrees(),
+        z_eff_mm: z_eff,
+    })
+}
+
+/// Largest step count magnitude accepted by `checked_deg_to_steps` (2^62), so the
+/// planner's accumulator cannot overflow.
+pub(crate) const MAX_MOTOR_STEPS_ABS: f64 = 4_611_686_018_427_387_904.0;
+
+fn scaled_steps(angle_deg: f64, steps_per_rev: u64, microstep: u64, gear_ratio: f64) -> f64 {
+    let steps_per_deg = (steps_per_rev * microstep) as f64 / 360.0;
+    angle_deg * steps_per_deg * gear_ratio
+}
+
+pub(crate) fn deg_to_steps(
+    angle_deg: f64,
+    steps_per_rev: u64,
+    microstep: u64,
+    gear_ratio: f64,
+) -> i64 {
+    scaled_steps(angle_deg, steps_per_rev, microstep, gear_ratio).round() as i64
+}
+
+pub(crate) fn checked_deg_to_steps(
+    angle_deg: f64,
+    steps_per_rev: u64,
+    microstep: u64,
+    gear_ratio: f64,
+) -> Result<i64, String> {
+    let scaled = scaled_steps(angle_deg, steps_per_rev, microstep, gear_ratio);
+    if !scaled.is_finite() || scaled.abs() >= MAX_MOTOR_STEPS_ABS {
+        return Err(format!(
+            "joint angle {angle_deg}° cannot be converted to motor steps \
+             (must be finite and below 2^62 steps)"
+        ));
+    }
+    Ok(scaled.round() as i64)
+}
+
+#[cfg(any(all(feature = "hardware", target_os = "linux"), test))]
+pub(crate) fn direction_is_ccw(steps: i64, ccw_positive: bool) -> bool {
+    (steps > 0) == ccw_positive
+}
+
+#[cfg(test)]
+pub(crate) fn minimum_period_us(pulse_t_us: u64) -> u64 {
+    minimum_period_us_with_overhead(pulse_t_us, DEFAULT_HARDWARE_OVERHEAD_US)
+        .expect("default timing fits in u64")
+}
+
+pub(crate) fn overhead_sleep_us(total_time_us: u64, pulse_t_us: u64) -> Result<u64, String> {
+    overhead_sleep_us_with_overhead(total_time_us, pulse_t_us, DEFAULT_HARDWARE_OVERHEAD_US)
+}
+
+pub(crate) fn minimum_period_us_with_overhead(
+    pulse_t_us: u64,
+    overhead_us: u64,
+) -> Result<u64, String> {
+    pulse_t_us
+        .checked_mul(2)
+        .and_then(|pulse| pulse.checked_add(overhead_us))
+        .ok_or_else(|| "pulse timing and hardware overhead exceed u64".to_owned())
+}
+
+pub(crate) fn overhead_sleep_us_with_overhead(
+    target_time_us: u64,
+    pulse_t_us: u64,
+    overhead_us: u64,
+) -> Result<u64, String> {
+    let min = minimum_period_us_with_overhead(pulse_t_us, overhead_us)?;
+    if target_time_us < min {
+        return Err(format!(
+            "target_time_us/total_time ({target_time_us}) must be >= {min} µs to accommodate \
+             pulse widths and hardware overhead"
+        ));
+    }
+    Ok(target_time_us - min)
+}

@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="win95">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roboterarm HASE</title>
+<link rel="icon" href="data:,">
+<style>
+html[data-theme="win95"] {
+  --face: #c0c0c0;
+  --face-light: #dfdfdf;
+  --face-dark: #808080;
+  --shadow: #000000;
+  --ink: #000000;
+  --ink-muted: #3a3a3a;
+  --title-a1: #000080;
+  --title-a2: #1084d0;
+  --field: #ffffff;
+  --accent: #000080;
+  font-family: "MS Sans Serif", Tahoma, Verdana, Geneva, sans-serif;
+  font-size: 12px;
+}
+html[data-theme="win95"] body {
+  background: #008080;
+  color: var(--ink);
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  box-sizing: border-box;
+}
+html[data-theme="win95"] .app-window {
+  background: var(--face);
+  border: 2px solid;
+  border-color: var(--face-light) var(--shadow) var(--shadow) var(--face-light);
+  box-shadow: 2px 2px 0 #000000;
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+}
+html[data-theme="win95"] .titlebar {
+  align-items: center;
+  background: linear-gradient(90deg, var(--title-a1), var(--title-a2));
+  color: #ffffff;
+  display: flex;
+  gap: 6px;
+  padding: 3px 4px 3px 7px;
+}
+html[data-theme="win95"] .titlebar h1 {
+  color: #ffffff;
+  flex: 1;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0;
+}
+html[data-theme="win95"] .app-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+html[data-theme="win95"] .window-content {
+  padding: 6px;
+}
+html[data-theme="win95"] #quit {
+  background: var(--face);
+  border: 2px solid;
+  border-color: var(--face-light) var(--shadow) var(--shadow) var(--face-light);
+  color: #000000;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 15px;
+  min-width: 22px;
+  padding: 0;
+  width: 22px;
+}
+html[data-theme="win95"] #quit:hover {
+  background: #c00000;
+  border-color: #ffb0b0 #600000 #600000 #ffb0b0;
+  color: #ffffff;
+  text-shadow: 1px 1px #600000;
+}
+html[data-theme="win95"] #quit:active {
+  border-color: var(--shadow) var(--face-light) var(--face-light) var(--shadow);
+}
+html[data-theme="win95"] .window {
+  background: var(--face);
+  border: 2px solid;
+  border-color: var(--face-light) var(--shadow) var(--shadow) var(--face-light);
+  margin-bottom: 8px;
+  padding: 6px;
+}
+html[data-theme="win95"] .window > h2 {
+  background: linear-gradient(90deg, var(--title-a1), var(--title-a2));
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  margin: -6px -6px 6px -6px;
+  padding: 3px 6px;
+}
+html[data-theme="win95"] fieldset {
+  border: 2px groove var(--face-light);
+  margin: 0 0 8px;
+  padding: 6px;
+}
+html[data-theme="win95"] legend {
+  background: var(--face);
+  color: var(--ink-muted);
+  font-weight: bold;
+  padding: 0 4px;
+}
+html[data-theme="win95"] p {
+  margin: 0 0 6px;
+}
+html[data-theme="win95"] label {
+  display: block;
+}
+html[data-theme="win95"] input[type="number"] {
+  background: var(--field);
+  border: 2px inset var(--face-light);
+  padding: 2px 3px;
+  width: 9em;
+}
+html[data-theme="win95"] input[type="checkbox"] {
+  vertical-align: middle;
+}
+html[data-theme="win95"] select {
+  background: var(--field);
+  border: 2px inset var(--face-light);
+  color: var(--ink);
+  font: inherit;
+  margin-left: 4px;
+  padding: 2px 18px 2px 4px;
+}
+html[data-theme="win95"] button {
+  background: var(--face);
+  border: 2px solid;
+  border-color: var(--face-light) var(--shadow) var(--shadow) var(--face-light);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 7em;
+  padding: 3px 10px;
+}
+html[data-theme="win95"] button:hover:not(:disabled) {
+  background: var(--face-light);
+}
+html[data-theme="win95"] button:active:not(:disabled) {
+  border-color: var(--shadow) var(--face-light) var(--face-light) var(--shadow);
+}
+html[data-theme="win95"] button:disabled {
+  color: var(--face-dark);
+  text-shadow: 1px 1px 0 var(--face-light);
+}
+html[data-theme="win95"] .toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html[data-theme="win95"] .status {
+  font-weight: bold;
+}
+html[data-theme="win95"] pre {
+  background: var(--field);
+  border: 2px inset var(--face-light);
+  margin: 0;
+  max-height: 22em;
+  overflow: auto;
+  padding: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+html[data-theme="win95"] .hint {
+  color: var(--ink-muted);
+}
+
+html[data-theme="winxp"] {
+  --face: #ece9d8;
+  --face-light: #ffffff;
+  --face-dark: #aca899;
+  --ink: #1b1b1b;
+  --ink-muted: #4e4a41;
+  --field: #ffffff;
+  font-family: Tahoma, Verdana, Geneva, sans-serif;
+  font-size: 12px;
+}
+html[data-theme="winxp"] body {
+  background: linear-gradient(180deg, #3a8edb 0%, #b6e4fb 58%, #9dcc62 59%, #4e9136 100%);
+  color: var(--ink);
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  box-sizing: border-box;
+}
+html[data-theme="winxp"] .app-window {
+  background: var(--face);
+  border: 1px solid #0b2e78;
+  box-shadow: 0 12px 30px rgba(0, 23, 65, .45);
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  width: 100%;
+}
+html[data-theme="winxp"] .titlebar {
+  align-items: center;
+  background: linear-gradient(180deg, #6cb8ff 0%, #3689ed 14%, #1265d5 54%, #0754c8 55%, #2d83ef 100%);
+  border-bottom: 1px solid #0642a8;
+  color: #ffffff;
+  display: flex;
+  gap: 7px;
+  padding: 6px 7px 7px 10px;
+  text-shadow: 1px 1px #12458b;
+}
+html[data-theme="winxp"] .titlebar h1 {
+  color: #ffffff;
+  flex: 1;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0;
+}
+html[data-theme="winxp"] .app-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+html[data-theme="winxp"] .window-content {
+  padding: 9px;
+}
+html[data-theme="winxp"] #quit {
+  background: linear-gradient(180deg, #ffb9a8 0%, #ef4f36 45%, #c82112 100%);
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #a81e15, 0 1px 2px rgba(0, 0, 0, .35);
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 17px;
+  min-width: 24px;
+  padding: 0;
+  width: 24px;
+}
+html[data-theme="winxp"] #quit:hover {
+  background: linear-gradient(180deg, #ffd3c4 0%, #ff654c 45%, #e22c1d 100%);
+  box-shadow: inset 0 0 0 1px #a81e15, 0 0 0 2px #ffd4a8, 0 2px 5px rgba(0, 0, 0, .45);
+  transform: scale(1.06);
+}
+html[data-theme="winxp"] #quit:active {
+  background: linear-gradient(180deg, #ba2318, #ed5740);
+}
+html[data-theme="winxp"] .window {
+  background: #f4f2e8;
+  border: 1px solid #b7b4a7;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+  margin-bottom: 9px;
+  padding: 8px;
+}
+html[data-theme="winxp"] .window > h2 {
+  background: linear-gradient(180deg, #ffffff, #dce8f6);
+  border-bottom: 1px solid #b9c9dd;
+  color: #174a88;
+  font-size: 12px;
+  font-weight: bold;
+  margin: -8px -8px 8px;
+  padding: 5px 8px;
+}
+html[data-theme="winxp"] fieldset {
+  border: 1px solid #b8b5a8;
+  border-radius: 3px;
+  margin: 0 0 8px;
+  padding: 7px;
+}
+html[data-theme="winxp"] legend {
+  color: #315782;
+  font-weight: bold;
+  padding: 0 4px;
+}
+html[data-theme="winxp"] p {
+  margin: 0 0 7px;
+}
+html[data-theme="winxp"] label {
+  display: block;
+}
+html[data-theme="winxp"] input[type="number"] {
+  background: var(--field);
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+  padding: 3px 4px;
+  width: 9em;
+}
+html[data-theme="winxp"] input[type="checkbox"] {
+  vertical-align: middle;
+}
+html[data-theme="winxp"] select {
+  background: var(--field);
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+  color: var(--ink);
+  font: inherit;
+  margin-left: 4px;
+  padding: 4px 22px 4px 6px;
+}
+html[data-theme="winxp"] button {
+  background: linear-gradient(180deg, #ffffff, #e5e4dc 50%, #d6d4c8);
+  border: 1px solid #7f9db9;
+  border-radius: 3px;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 7em;
+  padding: 4px 10px;
+}
+html[data-theme="winxp"] button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fff9dd, #ffe9a8);
+  border-color: #e5a500;
+}
+html[data-theme="winxp"] button:active:not(:disabled) {
+  background: #e1dfd3;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, .28);
+}
+html[data-theme="winxp"] button:disabled {
+  color: var(--face-dark);
+}
+html[data-theme="winxp"] .toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+html[data-theme="winxp"] .status {
+  font-weight: bold;
+}
+html[data-theme="winxp"] pre {
+  background: var(--field);
+  border: 1px solid #7f9db9;
+  margin: 0;
+  max-height: 22em;
+  overflow: auto;
+  padding: 7px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+html[data-theme="winxp"] .hint {
+  color: var(--ink-muted);
+}
+
+html[data-theme="win10"] {
+  --ink: #202020;
+  --ink-muted: #5f6368;
+  --field: #ffffff;
+  --accent: #0078d4;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 13px;
+}
+html[data-theme="win10"] body {
+  background: linear-gradient(145deg, #005a9e, #0078d4 48%, #004e8c);
+  color: var(--ink);
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  box-sizing: border-box;
+}
+html[data-theme="win10"] .app-window {
+  background: #f3f3f3;
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+}
+html[data-theme="win10"] .titlebar {
+  align-items: center;
+  background: #f3f3f3;
+  border-bottom: 1px solid #d7d7d7;
+  color: var(--ink);
+  display: flex;
+  gap: 9px;
+  padding: 6px 0 6px 12px;
+}
+html[data-theme="win10"] .titlebar h1 {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 400;
+  margin: 0;
+}
+html[data-theme="win10"] .app-icon {
+  color: var(--accent);
+  font-size: 15px;
+}
+html[data-theme="win10"] .window-content {
+  padding: 12px;
+}
+html[data-theme="win10"] #quit {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  line-height: 32px;
+  min-width: 46px;
+  padding: 0;
+  width: 46px;
+}
+html[data-theme="win10"] #quit:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+html[data-theme="win10"] .window {
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+  margin-bottom: 12px;
+  padding: 12px;
+}
+html[data-theme="win10"] .window > h2 {
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 14px;
+  font-weight: 600;
+  margin: -12px -12px 12px;
+  padding: 10px 12px;
+}
+html[data-theme="win10"] fieldset {
+  border: 1px solid #c8c8c8;
+  margin: 0 0 10px;
+  padding: 10px;
+}
+html[data-theme="win10"] legend {
+  color: var(--ink-muted);
+  padding: 0 5px;
+}
+html[data-theme="win10"] p {
+  margin: 0 0 9px;
+}
+html[data-theme="win10"] label {
+  display: block;
+}
+html[data-theme="win10"] input[type="number"] {
+  background: var(--field);
+  border: 1px solid #8a8a8a;
+  padding: 5px 7px;
+  width: 9em;
+}
+html[data-theme="win10"] input[type="checkbox"] {
+  accent-color: var(--accent);
+  vertical-align: middle;
+}
+html[data-theme="win10"] button {
+  background: var(--accent);
+  border: 1px solid #0067b8;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  min-width: 7em;
+  padding: 6px 12px;
+}
+html[data-theme="win10"] button:hover:not(:disabled) {
+  background: #0067b8;
+}
+html[data-theme="win10"] button:active:not(:disabled) {
+  background: #005a9e;
+}
+html[data-theme="win10"] button:disabled {
+  background: #e5e5e5;
+  border-color: #d1d1d1;
+  color: #8a8a8a;
+}
+html[data-theme="win10"] .toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html[data-theme="win10"] .status {
+  font-weight: 600;
+}
+html[data-theme="win10"] pre {
+  background: #fafafa;
+  border: 1px solid #c8c8c8;
+  margin: 0;
+  max-height: 22em;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+html[data-theme="win10"] .hint {
+  color: var(--ink-muted);
+}
+html[data-theme="win10"] select {
+  background: #ffffff;
+  border: 1px solid #8a8a8a;
+  color: var(--ink);
+  font: inherit;
+  margin-left: 4px;
+  padding: 5px 24px 5px 7px;
+}
+
+html[data-theme="macos"] {
+  --ink: #202124;
+  --ink-muted: #63666a;
+  --field: #ffffff;
+  --accent: #0a84ff;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+}
+html[data-theme="macos"] body {
+  background: linear-gradient(135deg, #cfdef3, #e0c3fc 52%, #fbc2eb);
+  color: var(--ink);
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  box-sizing: border-box;
+}
+html[data-theme="macos"] .app-window {
+  background: #f5f5f7;
+  border: 1px solid #b8b8bc;
+  box-shadow: 0 8px 28px rgba(20, 24, 40, .24);
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+}
+html[data-theme="macos"] .titlebar {
+  align-items: center;
+  background: linear-gradient(#fafafa, #e8e8eb);
+  border-bottom: 1px solid #c7c7ca;
+  color: var(--ink);
+  display: flex;
+  gap: 9px;
+  padding: 7px 10px;
+}
+html[data-theme="macos"] .titlebar h1 {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+html[data-theme="macos"] .app-icon {
+  color: #626267;
+  font-size: 15px;
+}
+html[data-theme="macos"] .window-content {
+  padding: 12px;
+}
+html[data-theme="macos"] #quit {
+  background: #ff5f57;
+  border: 1px solid #e0443e;
+  border-radius: 50%;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .45);
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  height: 20px;
+  line-height: 17px;
+  min-width: 20px;
+  padding: 0;
+  width: 20px;
+}
+html[data-theme="macos"] #quit:hover {
+  background: #e0443e;
+  box-shadow: 0 0 0 2px rgba(255, 95, 87, .24);
+}
+html[data-theme="macos"] .window {
+  background: #ffffff;
+  border: 1px solid #dedee2;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+  margin-bottom: 12px;
+  padding: 12px;
+}
+html[data-theme="macos"] .window > h2 {
+  border-bottom: 1px solid #e7e7eb;
+  font-size: 14px;
+  font-weight: 600;
+  margin: -12px -12px 12px;
+  padding: 10px 12px;
+}
+html[data-theme="macos"] fieldset {
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  margin: 0 0 10px;
+  padding: 10px;
+}
+html[data-theme="macos"] legend {
+  color: var(--ink-muted);
+  padding: 0 5px;
+}
+html[data-theme="macos"] p {
+  margin: 0 0 9px;
+}
+html[data-theme="macos"] label {
+  display: block;
+}
+html[data-theme="macos"] input[type="number"] {
+  background: var(--field);
+  border: 1px solid #b8b8bc;
+  border-radius: 6px;
+  padding: 5px 7px;
+  width: 9em;
+}
+html[data-theme="macos"] input[type="checkbox"] {
+  accent-color: var(--accent);
+  vertical-align: middle;
+}
+html[data-theme="macos"] button {
+  background: var(--accent);
+  border: 1px solid #0876df;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  min-width: 7em;
+  padding: 6px 12px;
+}
+html[data-theme="macos"] button:hover:not(:disabled) {
+  background: #0876df;
+}
+html[data-theme="macos"] button:active:not(:disabled) {
+  background: #0064c8;
+}
+html[data-theme="macos"] button:disabled {
+  background: #d8d8dc;
+  border-color: #d8d8dc;
+  color: #85858a;
+}
+html[data-theme="macos"] .toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html[data-theme="macos"] .status {
+  font-weight: 600;
+}
+html[data-theme="macos"] pre {
+  background: #fafafa;
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  margin: 0;
+  max-height: 22em;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+html[data-theme="macos"] .hint {
+  color: var(--ink-muted);
+}
+html[data-theme="macos"] select {
+  background: #ffffff;
+  border: 1px solid #b8b8bc;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  margin-left: 4px;
+  padding: 5px 24px 5px 7px;
+}
+
+html:not([data-theme="plain"]) .preview-layout {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+}
+html:not([data-theme="plain"]) #arm-view {
+  background: #111a26;
+  border: 1px solid #596579;
+  box-sizing: border-box;
+  display: block;
+  height: min(52vh, 440px);
+  min-height: 260px;
+  touch-action: none;
+  width: 100%;
+}
+html:not([data-theme="plain"]) .preview-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+  margin-top: 7px;
+}
+html:not([data-theme="plain"]) .joint-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+}
+html:not([data-theme="plain"]) .joint-legend li {
+  list-style: none;
+}
+html:not([data-theme="plain"]) .legend-dot {
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  display: inline-block;
+  height: .8em;
+  margin-right: 4px;
+  vertical-align: -.08em;
+  width: .8em;
+}
+html:not([data-theme="plain"]) .legend-base { background: #aab4c2; }
+html:not([data-theme="plain"]) .legend-shoulder { background: #38a5ff; }
+html:not([data-theme="plain"]) .legend-elbow { background: #ffae57; }
+html:not([data-theme="plain"]) .legend-tool { background: #e5e9ef; }
+html:not([data-theme="plain"]) .progress-panel {
+  margin-top: 8px;
+}
+html:not([data-theme="plain"]) .progress-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+html:not([data-theme="plain"]) .progress-heading output {
+  font-weight: bold;
+}
+html:not([data-theme="plain"]) #move-progress {
+  display: block;
+  height: 16px;
+  margin: 4px 0;
+  width: 100%;
+}
+html:not([data-theme="plain"]) .preview-hint {
+  margin-top: 5px;
+}
+html:not([data-theme="plain"]) #arm-readout {
+  min-height: 1.2em;
+}
+html[data-theme="win95"] #move-progress { accent-color: #000080; }
+html[data-theme="winxp"] #move-progress,
+html[data-theme="win10"] #move-progress { accent-color: #1674d1; }
+html[data-theme="macos"] #move-progress { accent-color: #0876df; }
+</style>
+</head>
+<body>
+
+<div class="desktop">
+<main class="app-window">
+<header class="titlebar">
+<span class="app-icon" aria-hidden="true">⚙</span>
+<h1>Roboterarm HASE</h1>
+<button type="button" id="quit" title="Quit the rustctl server on this Raspberry Pi" aria-label="Quit server">×</button>
+</header>
+<div class="window-content">
+
+<div class="window">
+<h2>Status</h2>
+<p class="toolbar">
+<output id="status" class="status">unknown</output>
+<button type="button" id="refresh">Refresh status</button>
+<button type="button" id="selftest">Run self-test</button>
+<label for="theme">Theme
+<select id="theme" aria-label="Theme">
+<option value="win95">Windows 95</option>
+<option value="winxp">Windows XP</option>
+<option value="win10">Windows 10</option>
+<option value="macos">macOS</option>
+<option value="plain">CSS-less</option>
+</select>
+</label>
+</p>
+</div>
+
+<section class="window" aria-labelledby="preview-title">
+<h2 id="preview-title">3D arm preview</h2>
+<div class="preview-layout">
+<canvas id="arm-view" aria-label="Interactive 3D rendering of the three-axis robotic arm">
+Your browser does not support the canvas element.
+</canvas>
+<div class="preview-meta">
+<output id="arm-readout" class="hint" aria-live="polite">Calculating pose…</output>
+<button type="button" id="reset-view">Reset view</button>
+<p id="keyboard-help" class="hint">Keyboard jog · hold or press for 1°: <kbd>s</kbd>/<kbd>d</kbd> base, <kbd>f</kbd>/<kbd>g</kbd> shoulder, <kbd>h</kbd>/<kbd>j</kbd> elbow. <kbd>k</kbd>/<kbd>l</kbd> end effector (reserved).</p>
+<ul class="joint-legend" aria-label="Arm parts">
+<li><span class="legend-dot legend-base" aria-hidden="true"></span>Base</li>
+<li><span class="legend-dot legend-shoulder" aria-hidden="true"></span>Shoulder</li>
+<li><span class="legend-dot legend-elbow" aria-hidden="true"></span>Elbow</li>
+<li><span class="legend-dot legend-tool" aria-hidden="true"></span>End effector</li>
+</ul>
+</div>
+<p class="hint preview-hint">Drag to orbit · scroll to zoom · the preview follows the selected form’s target pose.</p>
+</div>
+<div id="progress-panel" class="progress-panel" hidden>
+<div class="progress-heading">
+<span id="progress-label">Move progress</span>
+<output id="progress-value">0%</output>
+</div>
+<progress id="move-progress" max="100" value="0" aria-label="Estimated move progress"></progress>
+<p id="progress-detail" class="hint" role="status" aria-live="polite">Waiting for a move.</p>
+</div>
+</section>
+
+<form id="args" data-path="/args" class="window">
+<h2>Move to position (inverse kinematics)</h2>
+<fieldset>
+<legend>Target</legend>
+<p><label>Radius X (mm) <input name="radius_mm" type="number" step="any" min="0" value="100" required></label></p>
+<p><label>Base angle Y (degrees) <input name="base_angle_deg" type="number" step="any" value="0" required></label></p>
+<p><label>Height Z (mm) <input name="height_mm" type="number" step="any" value="50" required></label></p>
+<p><label>Arm 1 length (mm) <input name="l1_mm" type="number" step="any" min="0" value="500" required></label></p>
+<p><label>Arm 2 length (mm) <input name="l2_mm" type="number" step="any" min="0" value="525" required></label></p>
+</fieldset>
+<fieldset>
+<legend>Start position (current joint angles, in degrees)</legend>
+<p class="hint">Represents the current EE-Tip position of the robot arm</p>
+<p><label>Start base (degrees) <input name="start_base_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 1 (degrees) <input name="start_axis1_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 2 (degrees) <input name="start_axis2_deg" type="number" step="any" value="0"></label></p>
+</fieldset>
+<fieldset>
+<legend>Motor</legend>
+<p><label>Motor steps per revolution <input name="steps_per_rev" type="number" step="1" min="1" value="200" required></label></p>
+<p><label>Driver microstep resolution <input name="microstep" type="number" step="1" min="1" value="1" required></label></p>
+<p><label><input name="ccw_positive" type="checkbox" checked> Positive steps turn counter-clockwise</label></p>
+</fieldset>
+<p><button type="submit">Move</button></p>
+</form>
+
+<form id="raw" data-path="/raw" class="window">
+<h2>Raw joint angles (no inverse kinematics)</h2>
+<fieldset>
+<legend>Target</legend>
+<p><label>Base (degrees) <input name="base_deg" type="number" step="any" value="0" required></label></p>
+<p><label>Axis 1 (degrees) <input name="axis1_deg" type="number" step="any" value="25" required></label></p>
+<p><label>Axis 2 (degrees) <input name="axis2_deg" type="number" step="any" value="30" required></label></p>
+</fieldset>
+<fieldset>
+<legend>Start position (current joint angles, in degrees)</legend>
+<p><label>Start base (degrees) <input name="start_base_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 1 (degrees) <input name="start_axis1_deg" type="number" step="any" value="0"></label></p>
+<p><label>Start axis 2 (degrees) <input name="start_axis2_deg" type="number" step="any" value="0"></label></p>
+</fieldset>
+<fieldset>
+<legend>Motor</legend>
+<p><label>Motor steps per revolution <input name="steps_per_rev" type="number" step="1" min="1" value="200" required></label></p>
+<p><label>Driver microstep resolution <input name="microstep" type="number" step="1" min="1" value="16" required></label></p>
+<p><label><input name="ccw_positive" type="checkbox" checked> Positive steps turn counter-clockwise</label></p>
+</fieldset>
+<p><button type="submit">Move</button></p>
+</form>
+
+<div class="window">
+<h2>Logs</h2>
+<pre id="out"></pre>
+</div>
+
+</div>
+</main>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const THEME_KEY = "rustctl-theme";
+const THEMES = ["win95", "winxp", "win10", "macos", "plain"];
+const LINK_RATIO = 16;
+const STEP_PERIOD_US = 1083;
+let locked = 0;
+let armRenderer = null;
+let moveFrame = 0;
+let lastMoveForm = null;
+
+function log(title, text) {
+  $("out").textContent = title + "\n" + text + "\n\n" + $("out").textContent;
+}
+
+function lock(on) {
+  locked += on ? 1 : -1;
+  for (const control of document.querySelectorAll("form input, form button")) control.disabled = locked > 0;
+}
+
+function store(key, value) {
+  try { window.localStorage.setItem(key, value); } catch (_) { /* storage may be blocked */ }
+}
+
+function recall(key) {
+  try { return window.localStorage.getItem(key); } catch (_) { return null; }
+}
+
+function applyTheme(name) {
+  const theme = THEMES.includes(name) ? name : "win95";
+  document.documentElement.setAttribute("data-theme", theme);
+  $("theme").value = theme;
+  $("quit").textContent = theme === "plain" ? "Quit server" : "×";
+  store(THEME_KEY, theme);
+}
+
+async function call(method, path, body, motion) {
+  if (motion) {
+    lock(true);
+    beginMoveProgress(path, body);
+  }
+  try {
+    const res = await fetch(path, {
+      method,
+      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await res.text();
+    log(method + " " + path + " -> HTTP " + res.status, text);
+    let result = null;
+    try { result = JSON.parse(text); } catch (_) { /* response may not be JSON */ }
+    if (motion) finishMoveProgress(result, res.status);
+    return result;
+  } catch (err) {
+    log(method + " " + path + " failed", String(err));
+    if (motion) stopMoveProgress("Connection lost · motion status unknown");
+    return null;
+  } finally {
+    if (motion) lock(false);
+  }
+}
+
+// The start angles are all-zero unless the operator filled them in, in which
+// case the full triple is sent and the controller moves relative to it.
+function formBody(form) {
+  const body = {};
+  const start = {};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.name.startsWith("start_")) {
+      start[el.name] = el.value === "" ? 0 : Number(el.value);
+      continue;
+    }
+    body[el.name] = el.type === "checkbox" ? el.checked : Number(el.value);
+  }
+  if (Object.values(start).some((value) => value !== 0)) Object.assign(body, start);
+  return body;
+}
+
+function numberValue(form, name) {
+  const value = Number(form.elements.namedItem(name).value);
+  if (!Number.isFinite(value)) throw new Error("Enter valid numbers for all pose fields.");
+  return value;
+}
+
+function kinematics(form, path, body) {
+  const start = {
+    base: body.start_base_deg || 0,
+    shoulder: body.start_axis1_deg || 0,
+    elbow: body.start_axis2_deg || 0,
+  };
+  let target;
+  let l1;
+  let l2;
+  if (path === "/raw") {
+    target = {
+      base: numberValue(form, "base_deg"),
+      shoulder: numberValue(form, "axis1_deg"),
+      elbow: numberValue(form, "axis2_deg"),
+    };
+    l1 = numberValue($("args"), "l1_mm");
+    l2 = numberValue($("args"), "l2_mm");
+  } else {
+    l1 = numberValue(form, "l1_mm");
+    l2 = numberValue(form, "l2_mm");
+    const radius = numberValue(form, "radius_mm");
+    const base = numberValue(form, "base_angle_deg");
+    const height = numberValue(form, "height_mm");
+    if (l1 <= 0 || l2 <= 0 || radius < 0) throw new Error("Link lengths must be positive and radius non-negative.");
+    const reach = Math.hypot(radius, height);
+    if (reach > l1 + l2 || reach < Math.abs(l1 - l2)) throw new Error("Target is outside the arm’s modeled workspace.");
+    const alpha = Math.atan2(height, radius);
+    const cosElbow = Math.max(-1, Math.min(1, (reach * reach - l1 * l1 - l2 * l2) / (2 * l1 * l2)));
+    const elbowMagnitude = Math.acos(cosElbow);
+    const shoulderOffset = Math.atan2(l2 * Math.sin(elbowMagnitude), l1 + l2 * Math.cos(elbowMagnitude));
+    let theta1 = alpha - shoulderOffset;
+    let theta2 = elbowMagnitude;
+    const alternateTheta1 = alpha + shoulderOffset;
+    // Match ik_angles_3d_deg: select the branch with the greater shoulder sine.
+    if (Math.sin(alternateTheta1) > Math.sin(theta1)) {
+      theta1 = alternateTheta1;
+      theta2 = -elbowMagnitude;
+    }
+    target = { base, shoulder: theta1 * 180 / Math.PI, elbow: theta2 * 180 / Math.PI };
+  }
+  if (l1 <= 0 || l2 <= 0) throw new Error("Link lengths must be positive.");
+  return { start, target, l1, l2 };
+}
+
+function previewForm(form) {
+  if (!armRenderer) return;
+  try {
+    const body = formBody(form);
+    const pose = kinematics(form, form.dataset.path, body);
+    armRenderer.setPose(pose.target, pose.l1, pose.l2);
+    $("arm-readout").textContent = "Base " + pose.target.base.toFixed(1) + "° · shoulder " + pose.target.shoulder.toFixed(1) + "° · elbow " + pose.target.elbow.toFixed(1) + "°";
+  } catch (err) {
+    $("arm-readout").textContent = err.message;
+  }
+}
+
+function showProgress(label, value, detail) {
+  $("progress-panel").hidden = false;
+  $("progress-label").textContent = label;
+  $("move-progress").value = Math.max(0, Math.min(100, value));
+  $("progress-value").textContent = Math.round(value) + "%";
+  if ($("progress-detail").textContent !== detail) $("progress-detail").textContent = detail;
+}
+
+function rustRound(value) {
+  return value < 0 ? -Math.round(-value) : Math.round(value);
+}
+
+function beginMoveProgress(path, body) {
+  const form = $(path === "/raw" ? "raw" : "args");
+  lastMoveForm = form;
+  try {
+    const pose = kinematics(form, path, body);
+    const stepsPerRev = numberValue(form, "steps_per_rev");
+    const microstep = numberValue(form, "microstep");
+    const deltas = [pose.target.shoulder - pose.start.shoulder, pose.target.elbow - pose.start.elbow, pose.target.base - pose.start.base];
+    const maxTicks = Math.max(...deltas.map((delta) => Math.abs(rustRound(delta * (stepsPerRev * microstep / 360) * LINK_RATIO))));
+    const estimateMs = maxTicks * STEP_PERIOD_US / 1000;
+    const startedAt = performance.now();
+    cancelAnimationFrame(moveFrame);
+    const animate = (now) => {
+      const fraction = estimateMs <= 0 ? 0.94 : Math.min(0.94, (now - startedAt) / estimateMs * 0.94);
+      showProgress("Estimated move progress", fraction * 100, "Controller is moving · estimated duration " + (estimateMs / 1000).toFixed(2) + " s");
+      moveFrame = requestAnimationFrame(animate);
+      const blend = estimateMs <= 0 ? 1 : Math.min(1, (now - startedAt) / estimateMs);
+      armRenderer?.setPose({
+        base: pose.start.base + deltas[2] * blend,
+        shoulder: pose.start.shoulder + deltas[0] * blend,
+        elbow: pose.start.elbow + deltas[1] * blend,
+      }, pose.l1, pose.l2);
+    };
+    showProgress("Estimated move progress", 0, "Controller is moving · estimated duration " + (estimateMs / 1000).toFixed(2) + " s");
+    armRenderer?.setPose(pose.start, pose.l1, pose.l2);
+    moveFrame = requestAnimationFrame(animate);
+  } catch (err) {
+    cancelAnimationFrame(moveFrame);
+    showProgress("Move progress", 0, "Could not estimate this move · " + err.message);
+  }
+}
+
+function finishMoveProgress(result, status) {
+  cancelAnimationFrame(moveFrame);
+  if (status === 409 || (result && result.busy)) {
+    showProgress("Move rejected", 0, "The controller is already busy.");
+  } else if (!result || !result.ok) {
+    const message = result && result.error && result.error.message ? result.error.message : "The controller did not accept the move.";
+    showProgress("Move not completed", 0, message);
+  } else {
+    showProgress(result.hardware_enabled ? "Move complete" : "Simulation complete", 100, result.hardware_enabled ? "Controller reported that the move finished." : "Simulation build · no motor pulses were sent.");
+  }
+  previewForm(lastMoveForm || $("args"));
+}
+
+function stopMoveProgress(detail) {
+  cancelAnimationFrame(moveFrame);
+  showProgress("Move status unavailable", $("move-progress").value, detail);
+}
+
+async function refresh() {
+  const s = await call("GET", "/status");
+  $("status").textContent = s && s.ok
+    ? "ready, GPIO " + (s.hardware_enabled ? "ON" : "OFF (simulation)") + (s.busy ? ", MOVING" : "")
+    : "unreachable";
+}
+
+const keyboardJogs = {
+  s: ["base_deg", -1], d: ["base_deg", 1],
+  f: ["axis1_deg", -1], g: ["axis1_deg", 1],
+  h: ["axis2_deg", -1], j: ["axis2_deg", 1],
+};
+
+let activeJogKeys = [];
+let isJogging = false;
+let jogSleepResolve = null;
+
+function jogSleep(ms) {
+  return new Promise((resolve) => {
+    let timer = null;
+    const done = () => {
+      if (timer !== null) clearTimeout(timer);
+      jogSleepResolve = null;
+      resolve();
+    };
+    jogSleepResolve = done;
+    timer = setTimeout(done, ms);
+  });
+}
+
+function cancelJogSleep() {
+  if (jogSleepResolve) {
+    const resolve = jogSleepResolve;
+    jogSleepResolve = null;
+    resolve();
+  }
+}
+
+function stopJogging() {
+  activeJogKeys = [];
+  cancelJogSleep();
+}
+
+async function executeJogStep(field, delta) {
+  const form = $("raw");
+  const axes = ["base_deg", "axis1_deg", "axis2_deg"];
+  const starts = ["start_base_deg", "start_axis1_deg", "start_axis2_deg"];
+  const pose = {};
+  for (let i = 0; i < axes.length; i++) {
+    const value = form.elements.namedItem(starts[i]).value;
+    pose[axes[i]] = value === "" ? 0 : Number(value);
+  }
+  pose[field] += delta;
+  for (const axis of axes) form.elements.namedItem(axis).value = pose[axis];
+  previewForm(form);
+  const result = await call("POST", form.dataset.path, formBody(form), true);
+  if (result && result.ok) {
+    for (let i = 0; i < axes.length; i++) {
+      form.elements.namedItem(starts[i]).value = pose[axes[i]];
+    }
+    return true;
+  }
+  for (let i = 0; i < axes.length; i++) {
+    const startVal = form.elements.namedItem(starts[i]).value;
+    form.elements.namedItem(axes[i]).value = startVal === "" ? 0 : Number(startVal);
+  }
+  previewForm(form);
+  return false;
+}
+
+async function keyboardJog(field, delta) {
+  return executeJogStep(field, delta);
+}
+
+async function startJogLoop() {
+  if (isJogging) return;
+  if (locked > 0) return;
+  isJogging = true;
+  lock(true);
+  try {
+    let isFirstStep = true;
+    while (activeJogKeys.length > 0) {
+      const currentKey = activeJogKeys[activeJogKeys.length - 1];
+      const jog = keyboardJogs[currentKey];
+      if (!jog) {
+        activeJogKeys = activeJogKeys.filter((k) => k !== currentKey);
+        continue;
+      }
+      const stepStart = performance.now();
+      const ok = await executeJogStep(...jog);
+      if (!ok || activeJogKeys.length === 0) break;
+
+      const delay = isFirstStep ? 260 : 70;
+      isFirstStep = false;
+      const elapsed = performance.now() - stepStart;
+      const waitTime = Math.max(10, delay - elapsed);
+      await jogSleep(waitTime);
+    }
+  } finally {
+    lock(false);
+    isJogging = false;
+    await refresh();
+  }
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+  const key = event.key.toLowerCase();
+  if (key === "k" || key === "l") {
+    event.preventDefault();
+    $("keyboard-help").textContent = "End-effector keyboard control is reserved until that joint is implemented.";
+    return;
+  }
+  const jog = keyboardJogs[key];
+  if (!jog) return;
+  event.preventDefault();
+  if (event.repeat) return;
+  if (locked > 0 && !isJogging) return;
+
+  if (!activeJogKeys.includes(key)) {
+    activeJogKeys.push(key);
+  }
+  cancelJogSleep();
+  startJogLoop();
+});
+
+document.addEventListener("keyup", (event) => {
+  const key = event.key.toLowerCase();
+  if (keyboardJogs[key]) {
+    activeJogKeys = activeJogKeys.filter((k) => k !== key);
+    cancelJogSleep();
+  }
+});
+
+window.addEventListener("blur", stopJogging);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopJogging();
+});
+
+for (const form of document.querySelectorAll("form[data-path]")) {
+  form.addEventListener("input", () => previewForm(form));
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await call("POST", form.dataset.path, formBody(form), true);
+    await refresh();
+  });
+}
+$("reset-view").addEventListener("click", () => armRenderer?.resetView());
+$("refresh").addEventListener("click", refresh);
+$("selftest").addEventListener("click", () => call("GET", "/test"));
+$("theme").addEventListener("change", () => applyTheme($("theme").value));
+$("quit").addEventListener("click", async () => {
+  const result = await call("POST", "/quit");
+  if (result && result.ok) $("status").textContent = "server shutting down";
+});
+applyTheme(recall(THEME_KEY) || "win95");
+armRenderer = createArmRenderer($("arm-view"));
+previewForm($("args"));
+refresh();
+
+function createArmRenderer(canvas) {
+  const gl = canvas.getContext("webgl", { antialias: true, alpha: false });
+  if (!gl) {
+    $("arm-readout").textContent = "WebGL is unavailable in this browser.";
+    return null;
+  }
+  const vertexSource = "attribute vec3 aPosition; attribute vec3 aNormal; uniform mat4 uMvp; uniform mat4 uModel; varying vec3 vNormal; void main(){ gl_Position=uMvp*vec4(aPosition,1.0); vNormal=mat3(uModel)*aNormal; }";
+  const fragmentSource = "precision mediump float; uniform vec3 uColor; uniform float uLit; varying vec3 vNormal; void main(){ float light=0.62+0.38*max(dot(normalize(vNormal),normalize(vec3(-0.4,0.8,0.5))),0.0); gl_FragColor=vec4(uColor*mix(1.0,light,uLit),1.0); }";
+  const compile = (type, source) => {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+    return shader;
+  };
+  let program;
+  try {
+    program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
+    gl.linkProgram(program);
+  } catch (_) {
+    $("arm-readout").textContent = "Could not initialize the 3D preview.";
+    return null;
+  }
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    $("arm-readout").textContent = "Could not initialize the 3D preview.";
+    return null;
+  }
+  gl.useProgram(program);
+  const locations = {
+    position: gl.getAttribLocation(program, "aPosition"),
+    normal: gl.getAttribLocation(program, "aNormal"),
+    mvp: gl.getUniformLocation(program, "uMvp"),
+    model: gl.getUniformLocation(program, "uModel"),
+    color: gl.getUniformLocation(program, "uColor"),
+    lit: gl.getUniformLocation(program, "uLit"),
+  };
+  const mesh = (vertices) => {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    return { buffer, count: vertices.length / 6 };
+  };
+  const sphereData = [];
+  for (let lat = 0; lat < 16; lat++) {
+    const a0 = Math.PI * lat / 16, a1 = Math.PI * (lat + 1) / 16;
+    for (let lon = 0; lon < 24; lon++) {
+      const b0 = 2 * Math.PI * lon / 24, b1 = 2 * Math.PI * (lon + 1) / 24;
+      const point = (a, b) => [Math.sin(a) * Math.cos(b), Math.cos(a), Math.sin(a) * Math.sin(b)];
+      const p00 = point(a0, b0), p10 = point(a1, b0), p11 = point(a1, b1), p01 = point(a0, b1);
+      for (const p of [p00, p10, p11, p00, p11, p01]) sphereData.push(...p, ...p);
+    }
+  }
+  const cylinderData = [];
+  const slices = 32;
+  for (let i = 0; i < slices; i++) {
+    const a = 2 * Math.PI * i / slices, b = 2 * Math.PI * (i + 1) / slices;
+    const p0 = [Math.cos(a), -0.5, Math.sin(a)], p1 = [Math.cos(b), -0.5, Math.sin(b)];
+    const p2 = [Math.cos(b), 0.5, Math.sin(b)], p3 = [Math.cos(a), 0.5, Math.sin(a)];
+    const n0 = [Math.cos(a), 0, Math.sin(a)], n1 = [Math.cos(b), 0, Math.sin(b)];
+    for (const [p, n] of [[p0,n0],[p1,n1],[p2,n1],[p0,n0],[p2,n1],[p3,n0]]) cylinderData.push(...p, ...n);
+    const bottom = [0,-0.5,0], top = [0,0.5,0], down = [0,-1,0], up = [0,1,0];
+    for (const [p,n] of [[bottom,down],[p1,down],[p0,down],[top,up],[p3,up],[p2,up]]) cylinderData.push(...p,...n);
+  }
+  const cubeData = [];
+  const faces = [
+    [[0,0,1],[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]],
+    [[0,0,-1],[.5,-.5,-.5],[-.5,-.5,-.5],[-.5,.5,-.5],[.5,.5,-.5]],
+    [[1,0,0],[.5,-.5,.5],[.5,-.5,-.5],[.5,.5,-.5],[.5,.5,.5]],
+    [[-1,0,0],[-.5,-.5,-.5],[-.5,-.5,.5],[-.5,.5,.5],[-.5,.5,-.5]],
+    [[0,1,0],[-.5,.5,.5],[.5,.5,.5],[.5,.5,-.5],[-.5,.5,-.5]],
+    [[0,-1,0],[-.5,-.5,-.5],[.5,-.5,-.5],[.5,-.5,.5],[-.5,-.5,.5]],
+  ];
+  for (const [n,a,b,c,d] of faces) for (const p of [a,b,c,a,c,d]) cubeData.push(...p,...n);
+  const meshes = { sphere: mesh(sphereData), cylinder: mesh(cylinderData), cube: mesh(cubeData) };
+  const gridBuffer = gl.createBuffer();
+  const identity = () => [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  const multiply = (a,b) => {
+    const out = new Array(16);
+    for (let col=0; col<4; col++) for (let row=0; row<4; row++) out[col*4+row] = a[row]*b[col*4] + a[4+row]*b[col*4+1] + a[8+row]*b[col*4+2] + a[12+row]*b[col*4+3];
+    return out;
+  };
+  const translate = (x,y,z) => { const m=identity(); m[12]=x; m[13]=y; m[14]=z; return m; };
+  const scale = (x,y,z) => [x,0,0,0, 0,y,0,0, 0,0,z,0, 0,0,0,1];
+  const rotateY = (a) => { const c=Math.cos(a),s=Math.sin(a); return [c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]; };
+  const rotateQuaternion = (q) => {
+    const [x,y,z,w]=q, xx=x*x, yy=y*y, zz=z*z, xy=x*y, xz=x*z, yz=y*z, wx=w*x, wy=w*y, wz=w*z;
+    return [1-2*(yy+zz),2*(xy+wz),2*(xz-wy),0, 2*(xy-wz),1-2*(xx+zz),2*(yz+wx),0, 2*(xz+wy),2*(yz-wx),1-2*(xx+yy),0, 0,0,0,1];
+  };
+  const perspective = (fovy,aspect,near,far) => { const f=1/Math.tan(fovy/2), nf=1/(near-far); return [f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]; };
+  const lookAt = (eye,center,up) => {
+    const norm = (v) => { const l=Math.hypot(...v)||1; return v.map(x=>x/l); };
+    const cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+    const z=norm(eye.map((x,i)=>x-center[i])), x=norm(cross(up,z)), y=cross(z,x);
+    return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -x.reduce((s,v,i)=>s+v*eye[i],0), -y.reduce((s,v,i)=>s+v*eye[i],0), -z.reduce((s,v,i)=>s+v*eye[i],0),1];
+  };
+  const unit = (v) => { const l=Math.hypot(...v)||1; return v.map(x=>x/l); };
+  const rotateFromUp = (direction) => {
+    const d=unit(direction), cross=[d[2],0,-d[0]], w=1+d[1];
+    if (w < 1e-7) return rotateQuaternion([1,0,0,0]);
+    const length=Math.hypot(...cross,w);
+    return rotateQuaternion([...cross.map(v=>v/length),w/length]);
+  };
+  let pose = { base:0, shoulder:0, elbow:0 }, armLengths = [500,525];
+  let yaw = 0.78, pitch = 0.42, distance = 2600, dragging = false, last = [0,0];
+  const defaultView = () => { yaw=0.78; pitch=0.42; distance=(armLengths[0]+armLengths[1])*2.65; };
+  const setPose = (nextPose,l1=armLengths[0],l2=armLengths[1]) => {
+    const dimensionsChanged = l1 !== armLengths[0] || l2 !== armLengths[1];
+    pose=nextPose; armLengths=[Math.max(1,l1),Math.max(1,l2)];
+    if (dimensionsChanged || !Number.isFinite(distance) || distance > (l1+l2)*7) defaultView();
+    draw();
+  };
+  const bindMesh = (item) => {
+    gl.bindBuffer(gl.ARRAY_BUFFER,item.buffer);
+    gl.enableVertexAttribArray(locations.position);
+    gl.enableVertexAttribArray(locations.normal);
+    gl.vertexAttribPointer(locations.position,3,gl.FLOAT,false,24,0);
+    gl.vertexAttribPointer(locations.normal,3,gl.FLOAT,false,24,12);
+  };
+  const drawMesh = (item,model,color,vp,lit=1) => {
+    bindMesh(item);
+    gl.uniformMatrix4fv(locations.model,false,new Float32Array(model));
+    gl.uniformMatrix4fv(locations.mvp,false,new Float32Array(multiply(vp,model)));
+    gl.uniform3fv(locations.color,new Float32Array(color));
+    gl.uniform1f(locations.lit,lit);
+    gl.drawArrays(gl.TRIANGLES,0,item.count);
+  };
+  const draw = () => {
+    const width=Math.max(1,canvas.clientWidth), height=Math.max(1,canvas.clientHeight), dpr=Math.min(2,window.devicePixelRatio||1);
+    if (canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)) { canvas.width=Math.round(width*dpr); canvas.height=Math.round(height*dpr); }
+    gl.viewport(0,0,canvas.width,canvas.height);
+    gl.clearColor(0.055,0.085,0.125,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+    const [l1,l2]=armLengths, reach=l1+l2, center=[0,reach*.36,0];
+    const eye=[center[0]+Math.sin(yaw)*Math.cos(pitch)*distance,center[1]+Math.sin(pitch)*distance,center[2]+Math.cos(yaw)*Math.cos(pitch)*distance];
+    const vp=multiply(perspective(Math.PI/4,canvas.width/canvas.height,1,distance*5),lookAt(eye,center,[0,1,0]));
+    const grid=[]; const span=Math.ceil(reach/200)*200;
+    for(let n=-span;n<=span;n+=100){ grid.push(n,0,-span,0,0,1, n,0,span,0,0,1, -span,0,n,0,0,1, span,0,n,0,0,1); }
+    gl.bindBuffer(gl.ARRAY_BUFFER,gridBuffer); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(grid),gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(locations.position); gl.enableVertexAttribArray(locations.normal);
+    gl.vertexAttribPointer(locations.position,3,gl.FLOAT,false,24,0); gl.vertexAttribPointer(locations.normal,3,gl.FLOAT,false,24,12);
+    gl.uniformMatrix4fv(locations.model,false,new Float32Array(identity())); gl.uniformMatrix4fv(locations.mvp,false,new Float32Array(vp)); gl.uniform1f(locations.lit,0);
+    gl.uniform3fv(locations.color,new Float32Array([0.18,0.25,0.34])); gl.drawArrays(gl.LINES,0,grid.length/6);
+    const baseAngle=pose.base*Math.PI/180, t1=pose.shoulder*Math.PI/180, t2=(pose.shoulder+pose.elbow)*Math.PI/180;
+    const baseHeight=reach*.075, baseRadius=reach*.105;
+    const point=(angle,length,origin) => [origin[0]+length*Math.cos(angle)*Math.cos(baseAngle),origin[1]+length*Math.sin(angle),origin[2]-length*Math.cos(angle)*Math.sin(baseAngle)];
+    const root=[0,baseHeight,0], shoulder=point(t1,l1,root), wrist=point(t2,l2,shoulder), tip=point(t2,l2+reach*.07,shoulder);
+    const part = (a,b,r,color) => {
+      const delta=b.map((v,i)=>v-a[i]), length=Math.hypot(...delta), qmat=rotateFromUp(delta);
+      drawMesh(meshes.cylinder,multiply(multiply(translate(...a.map((v,i)=>(v+b[i])/2)),qmat),scale(r,length,r)),color,vp);
+    };
+    const ball = (p,r,color) => drawMesh(meshes.sphere,multiply(translate(...p),scale(r,r,r)),color,vp);
+    const block = (p,sizes,color,angle=baseAngle) => drawMesh(meshes.cube,multiply(multiply(translate(...p),rotateY(angle)),scale(...sizes)),color,vp);
+    part([0,3,0],[0,baseHeight+2,0],baseRadius,[0.31,0.37,0.45]);
+    part([0,baseHeight-8,0],[0,baseHeight+9,0],baseRadius*.8,[0.61,0.67,0.74]);
+    block([0,baseHeight+28,0],[baseRadius*1.55,38,baseRadius*1.55],[0.22,0.29,0.38]);
+    ball(root,baseRadius*.57,[0.73,0.78,0.83]);
+    block([root[0],root[1]-baseRadius*.22,root[2]],[baseRadius*.7,baseRadius*.55,baseRadius*.9],[0.32,0.4,0.5]);
+    part(root,shoulder,Math.max(15,reach*.044),[0.15,0.56,0.94]);
+    ball(shoulder,Math.max(30,reach*.065),[0.2,0.62,0.98]);
+    block([shoulder[0],shoulder[1],shoulder[2]],[reach*.16,reach*.11,reach*.16],[0.25,0.32,0.42],baseAngle);
+    part(shoulder,wrist,Math.max(13,reach*.036),[1,0.56,0.19]);
+    ball(wrist,Math.max(27,reach*.054),[1,0.65,0.29]);
+    block([wrist[0],wrist[1],wrist[2]],[reach*.13,reach*.09,reach*.13],[0.35,0.4,0.48],baseAngle);
+    part(wrist,tip,Math.max(10,reach*.022),[0.81,0.85,0.89]);
+    const jaw=reach*.042, jawLen=reach*.09;
+    const jawOffset=[jaw*Math.sin(baseAngle),0,jaw*Math.cos(baseAngle)];
+    for(const sign of [-1,1]) {
+      const start=tip.map((v,i)=>v+jawOffset[i]*sign), end=[start[0]+Math.cos(baseAngle)*jawLen,start[1],start[2]-Math.sin(baseAngle)*jawLen];
+      part(start,end,Math.max(6,reach*.012),[0.88,0.91,0.95]);
+    }
+  };
+  canvas.addEventListener("pointerdown",(event)=>{dragging=true;last=[event.clientX,event.clientY];canvas.setPointerCapture(event.pointerId);});
+  canvas.addEventListener("pointermove",(event)=>{if(!dragging)return; yaw-=(event.clientX-last[0])*.008; pitch=Math.max(-.1,Math.min(1.35,pitch+(event.clientY-last[1])*.008));last=[event.clientX,event.clientY];draw();});
+  canvas.addEventListener("pointerup",()=>{dragging=false;});
+  canvas.addEventListener("pointercancel",()=>{dragging=false;});
+  canvas.addEventListener("wheel",(event)=>{event.preventDefault();distance=Math.max((armLengths[0]+armLengths[1])*.9,Math.min((armLengths[0]+armLengths[1])*7,distance*Math.exp(event.deltaY*.001)));draw();},{passive:false});
+  window.addEventListener("resize",draw);
+  defaultView(); draw();
+  return { setPose, resetView:()=>{defaultView();draw();} };
+}
+</script>
+</body>
+</html>

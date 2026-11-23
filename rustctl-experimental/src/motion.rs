@@ -1,0 +1,383 @@
+use std::error::Error;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
+use crate::config::MotionProfile;
+use crate::config::{MotionConfig, NUM_AXES, StartPosition, settings};
+use crate::kinematics::{
+    ArmSolution, checked_deg_to_steps, deg_to_steps, ik_angles_3d_deg,
+    overhead_sleep_us_with_overhead,
+};
+use crate::pretty;
+
+pub(crate) fn joint_deltas(start: StartPosition, solution: ArmSolution) -> [f64; NUM_AXES] {
+    [
+        solution.theta1_deg - start.axis1_deg,
+        solution.theta2_deg - start.axis2_deg,
+        solution.theta_base_deg - start.base_deg,
+    ]
+}
+
+pub(crate) fn step_plan(config: &MotionConfig, solution: ArmSolution) -> [i64; NUM_AXES] {
+    let mut steps = [0i64; NUM_AXES];
+    steps
+        .iter_mut()
+        .zip(joint_deltas(config.start, solution))
+        .for_each(|(step, delta)| {
+            *step = deg_to_steps(
+                delta,
+                config.steps_per_rev,
+                config.microstep,
+                settings().hardware.gear_ratio,
+            );
+        });
+    steps
+}
+
+pub(crate) fn checked_step_plan(
+    config: &MotionConfig,
+    solution: ArmSolution,
+) -> Result<[i64; NUM_AXES], String> {
+    let mut steps = [0i64; NUM_AXES];
+    steps
+        .iter_mut()
+        .zip(joint_deltas(config.start, solution))
+        .try_for_each(|(step, delta)| -> Result<(), String> {
+            *step = checked_deg_to_steps(
+                delta,
+                config.steps_per_rev,
+                config.microstep,
+                settings().hardware.gear_ratio,
+            )?;
+            Ok(())
+        })?;
+    Ok(steps)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
+pub(crate) struct StepPeriodSchedule {
+    total_steps: u64,
+    cruise_period_us: u64,
+    profile: MotionProfile,
+    ramp_steps: u64,
+    start_period_multiplier: u64,
+}
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+#[derive(Debug, Clone, Copy)]
+struct MotionTiming {
+    pulse_t_us: u64,
+    cruise_period_us: u64,
+    hardware_overhead_us: u64,
+    profile: MotionProfile,
+    ramp_steps: u64,
+    start_period_multiplier: u64,
+}
+
+#[cfg(any(test, all(feature = "hardware", target_os = "linux")))]
+impl StepPeriodSchedule {
+    pub(crate) fn new(
+        total_steps: u64,
+        cruise_period_us: u64,
+        profile: MotionProfile,
+        ramp_steps: u64,
+        start_period_multiplier: u64,
+    ) -> Self {
+        Self {
+            total_steps,
+            cruise_period_us,
+            profile,
+            ramp_steps,
+            start_period_multiplier,
+        }
+    }
+
+    pub(crate) fn period_us_at(self, tick: u64) -> u64 {
+        if self.profile == MotionProfile::Fixed || self.total_steps == 0 {
+            return self.cruise_period_us;
+        }
+        let ramp = self.ramp_steps.min(self.total_steps / 2);
+        let edge_distance = tick.min(self.total_steps.saturating_sub(1).saturating_sub(tick));
+        if ramp == 0 || edge_distance >= ramp {
+            return self.cruise_period_us;
+        }
+        let extra = u128::from(self.cruise_period_us)
+            * u128::from(self.start_period_multiplier.saturating_sub(1))
+            * u128::from(ramp - edge_distance)
+            / u128::from(ramp);
+        self.cruise_period_us + extra as u64
+    }
+
+    #[cfg(test)]
+    pub(crate) fn duration_us(self) -> u64 {
+        (0..self.total_steps)
+            .map(|tick| self.period_us_at(tick))
+            .sum()
+    }
+}
+
+pub(crate) fn execute_position(config: MotionConfig) -> Result<(), Box<dyn Error>> {
+    let solution = ik_angles_3d_deg(
+        config.x_mm,
+        config.y_mm,
+        config.z_mm,
+        config.l1_mm,
+        config.l2_mm,
+    )
+    .map_err(|error| format!("IK error: {error}"))?;
+    execute_solution(&config, solution)
+}
+
+pub(crate) fn execute_solution(
+    config: &MotionConfig,
+    solution: ArmSolution,
+) -> Result<(), Box<dyn Error>> {
+    let _overhead_us = overhead_sleep_us_with_overhead(
+        config.total_time_us,
+        config.pulse_t_us,
+        settings().hardware.overhead_us,
+    )?;
+    let steps = checked_step_plan(config, solution)?;
+    print_plan(config, &solution);
+
+    #[cfg(all(feature = "hardware", target_os = "linux"))]
+    run_hardware(config, steps)?;
+
+    #[cfg(not(all(feature = "hardware", target_os = "linux")))]
+    {
+        let _ = (_overhead_us, steps);
+        println!(
+            "{}",
+            pretty::warning(
+                "Simulation only: this binary was built without hardware support, so no GPIO signals were sent."
+            )
+        );
+        println!(
+            "{}",
+            pretty::info(
+                "Build on a Raspberry Pi with 'cargo build --release --features hardware' for motor control."
+            )
+        );
+    }
+    Ok(())
+}
+
+pub(crate) fn plan_report(config: &MotionConfig, solution: &ArmSolution) -> String {
+    let steps = step_plan(config, *solution);
+    let mut lines = vec![
+        pretty::title("Kinematics"),
+        format!(
+            "Base angle: {:.3}°, Axis 1: {:.3}°, Axis 2: {:.3}°, effective Z: {:.3} mm",
+            solution.theta_base_deg, solution.theta1_deg, solution.theta2_deg, solution.z_eff_mm
+        ),
+    ];
+    if !config.start.is_homed() {
+        let deltas = joint_deltas(config.start, *solution);
+        lines.push(pretty::info(&format!(
+            "Start position: base {:.3}°, axis 1 {:.3}°, axis 2 {:.3}°",
+            config.start.base_deg, config.start.axis1_deg, config.start.axis2_deg
+        )));
+        lines.push(pretty::info(&format!(
+            "Relative travel: base {:.3}°, axis 1 {:.3}°, axis 2 {:.3}°",
+            deltas[2], deltas[0], deltas[1]
+        )));
+    }
+    lines.push(pretty::info(&format!(
+        "Target steps ({:.1}:1 gearbox): Base: {}, Axis 1: {}, Axis 2: {}",
+        settings().hardware.gear_ratio,
+        steps[2],
+        steps[0],
+        steps[1]
+    )));
+    lines.join("\n")
+}
+
+fn print_plan(config: &MotionConfig, solution: &ArmSolution) {
+    println!("{}", plan_report(config, solution));
+}
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+use std::{sync::Once, thread, time::Duration};
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+use crate::bresenham::MultiAxisPlanner;
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+use rppal::gpio::{Gpio, OutputPin};
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+struct StepperMotor {
+    step_pin: OutputPin,
+    dir_pin: OutputPin,
+}
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+impl StepperMotor {
+    fn new(gpio: &Gpio, step: u8, dir: u8) -> Result<Self, rppal::gpio::Error> {
+        Ok(Self {
+            step_pin: gpio.get(step)?.into_output(),
+            dir_pin: gpio.get(dir)?.into_output(),
+        })
+    }
+    fn set_direction_ccw(&mut self, ccw: bool) {
+        if ccw {
+            self.dir_pin.set_high();
+        } else {
+            self.dir_pin.set_low();
+        }
+    }
+    fn pulse_high(&mut self) {
+        self.step_pin.set_high();
+    }
+    fn pulse_low(&mut self) {
+        self.step_pin.set_low();
+    }
+    fn reset(&mut self) {
+        self.step_pin.set_low();
+        self.dir_pin.set_low();
+    }
+}
+
+static TERMINATE: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn request_stop() {
+    TERMINATE.store(true, Ordering::SeqCst);
+}
+
+pub(crate) fn reset_stop() {
+    TERMINATE.store(false, Ordering::SeqCst);
+}
+
+#[allow(dead_code)]
+pub(crate) fn stop_requested() -> bool {
+    TERMINATE.load(Ordering::SeqCst)
+}
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+static CTRLC_INIT: Once = Once::new();
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+pub(crate) fn ensure_ctrlc_handler_installed() -> Result<(), Box<dyn Error>> {
+    let mut install_result: Result<(), ctrlc::Error> = Ok(());
+    CTRLC_INIT.call_once(|| {
+        install_result = ctrlc::set_handler(|| {
+            request_stop();
+            crate::http_api::_request_server_shutdown();
+        });
+    });
+    install_result.map_err(Into::into)
+}
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+fn run_hardware(config: &MotionConfig, steps: [i64; NUM_AXES]) -> Result<(), Box<dyn Error>> {
+    let gpio = Gpio::new()?;
+    let pins = settings().pins;
+    let mut motors = [
+        StepperMotor::new(&gpio, pins.m1[0], pins.m1[1])?,
+        StepperMotor::new(&gpio, pins.m2[0], pins.m2[1])?,
+        StepperMotor::new(&gpio, pins.m3[0], pins.m3[1])?,
+    ];
+    let mut spare = StepperMotor::new(&gpio, pins.m4[0], pins.m4[1])?;
+    spare.reset();
+    motors.iter_mut().zip(steps).for_each(|(motor, step)| {
+        motor.set_direction_ccw(crate::kinematics::direction_is_ccw(
+            step,
+            config.ccw_positive,
+        ));
+    });
+    TERMINATE.store(false, Ordering::SeqCst);
+    ensure_ctrlc_handler_installed()?;
+    let hardware = settings().hardware;
+    match run_motion(
+        &mut motors,
+        steps,
+        MotionTiming {
+            pulse_t_us: config.pulse_t_us,
+            cruise_period_us: config.total_time_us,
+            hardware_overhead_us: hardware.overhead_us,
+            profile: hardware.motion_profile,
+            ramp_steps: hardware.ramp_steps,
+            start_period_multiplier: hardware.start_period_multiplier,
+        },
+        &TERMINATE,
+    ) {
+        Ok(stepped) => {
+            motors.iter_mut().for_each(|motor| motor.reset());
+            spare.reset();
+            println!("{}", pretty::success("Execution finished."));
+            println!(
+                "Processed steps -> Base: {} (target: {}), Axis 1: {} (target: {}), Axis 2: {} (target: {})",
+                stepped[2], steps[2], stepped[0], steps[0], stepped[1], steps[1]
+            );
+            Ok(())
+        }
+        Err(error) => {
+            motors.iter_mut().for_each(|motor| motor.reset());
+            spare.reset();
+            Err(error)
+        }
+    }
+}
+
+#[cfg(all(feature = "hardware", target_os = "linux"))]
+fn run_motion(
+    motors: &mut [StepperMotor; NUM_AXES],
+    steps: [i64; NUM_AXES],
+    timing: MotionTiming,
+    terminate: &AtomicBool,
+) -> Result<[i64; NUM_AXES], Box<dyn Error>> {
+    let expected: [i64; NUM_AXES] = std::array::from_fn(|i| steps[i].abs());
+    let mut stepped = [0; NUM_AXES];
+    let pulse = Duration::from_micros(timing.pulse_t_us);
+    let total_ticks = steps
+        .iter()
+        .map(|step| step.unsigned_abs())
+        .max()
+        .unwrap_or(0);
+    let schedule = StepPeriodSchedule::new(
+        total_ticks,
+        timing.cruise_period_us,
+        timing.profile,
+        timing.ramp_steps,
+        timing.start_period_multiplier,
+    );
+    for (tick, pulses) in MultiAxisPlanner::new(steps).enumerate() {
+        if terminate.load(Ordering::SeqCst) {
+            break;
+        }
+        motors
+            .iter_mut()
+            .zip(pulses)
+            .filter(|(_, pulse)| *pulse)
+            .for_each(|(motor, _)| motor.pulse_high());
+        thread::sleep(pulse);
+        motors
+            .iter_mut()
+            .zip(pulses)
+            .zip(&mut stepped)
+            .filter(|((_, pulse), _)| *pulse)
+            .for_each(|((motor, _), count)| {
+                motor.pulse_low();
+                *count += 1;
+            });
+        thread::sleep(pulse);
+        let baseline_us = timing.pulse_t_us * 2 + timing.hardware_overhead_us;
+        let sleep_us = schedule
+            .period_us_at(tick as u64)
+            .saturating_sub(baseline_us);
+        if sleep_us > 0 {
+            thread::sleep(Duration::from_micros(sleep_us));
+        }
+    }
+    if terminate.load(Ordering::SeqCst) {
+        return Err(format!(
+            "motion interrupted by Ctrl+C after {} of {} steps",
+            stepped.iter().sum::<i64>(),
+            expected.iter().sum::<i64>()
+        )
+        .into());
+    }
+    debug_assert_eq!(stepped, expected);
+    Ok(stepped)
+}
