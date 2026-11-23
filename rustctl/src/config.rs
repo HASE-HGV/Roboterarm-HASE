@@ -112,7 +112,6 @@ pub(crate) fn load_settings() -> Result<(), Box<dyn Error>> {
 
 // TODO add load_settigns_from()
 
-
 //checks if the loaded config makes sense/is usable NOT COMPATIBLE WITH load_settigns_from()
 fn validate_settings(config: &HardwareConfig) -> Result<(), Box<dyn Error>> {
     if !config.hardware.gear_ratio.is_finite() || config.hardware.gear_ratio <= 0.0 {
