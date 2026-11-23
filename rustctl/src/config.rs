@@ -6,7 +6,7 @@ use crate::kinematics::ArmSolution;
 
 pub(crate) const NUM_AXES: usize = 3;
 
-// Legacy names used by the existing unit cases; runtime reads these from TOML.
+// Variables used for reproducible testing
 #[cfg(test)]
 pub(crate) const TOTAL_TIME_US: u64 = 1083;
 #[cfg(test)]
@@ -35,6 +35,9 @@ pub(crate) struct HardwareSettings {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+
+//defining Trapezoidal MotionProfile as Default, Fixed only runs if specified
+
 pub(crate) enum MotionProfile {
     Fixed,
     #[default]
@@ -52,14 +55,15 @@ impl HardwareSettings {
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(default)]
-// Each pair is [STEP, DIR] for one motor.
+// Each pair is [STEP, DIR] for one motor, this syntax defines an "array" of 2 u8 integers, as
+// bigger is not needed, max of u8 is 255 but max acessible GPIO pin number is 27.
 pub(crate) struct Pins {
     pub(crate) m1: [u8; 2],
     pub(crate) m2: [u8; 2],
     pub(crate) m3: [u8; 2],
     pub(crate) m4: [u8; 2],
 }
-//Defaults for when config file is missing values or is missing all together
+//Defaults Pin config for when config file is missing values or is missing all together
 impl Default for Pins {
     fn default() -> Self {
         Self {
@@ -70,6 +74,8 @@ impl Default for Pins {
         }
     }
 }
+
+// Default Hardware properties
 
 impl Default for HardwareSettings {
     fn default() -> Self {
@@ -90,6 +96,8 @@ pub(crate) fn settings() -> &'static HardwareConfig {
     HARDWARE_CONFIG.get_or_init(HardwareConfig::default)
 }
 
+// function to load the settings from the default path
+
 pub(crate) fn load_settings() -> Result<(), Box<dyn Error>> {
     let path = "src/configs/config.toml";
     let config = match fs::read_to_string(path) {
@@ -102,6 +110,10 @@ pub(crate) fn load_settings() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// TODO add load_settigns_from()
+
+
+//checks if the loaded config makes sense/is usable NOT COMPATIBLE WITH load_settigns_from()
 fn validate_settings(config: &HardwareConfig) -> Result<(), Box<dyn Error>> {
     if !config.hardware.gear_ratio.is_finite() || config.hardware.gear_ratio <= 0.0 {
         return Err("gear_ratio must be finite and positive".into());
@@ -167,7 +179,7 @@ pub(crate) fn validate_motor_settings(steps_per_rev: u64, microstep: u64) -> Res
     }
     Ok(())
 }
-
+// struct for the Start Position of each axis
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub(crate) struct StartPosition {
     pub(crate) base_deg: f64,
@@ -197,7 +209,7 @@ pub(crate) struct MotionConfig {
 }
 
 impl MotionConfig {
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)] // here solely to prevent clippy from being a bad guy
     pub(crate) fn new(
         x_mm: f64,
         y_mm: f64,
