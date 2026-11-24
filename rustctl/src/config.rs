@@ -97,19 +97,76 @@ pub(crate) fn settings() -> &'static HardwareConfig {
 
 // function to load the settings from the default path
 
-pub(crate) fn load_settings() -> Result<(), Box<dyn Error>> {
-    let path = "src/configs/config.toml";
-    let config = match fs::read_to_string(path) {
-        Ok(text) => toml::from_str::<HardwareConfig>(&text)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => HardwareConfig::default(),
-        Err(error) => return Err(error.into()),
+pub(crate) fn load_settings(selected: Option<&str>) -> Result<(), Box<dyn Error>> {
+    let directory = "src/configs";
+    let mut files: Vec<_> = fs::read_dir(directory)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "toml"))
+        .collect();
+    files.sort();
+    if files.is_empty() {
+        return Err(format!("no TOML config files found in {directory}").into());
+    }
+    let selected_path = if let Some(value) = selected {
+        files
+            .iter()
+            .find(|path| {
+                path == &&std::path::PathBuf::from(value)
+                    || path.file_name().is_some_and(|name| name == value)
+            })
+            .cloned()
+            .or_else(|| {
+                let path = std::path::PathBuf::from(value);
+                path.is_file().then_some(path)
+            })
+            .ok_or_else(|| {
+                format!(
+                    "config '{value}' not found; available: {}",
+                    files
+                        .iter()
+                        .filter_map(|p| p.file_name())
+                        .map(|n| n.to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })?
+    } else {
+        println!("Available configs:");
+        for (index, path) in files.iter().enumerate() {
+            println!(
+                "  {}. {}",
+                index + 1,
+                path.file_name().unwrap().to_string_lossy()
+            );
+        }
+        print!("Choose config [1]: ");
+        use std::io::Write;
+        std::io::stdout().flush()?;
+        let mut choice = String::new();
+        std::io::stdin().read_line(&mut choice)?;
+        let choice = choice.trim();
+        if choice.is_empty() {
+            files[0].clone()
+        } else if let Ok(index) = choice.parse::<usize>() {
+            files
+                .get(
+                    index
+                        .checked_sub(1)
+                        .ok_or("config selection must start at 1")?,
+                )
+                .cloned()
+                .ok_or("config selection out of range")?
+        } else {
+            return Err(format!("invalid config selection: {choice}").into());
+        }
     };
+    let text = fs::read_to_string(&selected_path)?;
+    let config = toml::from_str::<HardwareConfig>(&text)?;
     validate_settings(&config)?;
     let _ = HARDWARE_CONFIG.set(config);
     Ok(())
 }
-
-// TODO add load_settigns_from()
 
 //checks if the loaded config makes sense/is usable NOT COMPATIBLE WITH load_settigns_from()
 fn validate_settings(config: &HardwareConfig) -> Result<(), Box<dyn Error>> {

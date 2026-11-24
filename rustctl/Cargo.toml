@@ -1,6 +1,6 @@
 [package]
 name = "rustctl"
-version = "0.9.35"
+version = "1.0.0-alpha-1"
 edition = "2024"
 build = "build.rs"
 

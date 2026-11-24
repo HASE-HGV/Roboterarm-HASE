@@ -382,14 +382,30 @@ pub(crate) fn handle_connection_with_shutdown(
     stream: &mut TcpStream,
     shutdown: Option<Sender<()>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    handle_connection_with_shutdown_mode(stream, shutdown, true)
+}
+
+fn handle_connection_with_shutdown_mode(
+    stream: &mut TcpStream,
+    shutdown: Option<Sender<()>>,
+    serve_page: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     stream.set_read_timeout(Some(READ_TIMEOUT))?;
     stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
-    handle_request_with_shutdown(stream, shutdown)
+    handle_request_mode(stream, shutdown, serve_page)
 }
 
 pub(crate) fn handle_request_with_shutdown(
     stream: &mut (impl Read + Write),
     shutdown: Option<Sender<()>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    handle_request_mode(stream, shutdown, true)
+}
+
+fn handle_request_mode(
+    stream: &mut (impl Read + Write),
+    shutdown: Option<Sender<()>>,
+    serve_page: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let request = match read_http_request(stream) {
         Ok(request) => request,
@@ -412,7 +428,14 @@ pub(crate) fn handle_request_with_shutdown(
     }
 
     if request.method == "GET" && (path == "/" || path == "/index.html") {
-        return write_http_response(stream, "200 OK", "text/html; charset=utf-8", PAGE_HTML);
+        if serve_page {
+            return write_http_response(stream, "200 OK", "text/html; charset=utf-8", PAGE_HTML);
+        }
+        return write_json_response(
+            stream,
+            "404 Not Found",
+            &error_json("control page is disabled in CV mode"),
+        );
     }
 
     if request.method == "POST"
@@ -634,13 +657,29 @@ pub(crate) fn report_connection_result(result: Result<(), Box<dyn std::error::Er
 }
 
 pub(crate) fn run_api() -> Result<(), Box<dyn std::error::Error + 'static>> {
+    run_api_mode(true)
+}
+
+pub(crate) fn run_api_without_page() -> Result<(), Box<dyn std::error::Error + 'static>> {
+    run_api_mode(false)
+}
+
+fn run_api_mode(serve_page: bool) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let (address, deprecated) = resolve_bind_address();
-    run_api_with_address(&address, deprecated)
+    run_api_with_address_and_page(&address, deprecated, serve_page)
 }
 
 pub(crate) fn run_api_with_address(
     address: &str,
     deprecated: bool,
+) -> Result<(), Box<dyn std::error::Error + 'static>> {
+    run_api_with_address_and_page(address, deprecated, true)
+}
+
+fn run_api_with_address_and_page(
+    address: &str,
+    deprecated: bool,
+    serve_page: bool,
 ) -> Result<(), Box<dyn std::error::Error + 'static>> {
     if deprecated {
         eprintln!(
@@ -657,13 +696,22 @@ pub(crate) fn run_api_with_address(
     startup_banner(listener.local_addr()?);
     io::stdout().flush()?;
     let (shutdown_tx, shutdown_rx) = mpsc::channel();
-    serve_requests(&listener, shutdown_tx, shutdown_rx)
+    serve_requests_mode(&listener, shutdown_tx, shutdown_rx, serve_page)
 }
 
 pub(crate) fn serve_requests(
     listener: &impl HttpListener,
     shutdown_tx: Sender<()>,
     shutdown_rx: Receiver<()>,
+) -> Result<(), Box<dyn std::error::Error + 'static>> {
+    serve_requests_mode(listener, shutdown_tx, shutdown_rx, true)
+}
+
+fn serve_requests_mode(
+    listener: &impl HttpListener,
+    shutdown_tx: Sender<()>,
+    shutdown_rx: Receiver<()>,
+    serve_page: bool,
 ) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let mut workers = Vec::new();
     let mut last_accept_log: Option<Instant> = None;
@@ -694,10 +742,12 @@ pub(crate) fn serve_requests(
                 }
                 let shutdown = shutdown_tx.clone();
                 workers.push(thread::spawn(move || {
-                    report_connection_result(handle_connection_with_shutdown(
+                    let result = handle_connection_with_shutdown_mode(
                         &mut stream,
                         Some(shutdown),
-                    ));
+                        serve_page,
+                    );
+                    report_connection_result(result);
                 }));
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {

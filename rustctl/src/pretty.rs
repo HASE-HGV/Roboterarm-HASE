@@ -26,10 +26,10 @@ pub(crate) fn prompt(label: &str, example: &str) -> String {
 
 pub(crate) fn help(program: &str) -> String {
     format!(
-        "{}\n{}\n\n{}\n  --cli    Prompt for one XYZ position and execute it.\n  --shell  Repeatedly read position commands from an interactive input loop.\n  --raw    Repeatedly read raw angles from an interactive input loop.\n  --site   Serve the control page and JSON API on the local machine by default.\n  --help   Show this guide.\n\n{}\n  {POSITION_FORMAT}\n\n{}\n  {RAW_FORMAT}\n\n{}\n  The trailing start angles are optional. Leave them at 0 when the axes are\n  homed; set them to the angles the arm is already at to command a relative move.\n\n{}\n  cargo run -- --cli\n  cargo run -- --shell\n  cargo test\n\n{}\n  RUSTCTL_SITE_ADDR=0.0.0.0:8080 sudo -E ./target/release/rustctl --site\n  Set RUSTCTL_SITE_ADDR and RUSTCTL_SITE_TOKEN to expose the API beyond loopback.",
+        "{}\n{}\n\n{}\n  --cli    Prompt for one XYZ position and execute it.\n  --shell  Repeatedly read position commands from an interactive input loop.\n  --raw    Repeatedly read raw angles from an interactive input loop.\n  --site   Serve the control page and JSON API on the local machine by default.\n  --cv     Serve the JSON API without the control page.\n  --config FILE  Load a config by file name or path.\n  --help   Show this guide.\n\n{}\n  {POSITION_FORMAT}\n\n{}\n  {RAW_FORMAT}\n\n{}\n  The trailing start angles are optional. Leave them at 0 when the axes are\n  homed; set them to the angles the arm is already at to command a relative move.\n\n{}\n  cargo run -- --cli\n  cargo run -- --shell\n  cargo test\n\n{}\n  RUSTCTL_SITE_ADDR=0.0.0.0:8080 sudo -E ./target/release/rustctl --site\n  Set RUSTCTL_SITE_ADDR and RUSTCTL_SITE_TOKEN to expose the API beyond loopback.",
         header("Roboterarm controller"),
         info(&format!(
-            "Usage: {program} --cli | --shell | --raw | --site | --help"
+            "Usage: {program} [--config FILE] --cli | --shell | --raw | --site | --cv | --help"
         )),
         header("Modes"),
         header("Position command format"),

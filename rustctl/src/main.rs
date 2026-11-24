@@ -3,6 +3,7 @@ mod bresenham;
 mod cli;
 mod config;
 mod control;
+mod cv;
 mod http_api;
 mod kinematics;
 mod motion;
@@ -31,7 +32,17 @@ fn welcome() {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     welcome();
-    config::load_settings()?;
+    let args: Vec<String> = env::args().collect();
+    let config_arg = args
+        .iter()
+        .position(|arg| arg == "--config")
+        .map(|index| {
+            args.get(index + 1)
+                .cloned()
+                .ok_or("--config requires a file name or path")
+        })
+        .transpose()?;
+    config::load_settings(config_arg.as_deref())?;
     let config = config::settings();
     println!(
         "{}",
@@ -48,8 +59,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             config.pins.m4
         ))
     );
-    let args: Vec<String> = env::args().collect();
-    cli::get_mode(&args)
+    let mode_args: Vec<String> = args
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| {
+            *index == 0
+                || (args.get(index - 1).is_none_or(|arg| arg != "--config")
+                    && args[*index] != "--config")
+        })
+        .map(|(_, arg)| arg.clone())
+        .collect();
+    cli::get_mode(&mode_args)
 }
 
 #[cfg(test)]

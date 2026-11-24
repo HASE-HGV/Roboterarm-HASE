@@ -2,6 +2,7 @@ use std::error::Error;
 use std::io::{self, BufRead, Write};
 
 use crate::config::{MotionConfig, config_from_position};
+use crate::cv::run_cv;
 use crate::http_api::run_api;
 use crate::motion::execute_position;
 use crate::pretty;
@@ -93,6 +94,7 @@ pub(crate) fn get_mode(args: &[String]) -> Result<(), Box<dyn std::error::Error>
         Some("--cli") => execute_position(prompt_position()?),
         Some("--shell") => run_position_loop(false),
         Some("--site") => run_api(),
+        Some("--cv") => run_cv(),
         Some("--raw") => run_raw_loop(),
         Some("--api") => Err("The --api mode was renamed to '--site'. Try: rustctl --site".into()),
         Some("--help") | None => {
