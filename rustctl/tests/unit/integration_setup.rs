@@ -8,6 +8,8 @@ mod cli;
 mod config;
 #[path = "../../src/control.rs"]
 mod control;
+#[path = "../../src/cv.rs"]
+mod cv;
 #[path = "../../src/http_api.rs"]
 mod http_api;
 #[path = "../../src/kinematics.rs"]

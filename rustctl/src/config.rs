@@ -140,25 +140,30 @@ pub(crate) fn load_settings(selected: Option<&str>) -> Result<(), Box<dyn Error>
                 path.file_name().unwrap().to_string_lossy()
             );
         }
-        print!("Choose config [1]: ");
-        use std::io::Write;
-        std::io::stdout().flush()?;
-        let mut choice = String::new();
-        std::io::stdin().read_line(&mut choice)?;
-        let choice = choice.trim();
-        if choice.is_empty() {
+        if files.len() == 1 {
+            println!("Using the only available config.");
             files[0].clone()
-        } else if let Ok(index) = choice.parse::<usize>() {
-            files
-                .get(
-                    index
-                        .checked_sub(1)
-                        .ok_or("config selection must start at 1")?,
-                )
-                .cloned()
-                .ok_or("config selection out of range")?
         } else {
-            return Err(format!("invalid config selection: {choice}").into());
+            print!("Choose config [1]: ");
+            use std::io::Write;
+            std::io::stdout().flush()?;
+            let mut choice = String::new();
+            std::io::stdin().read_line(&mut choice)?;
+            let choice = choice.trim();
+            if choice.is_empty() {
+                files[0].clone()
+            } else if let Ok(index) = choice.parse::<usize>() {
+                files
+                    .get(
+                        index
+                            .checked_sub(1)
+                            .ok_or("config selection must start at 1")?,
+                    )
+                    .cloned()
+                    .ok_or("config selection out of range")?
+            } else {
+                return Err(format!("invalid config selection: {choice}").into());
+            }
         }
     };
     let text = fs::read_to_string(&selected_path)?;
