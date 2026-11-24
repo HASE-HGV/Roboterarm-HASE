@@ -1136,12 +1136,13 @@ cargo llvm-cov --html --open
 |---|---:|---:|---:|
 | `rustctl/src/api.rs` | 97.5% | 100.0% | 92.5% |
 | `rustctl/src/bresenham.rs` | 100.0% | 100.0% | 100.0% |
-| `rustctl/src/cli.rs` | 89.8% | 100.0% | 88.0% |
-| `rustctl/src/config.rs` | 96.5% | 100.0% | 93.2% |
+| `rustctl/src/cli.rs` | 88.8% | 100.0% | 87.1% |
+| `rustctl/src/config.rs` | 83.7% | 79.3% | 80.9% |
 | `rustctl/src/control.rs` | 100.0% | 100.0% | 100.0% |
-| `rustctl/src/http_api.rs` | 91.1% | 90.2% | 89.4% |
+| `rustctl/src/cv.rs` | 0.0% | 0.0% | 0.0% |
+| `rustctl/src/http_api.rs` | 90.3% | 89.8% | 88.8% |
 | `rustctl/src/kinematics.rs` | 96.3% | 91.7% | 95.0% |
-| `rustctl/src/main.rs` | 100.0% | 100.0% | 97.6% |
+| `rustctl/src/main.rs` | 88.9% | 85.7% | 90.0% |
 | `rustctl/src/motion.rs` | 54.9% | 55.6% | 55.3% |
 | `rustctl/src/net.rs` | 89.4% | 100.0% | 88.7% |
 | `rustctl/src/pretty.rs` | 90.6% | 85.7% | 89.7% |
@@ -1149,9 +1150,9 @@ cargo llvm-cov --html --open
 
 **Overall:**
 
-- Lines: **87.0%**
-- Functions: **89.0%**
-- Regions: **84.5%**
+- Lines: **85.2%**
+- Functions: **86.4%**
+- Regions: **82.9%**
 <!-- COVERAGE-END -->
 
 The table is generated from the latest successful coverage workflow run on
