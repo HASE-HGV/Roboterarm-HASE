@@ -12,6 +12,7 @@
 
 /rustctl/target/*
 gpioTest/target/*
+/rustctl-experimental/target/*
 
 # local coding notes
 

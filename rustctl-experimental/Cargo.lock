@@ -169,7 +169,7 @@ dependencies = [
 
 [[package]]
 name = "rustctl"
-version = "0.9.35"
+version = "0.9.35-exp"
 dependencies = [
  "ctrlc",
  "hostname",

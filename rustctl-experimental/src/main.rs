@@ -25,6 +25,8 @@ fn welcome() {
     println!(r#"                      | |  | |_| \__ \ || (__| |_| | "#);
     println!(r#"                      |_|   \__,_|___/\__\___|\__|_| "#);
     println!();
+    println!(r#"                          e x p e r i m e n t a l    "#);
+    println!();
     println!();
     println!();
 }
