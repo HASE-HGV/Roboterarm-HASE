@@ -29,6 +29,3 @@ hostname = "0.4"
 [target.'cfg(target_os = "linux")'.dependencies]
 ctrlc = { version = "3", optional = true }
 rppal = { version = "0.22", optional = true }
-
-[lints.rust]
-warnings = "deny"   	
