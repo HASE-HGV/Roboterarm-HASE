@@ -1,38 +1,38 @@
-mod api;
-mod bresenham;
-mod cli;
-mod config;
-mod control;
-mod cv;
-mod http_api;
-mod kinematics;
-mod motion;
-mod net;
-mod pretty;
-mod shell;
+mod api;
+mod bresenham;
+mod cli;
+mod config;
+mod control;
+mod cv;
+mod http_api;
+mod kinematics;
+mod motion;
+mod net;
+mod pretty;
+mod shell;
 
-use std::env;
+use std::env;
 
 fn welcome() {
-    println!();
-    println!();
-    println!();
-    println!(r#"                               Welcome to:           "#);
-    println!(r#"                                                     "#);
-    println!(r#"                                      _       _   _  "#);
-    println!(r#"                                     | |     | | | | "#);
-    println!(r#"                       _ __ _   _ ___| |_ ___| |_| | "#);
-    println!(r#"                      | '__| | | / __| __/ __| __| | "#);
-    println!(r#"                      | |  | |_| \__ \ || (__| |_| | "#);
-    println!(r#"                      |_|   \__,_|___/\__\___|\__|_| "#);
-    println!();
-    println!();
-    println!();
+    println!();
+    println!();
+    println!();
+    println!(r#"                               Welcome to:           "#);
+    println!(r#"                                                     "#);
+    println!(r#"                                      _       _   _  "#);
+    println!(r#"                                     | |     | | | | "#);
+    println!(r#"                       _ __ _   _ ___| |_ ___| |_| | "#);
+    println!(r#"                      | '__| | | / __| __/ __| __| | "#);
+    println!(r#"                      | |  | |_| \__ \ || (__| |_| | "#);
+    println!(r#"                      |_|   \__,_|___/\__\___|\__|_| "#);
+    println!();
+    println!();
+    println!();
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    welcome();
-    let args: Vec<String> = env::args().collect();
+    welcome();
+    let args: Vec<String> = env::args().collect();
     let config_arg = args
         .iter()
         .position(|arg| arg == "--config")
@@ -41,9 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .cloned()
                 .ok_or("--config requires a file name or path")
         })
-        .transpose()?;
-    config::load_settings(config_arg.as_deref())?;
-    let config = config::settings();
+        .transpose()?;
+    config::load_settings(config_arg.as_deref())?;
+    let config = config::settings();
     println!(
         "{}",
         // printing the current config pulled from rustctl/src/config/configs.toml
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             config.pins.m3,
             config.pins.m4
         ))
-    );
+    );
     let mode_args: Vec<String> = args
         .iter()
         .enumerate()
@@ -68,63 +68,63 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     && args[*index] != "--config")
         })
         .map(|(_, arg)| arg.clone())
-        .collect();
+        .collect();
     cli::get_mode(&mode_args)
 }
 
 #[cfg(test)]
 #[allow(dead_code, unused_imports)]
 mod coverage_tests {
-    use super::*;
-    use crate::api::*;
-    use crate::bresenham::*;
-    use crate::config::*;
-    use crate::kinematics::*;
+    use super::*;
+    use crate::api::*;
+    use crate::bresenham::*;
+    use crate::config::*;
+    use crate::kinematics::*;
 
-    include!("../tests/unit/support.rs");
+    include!("../tests/unit/support.rs");
 
     mod api_tests {
-        use super::*;
-        include!("../tests/unit/api.rs");
+        use super::*;
+        include!("../tests/unit/api.rs");
     }
 
     mod cli_shell_tests {
-        use super::*;
-        include!("../tests/unit/cli_shell.rs");
+        use super::*;
+        include!("../tests/unit/cli_shell.rs");
     }
 
     mod config_tests {
-        use super::*;
-        include!("../tests/unit/config.rs");
+        use super::*;
+        include!("../tests/unit/config.rs");
     }
 
     mod control_tests {
-        use super::*;
-        include!("../tests/unit/control.rs");
+        use super::*;
+        include!("../tests/unit/control.rs");
     }
 
     mod http_tests {
-        use super::*;
-        include!("../tests/unit/http.rs");
+        use super::*;
+        include!("../tests/unit/http.rs");
     }
 
     mod server_tests {
-        use super::*;
-        include!("../tests/unit/http_server.rs");
+        use super::*;
+        include!("../tests/unit/http_server.rs");
     }
 
     mod kinematics_tests {
-        use super::*;
-        include!("../tests/unit/kinematics.rs");
+        use super::*;
+        include!("../tests/unit/kinematics.rs");
     }
 
     mod motion_tests {
-        use super::*;
-        include!("../tests/unit/motion.rs");
+        use super::*;
+        include!("../tests/unit/motion.rs");
     }
 
     mod network_tests {
-        use super::*;
-        include!("../tests/unit/network.rs");
+        use super::*;
+        include!("../tests/unit/network.rs");
     }
 }
