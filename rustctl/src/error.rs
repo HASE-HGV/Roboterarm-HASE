@@ -17,7 +17,7 @@ impl fmt::Display for AppError {
         match self {
             Self::BadNumber(e) => write!(f, "bad number: {e}"),
             Self::BadValue => write!(f, "expected 1 or 2"),
-            Self::Impossible => write!(f, "If you read this, you did something that should be impossible, \n congrats"),
+            Self::Impossible => write!(f, "If you read this, you did something that should be impossible, \n\n congrats"),
             Self::NoPrivilege => write!(f, "You do currently not have access to the given feature in this environment"),
             Self::NoPins => write!(f, "The current device does not have any GPIO pins"),
             Self::Uncaught => write!(f, "You used this program in ways no one saw coming")
