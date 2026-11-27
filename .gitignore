@@ -8,11 +8,13 @@
 .directory
 .vscode
 
+
+
 # Rust target files
 
 /rustctl/target/*
 gpioTest/target/*
-/rustctl-experimental/target/*
+remoteControl/target/*
 
 # local coding notes
 
