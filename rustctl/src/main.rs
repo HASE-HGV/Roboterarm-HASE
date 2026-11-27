@@ -4,13 +4,13 @@ mod cli;
 mod config;
 mod control;
 mod cv;
+mod error;
 mod http_api;
 mod kinematics;
 mod motion;
 mod net;
 mod pretty;
 mod shell;
-mod error;
 
 use std::env;
 
