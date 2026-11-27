@@ -10,6 +10,7 @@ mod motion;
 mod net;
 mod pretty;
 mod shell;
+mod error;
 
 use std::env;
 
