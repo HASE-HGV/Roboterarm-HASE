@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::fmt::self;
+use std::fmt;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -17,10 +17,16 @@ impl fmt::Display for AppError {
         match self {
             Self::BadNumber(e) => write!(f, "bad number: {e}"),
             Self::BadValue => write!(f, "expected 1 or 2"),
-            Self::Impossible => write!(f, "If you read this, you did something that should be impossible, \n\n congrats"),
-            Self::NoPrivilege => write!(f, "You do currently not have access to the given feature in this environment"),
+            Self::Impossible => write!(
+                f,
+                "If you read this, you did something that should be impossible, \n\n congrats"
+            ),
+            Self::NoPrivilege => write!(
+                f,
+                "You do currently not have access to the given feature in this environment"
+            ),
             Self::NoPins => write!(f, "The current device does not have any GPIO pins"),
-            Self::Uncaught => write!(f, "You used this program in ways no one saw coming")
+            Self::Uncaught => write!(f, "You used this program in ways no one saw coming"),
         }
     }
 }
@@ -48,10 +54,8 @@ impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
         match e.kind() {
             std::io::ErrorKind::PermissionDenied => Self::NoPrivilege,
-            std::io::ErrorKind::NotFound => Self::NoPins, 
+            std::io::ErrorKind::NotFound => Self::NoPins,
             _ => Self::Uncaught,
         }
     }
 }
-
-
