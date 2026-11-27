@@ -4,8 +4,19 @@ mod utils;
 
 use std::process::ExitCode;
 
-use traffic_handler::{configure_connection, connect, run_get, run_post};
-use utils::{AppError, gap, input, pull_connection_data};
+use traffic_handler::{
+    configure_connection, 
+    connect, 
+    run_get, 
+    run_post
+};
+
+use utils::{
+    AppError, 
+    gap, 
+    input, 
+    pull_connection_data
+};
 
 fn run() -> Result<(), AppError> {
     let ip_config = pull_connection_data()?;
