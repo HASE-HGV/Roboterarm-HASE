@@ -649,7 +649,9 @@ the current and target poses.
 
 **Function:** `deg_to_steps(angle_deg, steps_per_rev, microstep) → i64`
 
-$$\text{steps} = \text{angle} \times \frac{\text{steps\_per\_rev} \times \text{microstep}}{360°} \times \text{gear\_ratio}$$
+$$
+\text{steps} = \text{angle} \times \frac{\text{steps\_per\_rev} \times \text{microstep}}{360°} \times \text{gear\_ratio}
+$$
 
 | Setting | Default | Notes |
 |----------|:-----:|-------|
