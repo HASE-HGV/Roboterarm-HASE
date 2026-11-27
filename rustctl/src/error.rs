@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum AppError {
     BadNumber(std::num::ParseIntError),
