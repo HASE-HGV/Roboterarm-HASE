@@ -19,6 +19,7 @@ remoteControl/target/*
 # local coding notes
 
 ./inspo/*
+remoteControl/notes.md
 
 doc.typ
 doc.pdf
