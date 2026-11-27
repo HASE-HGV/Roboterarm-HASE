@@ -1153,7 +1153,7 @@ cargo llvm-cov --html --open
 
 **Overall:**
 
-- Lines: **84.0%**
+- Lines: **83.9%**
 - Functions: **85.1%**
 - Regions: **81.5%**
 <!-- COVERAGE-END -->
