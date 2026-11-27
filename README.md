@@ -1153,9 +1153,9 @@ cargo llvm-cov --html --open
 
 **Overall:**
 
-- Lines: **84.5%**
-- Functions: **85.4%**
-- Regions: **82.1%**
+- Lines: **84.2%**
+- Functions: **85.1%**
+- Regions: **81.8%**
 <!-- COVERAGE-END -->
 
 The table is generated from the latest successful coverage workflow run on
