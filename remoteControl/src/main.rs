@@ -1,22 +1,23 @@
-mod ui;
 mod traffic_handler;
-mod helpers;
+mod ui;
+mod utils;
 
-use traffic_handler::init_connection;
-use helpers::input;
+use std::process::ExitCode;
 
-fn main() {
-    println!("please enter IP-address");
-    let ip = input();
-    
-    println!("please enter the mode you wish to use");
-    
-    let mode_input = input(); 
-    
-    let mode: u8 = unsafe {
-        let ptr = mode_input.as_ptr();
-        *ptr
-    };
+use traffic_handler::configure_connection;
+use utils::{AppError, pull_connection_data};
 
-    init_connection(&ip, mode);
+fn run() -> Result<(), AppError> {
+    let ip_config = pull_connection_data()?;
+
+    configure_connection(&ip_config.ip, ip_config.mode)
+}
+
+fn main() -> ExitCode {
+    if let Err(err) = run() {
+        eprintln!("error: {err}");
+        return ExitCode::FAILURE;
+    }
+
+    ExitCode::SUCCESS
 }
