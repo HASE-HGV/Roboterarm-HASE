@@ -1142,6 +1142,7 @@ cargo llvm-cov --html --open
 | `rustctl/src/config.rs` | 83.7% | 79.3% | 80.9% |
 | `rustctl/src/control.rs` | 100.0% | 100.0% | 100.0% |
 | `rustctl/src/cv.rs` | 0.0% | 0.0% | 0.0% |
+| `rustctl/src/error.rs` | 0.0% | 0.0% | 0.0% |
 | `rustctl/src/http_api.rs` | 90.3% | 89.8% | 88.8% |
 | `rustctl/src/kinematics.rs` | 96.3% | 91.7% | 95.0% |
 | `rustctl/src/main.rs` | 88.9% | 85.7% | 90.0% |
@@ -1152,9 +1153,9 @@ cargo llvm-cov --html --open
 
 **Overall:**
 
-- Lines: **85.2%**
-- Functions: **86.4%**
-- Regions: **82.9%**
+- Lines: **84.6%**
+- Functions: **85.4%**
+- Regions: **82.3%**
 <!-- COVERAGE-END -->
 
 The table is generated from the latest successful coverage workflow run on
